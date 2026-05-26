@@ -414,6 +414,7 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
     <div class="pghdr">
       <h2 id="catTitle"></h2>
       <p id="catDesc"></p>
+      <div style="margin-top:.8rem"><button class="btn bo" style="font-size:.86rem;padding:.65rem 1rem" onclick="goPage('home')">← Change Category</button></div>
     </div>
     <div id="catSections"></div>
   </div>
@@ -1021,7 +1022,12 @@ function renderCategoryPage(catId){
   document.getElementById('catBread').textContent=cat.lb;
   document.getElementById('catTitle').textContent=`${cat.em} ${cat.lb}`;
   document.getElementById('catDesc').textContent=`Select the service you need — a certified professional will be assigned near you.`;
-  document.getElementById('catSections').innerHTML=getCategorySections(catId).map(sec=>`
+  const sections=getCategorySections(catId);
+  if(!sections.length || sections.every(sec=>!sec.items.length)){
+    document.getElementById('catSections').innerHTML=`<div class="empty" style="padding:2rem 1rem;text-align:center"><div class="emptyico">🔍</div><h3>No services available</h3><p>Try another category or come back later.</p></div>`;
+    return;
+  }
+  document.getElementById('catSections').innerHTML=sections.map(sec=>`
     <div class="hhsec">
       <div class="hhsec-title">${sec.title}</div>
       <div class="hhgrid">

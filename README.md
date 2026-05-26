@@ -58,6 +58,8 @@ git push
 - Use a front-end build tool or framework for scalability
 - Improve responsive layout and mobile experience
 - Add user login state and worker authentication
+- Move Supabase keys and auth logic to a server-side environment for security
+- Use Supabase or another database for workers, services, and booking persistence instead of hard-coded/local data
 
 ## License
 
