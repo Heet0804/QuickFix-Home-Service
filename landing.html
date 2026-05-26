@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>QuickFix — On-Demand Local Services</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --brand:#b5651d;--brand-dark:#7a3f0d;--brand-light:#fdf6ee;
+  --teal:#2d7a5f;--teal-light:#e8f5f0;
+  --text:#1a0e04;--text2:#5c3d1e;--text3:#a07850;
+  --bg:#faf7f2;--surface:#fff;--border:#e8ddd0;
+  --radius:14px;--radius-sm:9px;
+}
+html,body{height:100%;width:100%}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 60% at 10% 20%,rgba(181,101,29,.08) 0%,transparent 60%),radial-gradient(ellipse 60% 80% at 90% 80%,rgba(45,122,95,.07) 0%,transparent 60%),radial-gradient(ellipse 40% 40% at 50% 50%,rgba(181,101,29,.04) 0%,transparent 70%);pointer-events:none;z-index:0;}
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:1.25rem 2rem;display:flex;align-items:center;justify-content:space-between;background:rgba(250,247,242,.85);backdrop-filter:blur(12px);border-bottom:1px solid rgba(232,221,208,.6);}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-mark{width:38px;height:38px;background:linear-gradient(135deg,var(--brand),var(--brand-dark));border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Sora',sans-serif;font-weight:900;font-size:1.1rem;box-shadow:0 3px 10px rgba(181,101,29,.35);}
+.logo-text{font-family:'Sora',sans-serif;font-weight:800;font-size:1.15rem;color:var(--text)}
+.logo-text span{color:var(--brand)}
+.nav-right{display:flex;align-items:center;gap:.65rem}
+.nav-cta{background:var(--brand);color:#fff;border:none;border-radius:var(--radius-sm);padding:.55rem 1.25rem;font-family:'DM Sans',sans-serif;font-weight:600;font-size:.85rem;cursor:pointer;box-shadow:0 2px 8px rgba(181,101,29,.3);transition:all .2s ease;text-decoration:none;display:inline-flex;align-items:center;gap:5px;}
+.nav-cta:hover{background:var(--brand-dark);transform:translateY(-1px)}
+.nav-dash{background:var(--surface);color:var(--brand);border:1.5px solid var(--brand);border-radius:var(--radius-sm);padding:.5rem 1.1rem;font-family:'DM Sans',sans-serif;font-weight:600;font-size:.82rem;cursor:pointer;text-decoration:none;display:none;align-items:center;gap:5px;}
+.nav-dash:hover{background:var(--brand-light)}
+.hero{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6rem 2rem 4rem;text-align:center;}
+.hero-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(181,101,29,.1);border:1px solid rgba(181,101,29,.25);border-radius:50px;padding:.4rem 1rem;font-size:.78rem;font-weight:600;color:var(--brand);margin-bottom:2rem;animation:fadeDown .6s ease both;}
+.hero-badge .pulse{width:7px;height:7px;border-radius:50%;background:var(--brand);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.4)}}
+.hero h1{font-family:'Sora',sans-serif;font-size:clamp(2.8rem,7vw,5.5rem);font-weight:900;line-height:1.08;letter-spacing:-.04em;color:var(--text);margin-bottom:1.5rem;animation:fadeDown .6s .1s ease both;max-width:820px;}
+.hero h1 .accent{position:relative;color:var(--brand);display:inline-block;}
+.hero h1 .accent::after{content:'';position:absolute;bottom:-4px;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--brand),transparent);border-radius:2px;}
+.hero-sub{font-size:clamp(1rem,2vw,1.2rem);color:var(--text2);max-width:520px;line-height:1.7;margin-bottom:3rem;animation:fadeDown .6s .2s ease both;}
+.path-wrap{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;max-width:680px;width:100%;margin-bottom:3rem;animation:fadeDown .6s .3s ease both;}
+.path-card{position:relative;border-radius:20px;padding:2rem 1.5rem;cursor:pointer;transition:all .3s cubic-bezier(.34,1.56,.64,1);overflow:hidden;text-decoration:none;display:flex;flex-direction:column;align-items:flex-start;border:2px solid transparent;}
+.path-card::before{content:'';position:absolute;inset:0;border-radius:18px;opacity:0;transition:opacity .3s ease;pointer-events:none;}
+.path-card:hover{transform:translateY(-6px) scale(1.02);}
+.path-card:hover::before{opacity:1}
+.path-user{background:linear-gradient(145deg,#fff 0%,#fdf6ee 100%);border-color:var(--border);box-shadow:0 4px 20px rgba(181,101,29,.08)}
+.path-user::before{background:linear-gradient(145deg,rgba(181,101,29,.04),rgba(181,101,29,.08))}
+.path-user:hover{border-color:var(--brand);box-shadow:0 16px 40px rgba(181,101,29,.18)}
+.path-worker{background:linear-gradient(145deg,#1a0e04 0%,#2d1a08 100%);border-color:#3d2410;box-shadow:0 4px 20px rgba(0,0,0,.2)}
+.path-worker::before{background:linear-gradient(145deg,rgba(181,101,29,.1),rgba(181,101,29,.2))}
+.path-worker:hover{border-color:var(--brand);box-shadow:0 16px 40px rgba(181,101,29,.3)}
+.card-icon{font-size:2.5rem;margin-bottom:1rem;display:block;line-height:1;}
+.card-tag{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:.25rem .75rem;border-radius:50px;margin-bottom:.75rem;display:inline-block;}
+.path-user .card-tag{background:var(--brand-light);color:var(--brand)}
+.path-worker .card-tag{background:rgba(181,101,29,.2);color:#e8a860}
+.card-title{font-family:'Sora',sans-serif;font-weight:800;font-size:1.5rem;line-height:1.2;margin-bottom:.5rem;}
+.path-user .card-title{color:var(--text)}
+.path-worker .card-title{color:#fff}
+.card-desc{font-size:.85rem;line-height:1.6;margin-bottom:1.25rem}
+.path-user .card-desc{color:var(--text2)}
+.path-worker .card-desc{color:rgba(255,255,255,.6)}
+.card-perks{list-style:none;display:flex;flex-direction:column;gap:.4rem;margin-bottom:1.5rem}
+.card-perks li{display:flex;align-items:center;gap:7px;font-size:.78rem;font-weight:500}
+.path-user .card-perks li{color:var(--text2)}
+.path-worker .card-perks li{color:rgba(255,255,255,.65)}
+.perk-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.path-user .perk-dot{background:var(--teal)}
+.path-worker .perk-dot{background:var(--brand)}
+.card-btn{display:inline-flex;align-items:center;gap:8px;border:none;border-radius:var(--radius-sm);padding:.7rem 1.25rem;font-family:'DM Sans',sans-serif;font-weight:700;font-size:.875rem;cursor:pointer;transition:all .2s ease;text-decoration:none;margin-top:auto;align-self:stretch;justify-content:center;}
+.path-user .card-btn{background:var(--brand);color:#fff;box-shadow:0 3px 12px rgba(181,101,29,.3)}
+.path-user .card-btn:hover{background:var(--brand-dark);transform:translateY(-1px)}
+.path-worker .card-btn{background:var(--brand);color:#fff;box-shadow:0 3px 12px rgba(181,101,29,.4)}
+.path-worker .card-btn:hover{background:#c87520;transform:translateY(-1px)}
+.card-arrow{transition:transform .2s ease;font-style:normal}
+.path-card:hover .card-arrow{transform:translateX(4px)}
+.stats-strip{display:flex;align-items:center;gap:2.5rem;animation:fadeDown .6s .4s ease both;flex-wrap:wrap;justify-content:center;}
+.stat-item{text-align:center}
+.stat-num{font-family:'Sora',sans-serif;font-size:1.5rem;font-weight:800;color:var(--text);display:block;letter-spacing:-.03em}
+.stat-lbl{font-size:.72rem;color:var(--text3);font-weight:500;margin-top:2px;display:block}
+.stat-div{width:1px;height:30px;background:var(--border)}
+.ticker-wrap{position:absolute;bottom:0;left:0;right:0;background:var(--brand);padding:.6rem 0;overflow:hidden;z-index:2;}
+.ticker{display:flex;gap:0;width:max-content;animation:ticker 22s linear infinite;}
+.ticker-item{display:flex;align-items:center;gap:.5rem;padding:0 1.75rem;font-size:.78rem;font-weight:600;color:rgba(255,255,255,.9);white-space:nowrap;border-right:1px solid rgba(255,255,255,.2);}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.section{position:relative;z-index:1;padding:5rem 2rem;max-width:1100px;margin:0 auto;}
+.section-label{font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--brand);margin-bottom:.75rem;display:block;}
+.section-title{font-family:'Sora',sans-serif;font-weight:800;font-size:clamp(1.8rem,4vw,2.8rem);letter-spacing:-.03em;color:var(--text);margin-bottom:.75rem;}
+.section-sub{font-size:1rem;color:var(--text2);max-width:500px;line-height:1.7;margin-bottom:3rem}
+.steps-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.5rem}
+.step-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:1.75rem 1.5rem;position:relative;overflow:hidden;transition:all .25s ease;}
+.step-card:hover{border-color:var(--brand);transform:translateY(-3px);box-shadow:0 12px 30px rgba(181,101,29,.1)}
+.step-card::before{content:attr(data-n);position:absolute;top:-10px;right:-8px;font-family:'Sora',sans-serif;font-weight:900;font-size:5rem;color:rgba(181,101,29,.06);line-height:1;pointer-events:none;}
+.step-ico{font-size:2rem;margin-bottom:1rem;display:block}
+.step-title{font-family:'Sora',sans-serif;font-weight:700;font-size:1rem;margin-bottom:.4rem;color:var(--text)}
+.step-desc{font-size:.82rem;color:var(--text2);line-height:1.6}
+.services-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:.875rem;}
+.svc-pill{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:1.1rem .75rem;text-align:center;cursor:pointer;transition:all .2s ease;display:flex;flex-direction:column;align-items:center;gap:7px;text-decoration:none;}
+.svc-pill:hover{border-color:var(--brand);background:var(--brand-light);transform:translateY(-2px);box-shadow:0 6px 16px rgba(181,101,29,.1)}
+.svc-pill-ico{font-size:1.5rem}
+.svc-pill-lbl{font-size:.72rem;font-weight:600;color:var(--text2)}
+footer{position:relative;z-index:1;background:var(--text);color:rgba(255,255,255,.45);padding:2rem;text-align:center;font-size:.8rem;}
+footer strong{color:rgba(255,255,255,.85);font-family:'Sora',sans-serif}
+footer a{color:rgba(255,255,255,.55);text-decoration:none;margin:0 .75rem}
+footer a:hover{color:#fff}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-18px)}to{opacity:1;transform:translateY(0)}}
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .6s ease,transform .6s ease;}
+.reveal.on{opacity:1;transform:translateY(0)}
+@media(max-width:600px){
+  .path-wrap{grid-template-columns:1fr}
+  .stats-strip{gap:1.25rem}
+  .stat-div{display:none}
+  nav{padding:1rem 1.25rem}
+  .hero{padding:5rem 1.25rem 4rem}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="landing.html">
+    <div class="logo-mark">Q</div>
+    <span class="logo-text">Quick<span>Fix</span></span>
+  </a>
+  <div class="nav-right">
+    <a class="nav-dash" id="navDash" href="#">My Dashboard →</a>
+    <a class="nav-cta" href="auth.html">Get Started →</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-badge"><span class="pulse"></span>500+ Verified Professionals · Live Now</div>
+  <h1>Your home fixed,<br/><span class="accent">on demand</span></h1>
+  <p class="hero-sub">Book a verified electrician, plumber, househelper or any local pro — in minutes. No calls, no haggling.</p>
+  <div class="path-wrap">
+    <a class="path-card path-user" href="auth.html?role=user">
+      <span class="card-icon">🏠</span>
+      <span class="card-tag">For Homeowners</span>
+      <div class="card-title">I Need a Service</div>
+      <p class="card-desc">Book trusted professionals for any home repair or service.</p>
+      <ul class="card-perks">
+        <li><span class="perk-dot"></span>Browse & book in 2 minutes</li>
+        <li><span class="perk-dot"></span>Live tracking & OTP safety</li>
+        <li><span class="perk-dot"></span>Pay cash or UPI</li>
+        <li><span class="perk-dot"></span>Rate after every job</li>
+      </ul>
+      <span class="card-btn">Book a Service <i class="card-arrow">→</i></span>
+    </a>
+    <a class="path-card path-worker" href="auth.html?role=worker">
+      <span class="card-icon">🔧</span>
+      <span class="card-tag">For Professionals</span>
+      <div class="card-title">I Want to Work</div>
+      <p class="card-desc">Get job requests matching your skill and location, daily.</p>
+      <ul class="card-perks">
+        <li><span class="perk-dot"></span>Jobs filtered by your skill</li>
+        <li><span class="perk-dot"></span>Set your own work radius</li>
+        <li><span class="perk-dot"></span>Go online / offline anytime</li>
+        <li><span class="perk-dot"></span>Fast and direct payments</li>
+      </ul>
+      <span class="card-btn">Join as Worker <i class="card-arrow">→</i></span>
+    </a>
+  </div>
+  <div class="stats-strip">
+    <div class="stat-item"><span class="stat-num">2,400+</span><span class="stat-lbl">Jobs Completed</span></div>
+    <div class="stat-div"></div>
+    <div class="stat-item"><span class="stat-num">4.9★</span><span class="stat-lbl">Avg Rating</span></div>
+    <div class="stat-div"></div>
+    <div class="stat-item"><span class="stat-num">&lt; 2 min</span><span class="stat-lbl">Avg Acceptance</span></div>
+    <div class="stat-div"></div>
+    <div class="stat-item"><span class="stat-num">24/7</span><span class="stat-lbl">Emergency Support</span></div>
+  </div>
+  <div class="ticker-wrap">
+    <div class="ticker">
+      <span class="ticker-item">⚡ Electrician</span><span class="ticker-item">🔧 Plumber</span><span class="ticker-item">🪚 Carpenter</span><span class="ticker-item">🎨 Painter</span><span class="ticker-item">🧹 Cleaner</span><span class="ticker-item">❄️ AC Repair</span><span class="ticker-item">🧱 Mason</span><span class="ticker-item">🐜 Pest Control</span><span class="ticker-item">🏠 Househelp</span>
+      <span class="ticker-item">⚡ Electrician</span><span class="ticker-item">🔧 Plumber</span><span class="ticker-item">🪚 Carpenter</span><span class="ticker-item">🎨 Painter</span><span class="ticker-item">🧹 Cleaner</span><span class="ticker-item">❄️ AC Repair</span><span class="ticker-item">🧱 Mason</span><span class="ticker-item">🐜 Pest Control</span><span class="ticker-item">🏠 Househelp</span>
+    </div>
+  </div>
+</section>
+
+<div class="section reveal">
+  <span class="section-label">How It Works</span>
+  <h2 class="section-title">Fixed in 4 steps</h2>
+  <p class="section-sub">No phone calls. No uncertainty. Just pick, book, and relax.</p>
+  <div class="steps-grid">
+    <div class="step-card" data-n="1"><span class="step-ico">🔍</span><div class="step-title">Pick a Category</div><p class="step-desc">Choose from 9 service types. Our smart flow asks what's wrong.</p></div>
+    <div class="step-card" data-n="2"><span class="step-ico">📅</span><div class="step-title">Book a Slot</div><p class="step-desc">Choose a date and time. Add your address. Done in under 2 min.</p></div>
+    <div class="step-card" data-n="3"><span class="step-ico">📡</span><div class="step-title">Worker Assigned</div><p class="step-desc">The nearest available professional accepts your job automatically.</p></div>
+    <div class="step-card" data-n="4"><span class="step-ico">✅</span><div class="step-title">Job Done & Rated</div><p class="step-desc">Confirm with OTP when work is complete. Rate your experience.</p></div>
+  </div>
+</div>
+
+<div class="section reveal" style="padding-top:0">
+  <span class="section-label">Services</span>
+  <h2 class="section-title">Every home service,<br/>one platform</h2>
+  <p class="section-sub">From emergency wiring to weekly cooking help — we've got it.</p>
+  <div class="services-grid">
+    <a class="svc-pill" href="auth.html?role=user"><span class="svc-pill-ico">⚡</span><span class="svc-pill-lbl">Electrician</span></a>
+    <a class="svc-pill" href="auth.html?role=user"><span class="svc-pill-ico">🔧</span><span class="svc-pill-lbl">Plumber</span></a>
+    <a class="svc-pill" href="auth.html?role=user"><span class="svc-pill-ico">🪚</span><span class="svc-pill-lbl">Carpenter</span></a>
+    <a class="svc-pill" href="auth.html?role=user"><span class="svc-pill-ico">🎨</span><span class="svc-pill-lbl">Painter</span></a>
+    <a class="svc-pill" href="auth.html?role=user"><span class="svc-pill-ico">🧹</span><span class="svc-pill-lbl">Cleaner</span></a>
+    <a class="svc-pill" href="auth.html?role=user"><span class="svc-pill-ico">❄️</span><span class="svc-pill-lbl">AC Repair</span></a>
+    <a class="svc-pill" href="auth.html?role=user"><span class="svc-pill-ico">🧱</span><span class="svc-pill-lbl">Mason</span></a>
+    <a class="svc-pill" href="auth.html?role=user"><span class="svc-pill-ico">🐜</span><span class="svc-pill-lbl">Pest Control</span></a>
+    <a class="svc-pill" href="auth.html?role=user"><span class="svc-pill-ico">🏠</span><span class="svc-pill-lbl">Househelp</span></a>
+  </div>
+</div>
+
+<footer>
+  <p style="margin-bottom:.75rem"><strong>QuickFix</strong></p>
+  <p>
+    <a href="auth.html?role=user">Book a Service</a>
+    <a href="auth.html?role=worker">Join as Worker</a>
+  </p>
+  <p style="margin-top:1rem">© 2025 QuickFix · Trusted local services on demand</p>
+</footer>
+
+<script>
+const SUPABASE_URL='https://oycurbgzzgfzilpflwks.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95Y3VyYmd6emdmemlscGZsd2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjkwMDMsImV4cCI6MjA5MzIwNTAwM30.B9KujxSHzhzpKM_IhVvpTqImVPjF4Yrv3RKn6mgtqxg';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+/* If already logged in, show dashboard link */
+(async()=>{
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){
+    const u=JSON.parse(sessionStorage.getItem('qf_user')||'null');
+    const role=u?.role||sessionStorage.getItem('qf_role');
+    const dash=document.getElementById('navDash');
+    if(dash){
+      dash.style.display='inline-flex';
+      dash.href=role==='worker'?'worker-dashboard.html':'index.html';
+      dash.textContent=role==='worker'?'Worker Dashboard →':'My Dashboard →';
+    }
+  }
+})();
+
+const params=new URLSearchParams(location.search);
+if(params.get('role'))sessionStorage.setItem('qf_role',params.get('role'));
+
+const obs=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('on')});},{threshold:.15});
+document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+</script>
+</body>
+</html>

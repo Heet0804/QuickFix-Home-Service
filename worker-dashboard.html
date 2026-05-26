@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>QuickFix — Worker Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --brand:#b5651d;--brand-dark:#7a3f0d;--brand-light:#fdf6ee;--brand-mid:#d4875a;
+  --teal:#2d7a5f;--teal-light:#e8f5f0;--teal-dark:#1d5040;
+  --amber:#d4890a;--danger:#b83232;--danger-light:#fce8e8;
+  --bg:#faf7f2;--surface:#fff;--surface2:#fdf9f4;--surface3:#f5f0e8;
+  --border:#e8ddd0;--border2:#f0e8dc;
+  --text:#1a0e04;--text2:#5c3d1e;--text3:#a07850;
+  --radius:14px;--radius-sm:9px;--radius-xs:5px;
+  --sh0:0 1px 4px rgba(80,40,10,.06);
+  --sh1:0 4px 18px rgba(80,40,10,.09);
+  --sh2:0 10px 36px rgba(80,40,10,.13);
+  --tr:.2s cubic-bezier(.4,0,.2,1);
+  --online:#16a34a;--online-light:#dcfce7;
+  --offline:#6b7280;--offline-light:#f3f4f6;
+}
+html,body{height:100%;width:100%}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;min-height:100vh}
+h1,h2,h3,h4{font-family:'Sora',sans-serif}
+button,input,select,textarea{font-family:'DM Sans',sans-serif}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:var(--brand-mid);border-radius:99px}
+
+/* ── NAV ── */
+nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.5rem;flex-shrink:0;position:sticky;top:0;z-index:200}
+.navi{display:flex;align-items:center;justify-content:space-between;height:62px;gap:1rem}
+.logo{display:flex;align-items:center;gap:9px;text-decoration:none;flex-shrink:0}
+.lmark{width:34px;height:34px;background:var(--brand);border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-family:'Sora',sans-serif;font-size:1rem;box-shadow:0 2px 7px rgba(181,101,29,.35)}
+.ltxt{font-family:'Sora',sans-serif;font-size:1.15rem;font-weight:800;color:var(--text)}
+.ltxt span{color:var(--brand)}
+.nav-right{display:flex;align-items:center;gap:.75rem}
+
+/* ── AVAILABILITY TOGGLE ── */
+.avail-wrap{display:flex;align-items:center;gap:.6rem}
+.avail-lbl{font-size:.78rem;font-weight:700;color:var(--text2)}
+.avail-toggle{position:relative;width:50px;height:27px;cursor:pointer;flex-shrink:0}
+.avail-toggle input{opacity:0;width:0;height:0;position:absolute}
+.avail-track{
+  position:absolute;inset:0;border-radius:50px;
+  background:var(--offline-light);border:2px solid #d1d5db;
+  transition:all .3s ease;
+}
+.avail-toggle input:checked~.avail-track{background:var(--online-light);border-color:var(--online)}
+.avail-knob{
+  position:absolute;top:3px;left:3px;
+  width:17px;height:17px;border-radius:50%;
+  background:#9ca3af;
+  transition:all .3s cubic-bezier(.34,1.56,.64,1);
+  box-shadow:0 1px 3px rgba(0,0,0,.2);
+}
+.avail-toggle input:checked~.avail-track .avail-knob{background:var(--online);transform:translateX(23px)}
+.avail-status{font-size:.75rem;font-weight:700;padding:3px 10px;border-radius:50px}
+.avail-status.on{background:var(--online-light);color:var(--online)}
+.avail-status.off{background:var(--offline-light);color:var(--offline)}
+
+/* ── CLOCK ── */
+.clock{display:flex;align-items:center;gap:6px;font-size:.75rem;font-weight:600;color:var(--text2);background:var(--surface3);border:1px solid var(--border);border-radius:50px;padding:5px 13px;white-space:nowrap;flex-shrink:0}
+.clock .cdot{width:6px;height:6px;border-radius:50%;background:var(--teal);flex-shrink:0}
+.clock .ctm{font-family:'Sora',sans-serif;font-size:.8rem;color:var(--text);font-weight:700}
+
+.nav-profile{display:flex;align-items:center;gap:7px;cursor:pointer;padding:5px 10px;border-radius:var(--radius-sm);transition:var(--tr)}
+.nav-profile:hover{background:var(--surface2)}
+.nav-av{width:34px;height:34px;border-radius:50%;background:var(--brand-light);border:2px solid var(--brand-mid);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
+.nav-name{font-size:.82rem;font-weight:600;color:var(--text);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-role{font-size:.67rem;color:var(--text3)}
+.nav-logout{background:none;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:5px 12px;font-size:.78rem;font-weight:600;color:var(--text2);cursor:pointer;transition:var(--tr)}
+.nav-logout:hover{border-color:var(--danger);color:var(--danger)}
+
+/* ── LAYOUT ── */
+.wrap{max-width:1100px;margin:0 auto;padding:1.75rem 1.5rem 5rem;flex:1;width:100%}
+
+/* ── WORKER PROFILE CARD ── */
+.profile-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:1.5rem;box-shadow:var(--sh0);margin-bottom:1.5rem;
+  display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap;
+}
+.pc-av{
+  width:64px;height:64px;border-radius:50%;
+  background:linear-gradient(135deg,var(--brand-light),#fde8c8);
+  border:3px solid var(--brand-mid);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.75rem;flex-shrink:0;
+}
+.pc-info{flex:1;min-width:140px}
+.pc-name{font-size:1.1rem;font-weight:800;color:var(--text);margin-bottom:2px}
+.pc-meta{font-size:.78rem;color:var(--text2);display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.pc-skill{display:inline-flex;align-items:center;gap:4px;background:var(--brand-light);color:var(--brand);font-size:.72rem;font-weight:700;padding:2px 9px;border-radius:50px}
+.pc-radius{font-size:.72rem;color:var(--text3);font-weight:500}
+.pc-stats{display:flex;gap:1.25rem;flex-wrap:wrap}
+.pc-stat{text-align:center;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:.55rem .875rem}
+.pc-stat strong{display:block;font-family:'Sora',sans-serif;font-size:1.1rem;font-weight:800;color:var(--text)}
+.pc-stat span{font-size:.68rem;color:var(--text3)}
+
+/* ── OFFLINE BANNER ── */
+.offline-banner{
+  background:#f3f4f6;border:2px dashed #d1d5db;border-radius:var(--radius);
+  padding:2.5rem;text-align:center;margin-bottom:1.5rem;display:none;
+}
+.offline-banner.show{display:block}
+.offline-banner .obi{font-size:2.5rem;margin-bottom:.75rem}
+.offline-banner h3{font-size:1rem;font-weight:700;color:#374151;margin-bottom:.4rem}
+.offline-banner p{font-size:.82rem;color:#6b7280}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:.35rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px;width:fit-content;margin-bottom:1.25rem;flex-wrap:wrap}
+.tab{background:none;border:none;cursor:pointer;padding:8px 16px;border-radius:var(--radius-xs);font-size:.82rem;font-weight:600;color:var(--text2);transition:var(--tr);white-space:nowrap;display:flex;align-items:center;gap:5px}
+.tab.on{background:var(--brand);color:#fff;box-shadow:0 2px 7px rgba(181,101,29,.28)}
+.tab-count{background:rgba(255,255,255,.3);color:inherit;border-radius:50px;padding:1px 7px;font-size:.68rem;font-weight:700}
+.tab:not(.on) .tab-count{background:var(--border);color:var(--text2)}
+
+/* ── SECTION HEADER ── */
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem}
+.sec-title{font-size:.95rem;font-weight:700;color:var(--text)}
+.sec-sub{font-size:.75rem;color:var(--text3);margin-top:1px}
+.filter-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.fbtn{background:var(--surface);border:1.5px solid var(--border);border-radius:50px;padding:5px 13px;font-size:.75rem;font-weight:600;color:var(--text2);cursor:pointer;transition:var(--tr)}
+.fbtn:hover{border-color:var(--brand);color:var(--brand);background:var(--brand-light)}
+.fbtn.on{background:var(--brand);border-color:var(--brand);color:#fff}
+
+/* ── JOB CARD ── */
+.job-grid{display:flex;flex-direction:column;gap:.875rem}
+.job-card{
+  background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);
+  padding:1.25rem;box-shadow:var(--sh0);
+  transition:var(--tr);position:relative;overflow:hidden;
+}
+.job-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--brand),var(--teal));opacity:0;transition:var(--tr)}
+.job-card:hover{box-shadow:var(--sh1);border-color:var(--brand-mid)}
+.job-card:hover::before{opacity:1}
+.job-card.urgent{border-color:#fbbf24;background:#fffbeb}
+.job-card.urgent::before{opacity:1;background:linear-gradient(90deg,#d97706,#fbbf24)}
+.job-card.accepted{border-color:var(--teal);background:var(--teal-light)}
+.job-card.accepted::before{opacity:1;background:linear-gradient(90deg,var(--teal),#16a34a)}
+.job-card.completed-card{border-color:var(--border);opacity:.8}
+.job-card.expired{border-color:var(--border);opacity:.55;pointer-events:none}
+
+.job-top{display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;margin-bottom:.875rem}
+.job-left{display:flex;align-items:flex-start;gap:.875rem;flex:1;min-width:0}
+.job-ico{width:46px;height:46px;border-radius:11px;background:var(--brand-light);display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0}
+.job-ico.urg{background:#fef3c7}
+.job-ico.acc{background:var(--teal-light)}
+.job-meta{flex:1;min-width:0}
+.job-service{font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:3px}
+.job-sub{font-size:.75rem;color:var(--text2);display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.job-dot{width:3px;height:3px;background:var(--text3);border-radius:50%;flex-shrink:0}
+.job-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
+.job-price{font-family:'Sora',sans-serif;font-size:1.1rem;font-weight:800;color:var(--brand)}
+.job-price span{font-size:.68rem;color:var(--text3);font-weight:400}
+
+/* ── COUNTDOWN ── */
+.countdown{display:flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;padding:3px 9px;border-radius:50px;background:#fef3c7;color:#92400e;border:1px solid #fbbf24}
+.countdown.urgent{background:#fee2e2;color:#7f1d1d;border-color:#fca5a5;animation:cpulse 1s infinite}
+@keyframes cpulse{0%,100%{opacity:1}50%{opacity:.65}}
+.countdown.done{background:#f3f4f6;color:#6b7280;border-color:#d1d5db}
+
+.job-desc{font-size:.8rem;color:var(--text2);line-height:1.6;padding:.65rem .875rem;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border2);margin-bottom:.875rem}
+.job-desc.empty{font-style:italic;color:var(--text3)}
+
+.job-details{display:flex;gap:.65rem;flex-wrap:wrap;margin-bottom:1rem}
+.jd-pill{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border2);border-radius:50px;padding:4px 11px;font-size:.72rem;font-weight:600;color:var(--text2)}
+
+.job-actions{display:flex;gap:.65rem;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:5px;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:600;transition:var(--tr);font-family:'DM Sans',sans-serif;white-space:nowrap}
+.btn-accept{background:var(--teal);color:#fff;padding:9px 20px;font-size:.845rem;box-shadow:0 2px 8px rgba(45,122,95,.3)}
+.btn-accept:hover{background:var(--teal-dark);transform:translateY(-1px)}
+.btn-reject{background:var(--surface);border:1.5px solid var(--border);color:var(--text2);padding:9px 16px;font-size:.845rem}
+.btn-reject:hover{border-color:var(--danger);color:var(--danger);background:var(--danger-light)}
+.btn-complete{background:var(--brand);color:#fff;padding:9px 18px;font-size:.845rem;box-shadow:0 2px 8px rgba(181,101,29,.3)}
+.btn-complete:hover{background:var(--brand-dark);transform:translateY(-1px)}
+.btn-call{background:var(--surface);border:1.5px solid var(--teal);color:var(--teal);padding:9px 15px;font-size:.845rem}
+.btn-call:hover{background:var(--teal-light)}
+
+/* ── ACCEPTED EXTRA INFO ── */
+.accepted-info{background:var(--teal-light);border:1.5px solid var(--teal);border-radius:var(--radius-sm);padding:.75rem .95rem;margin-bottom:.875rem;font-size:.8rem;color:var(--teal-dark)}
+.accepted-info strong{font-weight:700}
+.otp-row{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.6rem}
+.otp-box{background:var(--surface);border:1.5px dashed var(--teal);border-radius:var(--radius-sm);padding:.55rem;text-align:center}
+.otp-lbl{font-size:.62rem;color:var(--text2);margin-bottom:2px}
+.otp-code{font-family:'Sora',sans-serif;font-size:1rem;font-weight:800;color:var(--teal);letter-spacing:4px}
+
+/* ── EMPTY STATE ── */
+.empty{text-align:center;padding:3rem 1rem;color:var(--text2)}
+.empty-ico{font-size:3rem;margin-bottom:.875rem;opacity:.35}
+.empty h3{font-size:1rem;font-weight:700;color:var(--text);margin-bottom:.4rem}
+.empty p{font-size:.82rem;color:var(--text3);line-height:1.6}
+
+/* ── EARNINGS STRIP ── */
+.earnings-strip{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+  gap:.875rem;margin-bottom:1.5rem;
+}
+.earn-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1rem;box-shadow:var(--sh0)}
+.earn-ico{font-size:1.35rem;margin-bottom:.4rem}
+.earn-val{font-family:'Sora',sans-serif;font-size:1.3rem;font-weight:800;color:var(--text);letter-spacing:-.02em}
+.earn-lbl{font-size:.7rem;color:var(--text3);margin-top:2px}
+
+/* ── BADGES ── */
+.bdg{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:50px;font-size:.67rem;font-weight:700}
+.bgn{background:var(--teal-light);color:var(--teal-dark)}
+.bga{background:#fef3c7;color:#92400e}
+.bgr{background:var(--danger-light);color:var(--danger)}
+.bgg{background:#f3f4f6;color:#6b7280}
+.bgb{background:#eff6ff;color:#1d4ed8}
+.bgbr{background:var(--brand-light);color:var(--brand-dark)}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:1.4rem;right:1.4rem;background:var(--text);color:#fff;padding:.75rem 1.1rem;border-radius:var(--radius-sm);font-size:.845rem;font-weight:500;z-index:600;display:flex;align-items:center;gap:7px;box-shadow:0 6px 24px rgba(0,0,0,.22);transform:translateY(90px);opacity:0;transition:.3s cubic-bezier(.4,0,.2,1);max-width:300px}
+.toast.on{transform:translateY(0);opacity:1}
+
+/* ── MODAL ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(30,18,5,.5);backdrop-filter:blur(5px);z-index:500;align-items:center;justify-content:center;padding:1rem}
+.overlay.on{display:flex;animation:fi .22s ease}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+.modal{background:var(--surface);border-radius:18px;padding:2rem 1.75rem;max-width:400px;width:100%;text-align:center;box-shadow:0 20px 56px rgba(30,18,5,.22);animation:pi .28s cubic-bezier(.34,1.56,.64,1)}
+@keyframes pi{from{opacity:0;transform:scale(.84)}to{opacity:1;transform:scale(1)}}
+.modal-ico{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.75rem;margin:0 auto 1rem}
+.modal h2{font-size:1.2rem;font-weight:800;margin-bottom:.4rem}
+.modal p{font-size:.845rem;color:var(--text2);margin-bottom:1.25rem;line-height:1.6}
+.modal-btns{display:flex;gap:.65rem;justify-content:center;flex-wrap:wrap}
+
+/* ── RESPONSIVE ── */
+@media(max-width:640px){
+  .wrap{padding:1.25rem .875rem 4rem}
+  .profile-card{flex-direction:column;align-items:flex-start}
+  .pc-stats{width:100%;justify-content:space-between}
+  .pc-stat{flex:1;min-width:70px}
+  .otp-row{grid-template-columns:1fr}
+  .earnings-strip{grid-template-columns:1fr 1fr}
+  .job-top{flex-direction:column;gap:.5rem}
+  .job-right{flex-direction:row;align-items:center}
+  nav{padding:0 1rem}
+  .nav-name,.nav-role{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="navi">
+    <a class="logo" href="landing.html">
+      <div class="lmark">Q</div>
+      <span class="ltxt">Quick<span>Fix</span></span>
+    </a>
+    <div class="nav-right">
+      <!-- Availability Toggle -->
+      <div class="avail-wrap">
+        <span class="avail-lbl" id="availLbl">Offline</span>
+        <label class="avail-toggle">
+          <input type="checkbox" id="availCheck" onchange="toggleAvail()"/>
+          <div class="avail-track"><div class="avail-knob"></div></div>
+        </label>
+        <span class="avail-status off" id="availStatus">● Offline</span>
+      </div>
+      <div class="clock" id="istClock"><div class="cdot"></div><span class="ctm" id="istTime">--:-- --</span><span style="color:var(--text3);font-size:.68rem">IST</span></div>
+      <div class="nav-profile" onclick="goProfile()">
+        <div class="nav-av" id="navAv">👷</div>
+        <div>
+          <div class="nav-name" id="navName">Worker</div>
+          <div class="nav-role" id="navRole">Loading…</div>
+        </div>
+      </div>
+      <a class="btn bo" href="landing.html" style="text-decoration:none;padding:7px 13px;font-size:.78rem;margin-right:.5rem">🏠 Home</a>
+      <button class="nav-logout" onclick="doSignOut()">Sign Out</button>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- WORKER PROFILE CARD -->
+  <div class="profile-card">
+    <div class="pc-av" id="pcAv">👷</div>
+    <div class="pc-info">
+      <div class="pc-name" id="pcName">Worker Name</div>
+      <div class="pc-meta" style="margin-top:4px;margin-bottom:6px">
+        <span class="pc-skill" id="pcSkill">⚡ Skill</span>
+        <span class="pc-radius" id="pcRadius">📍 — km radius</span>
+        <span class="bdg bgn" id="pcVerified" style="display:none">✔ Verified</span>
+      </div>
+      <div style="font-size:.75rem;color:var(--text3)" id="pcContact"></div>
+    </div>
+    <div class="pc-stats">
+      <div class="pc-stat"><strong id="stJobs">0</strong><span>Jobs Done</span></div>
+      <div class="pc-stat"><strong id="stEarned">₹0</strong><span>Earned Today</span></div>
+      <div class="pc-stat"><strong id="stRating">—</strong><span>Rating</span></div>
+      <div class="pc-stat"><strong id="stActive">0</strong><span>Active Jobs</span></div>
+    </div>
+  </div>
+
+  <!-- EARNINGS STRIP -->
+  <div class="earnings-strip" id="earningsStrip"></div>
+
+  <!-- OFFLINE BANNER -->
+  <div class="offline-banner" id="offlineBanner">
+    <div class="obi">😴</div>
+    <h3>You're Offline</h3>
+    <p>Toggle the switch in the top bar to go Online and start receiving job requests.</p>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs" id="mainTabs">
+    <button class="tab on" onclick="switchTab('available',this)">
+      Available Jobs <span class="tab-count" id="cntAvail">0</span>
+    </button>
+    <button class="tab" onclick="switchTab('active',this)">
+      Active <span class="tab-count" id="cntActive">0</span>
+    </button>
+    <button class="tab" onclick="switchTab('completed',this)">
+      Completed <span class="tab-count" id="cntDone">0</span>
+    </button>
+  </div>
+
+  <!-- FILTER ROW -->
+  <div class="sec-hdr" id="filterRow">
+    <div>
+      <div class="sec-title" id="secTitle">Available Jobs Near You</div>
+      <div class="sec-sub" id="secSub">Filtered by your skill and radius</div>
+    </div>
+    <div class="filter-row">
+      <button class="fbtn on" onclick="setSort('newest',this)">Newest</button>
+      <button class="fbtn" onclick="setSort('price',this)">💰 Highest Pay</button>
+      <button class="fbtn" onclick="setSort('distance',this)">📍 Nearest</button>
+    </div>
+  </div>
+
+  <!-- JOB LIST -->
+  <div class="job-grid" id="jobGrid"></div>
+
+</div>
+
+<!-- CONFIRM ACCEPT MODAL -->
+<div class="overlay" id="acceptModal">
+  <div class="modal">
+    <div class="modal-ico" style="background:var(--teal-light)">✅</div>
+    <h2>Accept This Job?</h2>
+    <p id="acceptModalDesc">Confirm to accept this job. The user will be notified immediately.</p>
+    <div class="modal-btns">
+      <button class="btn btn-reject" onclick="closeModal('acceptModal')">Cancel</button>
+      <button class="btn btn-accept" onclick="confirmAccept()">✅ Accept Job</button>
+    </div>
+  </div>
+</div>
+
+<!-- ARRIVAL OTP MODAL -->
+<div class="overlay" id="arrivalOtpModal">
+  <div class="modal">
+    <div class="modal-ico" style="background:var(--brand-light)">📍</div>
+    <h2>Verify Arrival OTP</h2>
+    <p>Ask the user for the <strong>Arrival OTP</strong> to confirm you've reached the location.</p>
+    <input type="text" id="arrivalOtpInput" placeholder="Enter 6-digit OTP" maxlength="6" style="width:100%;padding:.75rem;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:1.2rem;text-align:center;letter-spacing:3px;font-weight:700;margin:.75rem 0;outline:none;font-family:'Sora',sans-serif" onkeydown="if(event.key==='Enter')verifyArrivalOtp()"/>
+    <div class="modal-btns">
+      <button class="btn btn-reject" onclick="closeModal('arrivalOtpModal')">Cancel</button>
+      <button class="btn btn-accept" onclick="verifyArrivalOtp()">✅ Verify OTP</button>
+    </div>
+  </div>
+</div>
+
+<!-- COMPLETION OTP MODAL -->
+<div class="overlay" id="completionOtpModal">
+  <div class="modal">
+    <div class="modal-ico" style="background:var(--teal-light)">✅</div>
+    <h2>Verify Completion OTP</h2>
+    <p>Ask the user for the <strong>Completion OTP</strong> to confirm work completion.</p>
+    <input type="text" id="completionOtpInput" placeholder="Enter 6-digit OTP" maxlength="6" style="width:100%;padding:.75rem;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:1.2rem;text-align:center;letter-spacing:3px;font-weight:700;margin:.75rem 0;outline:none;font-family:'Sora',sans-serif" onkeydown="if(event.key==='Enter')verifyCompletionOtp()"/>
+    <div class="modal-btns">
+      <button class="btn btn-reject" onclick="closeModal('completionOtpModal')">Cancel</button>
+      <button class="btn btn-complete" onclick="verifyCompletionOtp()">✅ Verify & Complete</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ── SUPABASE ── */
+const SUPABASE_URL='https://oycurbgzzgfzilpflwks.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95Y3VyYmd6emdmemlscGZsd2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjkwMDMsImV4cCI6MjA5MzIwNTAwM30.B9KujxSHzhzpKM_IhVvpTqImVPjF4Yrv3RKn6mgtqxg';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+/* ── REAL SIGN OUT ── */
+async function doSignOut(){
+  await sb.auth.signOut();
+  sessionStorage.clear();
+  window.location.href='landing.html';
+}
+
+/* ═══════════════════════════════════════════════
+   WORKER DASHBOARD — DATA + LOGIC
+   Reads bookings from localStorage (same key as
+   index.html: 'qf_bookings')
+   Worker session from sessionStorage: 'qf_user'
+═══════════════════════════════════════════════ */
+
+/* ── SESSION ── */
+let W = null; /* current worker session */
+let isOnline = false;
+let curTab = 'available';
+let curSort = 'newest';
+let pendAcceptId = null;
+let pendCompleteId = null;
+
+/* ── EMOJI MAP ── */
+const SKILL_EMOJI = {
+  'Electrician':'⚡','Plumber':'🔧','Carpenter':'🪚','Painter':'🎨',
+  'Cleaner':'🧹','AC Repair':'❄️','Mason':'🧱','Pest Control':'🐜','Househelp':'🏠'
+};
+
+/* ── INIT — W is already set by boot() before this runs ── */
+function init(){
+  isOnline = sessionStorage.getItem('qf_worker_online') === 'true';
+  renderProfile();
+  applyOnlineState(false);
+  renderEarnings();
+  renderJobs();
+  setInterval(()=>{
+    renderEarnings();
+    renderJobs();
+    tickCountdowns();
+  }, 5000);
+}
+
+/* ── PROFILE ── */
+function renderProfile(){
+  const emoji = SKILL_EMOJI[W.skill] || '👷';
+  const name = W.name || 'Worker';
+  const skill = W.skill || 'General';
+  const radius = W.radius || '10';
+
+  document.getElementById('navAv').textContent = emoji;
+  document.getElementById('navName').textContent = name.split(' ')[0];
+  document.getElementById('navRole').textContent = skill;
+  document.getElementById('pcAv').textContent = emoji;
+  document.getElementById('pcName').textContent = name;
+  document.getElementById('pcSkill').textContent = emoji + ' ' + skill;
+  document.getElementById('pcRadius').textContent = '📍 ' + radius + ' km radius';
+  document.getElementById('pcVerified').style.display = '';
+  if(W.phone) document.getElementById('pcContact').textContent = '📞 ' + W.phone + (W.email ? '  ·  ✉️ ' + W.email : '');
+
+  /* Stats from bookings */
+  const bks = getMyBookings();
+  const done = bks.filter(b=>b.wStatus==='completed');
+  const active = bks.filter(b=>b.wStatus==='active');
+  document.getElementById('stJobs').textContent = done.length;
+  document.getElementById('stActive').textContent = active.length;
+  document.getElementById('stRating').textContent = done.length >= 3 ? '4.8★' : '—';
+  const todayEarned = done
+    .filter(b=>b.acceptedAt && new Date(b.acceptedAt).toDateString()===new Date().toDateString())
+    .reduce((s,b)=>s+(b.workerEarning||0),0);
+  document.getElementById('stEarned').textContent = '₹'+todayEarned;
+}
+
+/* ── EARNINGS ── */
+function renderEarnings(){
+  const bks = getMyBookings();
+  const done = bks.filter(b=>b.wStatus==='completed');
+  const totalEarned = done.reduce((s,b)=>s+(b.workerEarning||0),0);
+  const todayEarned = done
+    .filter(b=>b.acceptedAt && new Date(b.acceptedAt).toDateString()===new Date().toDateString())
+    .reduce((s,b)=>s+(b.workerEarning||0),0);
+  const weekEarned = done
+    .filter(b=>{
+      if(!b.acceptedAt) return false;
+      const d=new Date(b.acceptedAt), now=new Date();
+      return (now-d)/(1000*60*60*24) <= 7;
+    }).reduce((s,b)=>s+(b.workerEarning||0),0);
+
+  document.getElementById('earningsStrip').innerHTML=`
+    <div class="earn-card"><div class="earn-ico">💰</div><div class="earn-val">₹${todayEarned}</div><div class="earn-lbl">Today's Earnings</div></div>
+    <div class="earn-card"><div class="earn-ico">📅</div><div class="earn-val">₹${weekEarned}</div><div class="earn-lbl">This Week</div></div>
+    <div class="earn-card"><div class="earn-ico">🏆</div><div class="earn-val">₹${totalEarned}</div><div class="earn-lbl">Total Earned</div></div>
+    <div class="earn-card"><div class="earn-ico">✅</div><div class="earn-val">${done.length}</div><div class="earn-lbl">Jobs Completed</div></div>`;
+}
+
+/* ── GET BOOKINGS ──
+   Returns bookings from localStorage that match this worker's skill.
+   For demo: any booking with matching workerRole = worker's skill.
+   Also includes "open" bookings not yet accepted by anyone.
+── */
+function getAllBookings(){
+  return JSON.parse(localStorage.getItem('qf_bookings')||'[]');
+}
+function getMyBookings(){
+  /* Bookings where worker explicitly accepted (stored in workerAcceptedBy) */
+  return getAllBookings().filter(b=>b.workerAcceptedBy===W.email);
+}
+function getAvailableBookings(){
+  const all = getAllBookings();
+  const skill = W.skill||'';
+  return all.filter(b=>{
+    /* Must match skill */
+    if(b.workerRole !== skill) return false;
+    /* Must not be already accepted by someone else */
+    if(b.workerAcceptedBy && b.workerAcceptedBy !== W.email) return false;
+    /* Must not be cancelled or completed */
+    if(['Cancelled','Completed'].includes(b.status)) return false;
+    /* Must not be already accepted by ME (those go in active tab) */
+    if(b.workerAcceptedBy === W.email && b.wStatus === 'active') return false;
+    return true;
+  });
+}
+
+/* ── AVAILABILITY TOGGLE ── */
+function toggleAvail(){
+  isOnline = document.getElementById('availCheck').checked;
+  sessionStorage.setItem('qf_worker_online', isOnline);
+  applyOnlineState(true);
+  renderJobs();
+}
+function applyOnlineState(animate){
+  const chk = document.getElementById('availCheck');
+  chk.checked = isOnline;
+  const lbl = document.getElementById('availLbl');
+  const status = document.getElementById('availStatus');
+  const banner = document.getElementById('offlineBanner');
+  if(isOnline){
+    lbl.textContent = 'Online';
+    status.textContent = '● Online';
+    status.className = 'avail-status on';
+    banner.classList.remove('show');
+    if(animate) showToast('🟢 You are now Online — receiving job requests');
+  } else {
+    lbl.textContent = 'Offline';
+    status.textContent = '● Offline';
+    status.className = 'avail-status off';
+    banner.classList.add('show');
+    if(animate) showToast('⚫ You are now Offline');
+  }
+}
+
+/* ── TABS ── */
+function switchTab(tab, btn){
+  curTab = tab;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  const titles={
+    available:{t:'Available Jobs Near You',s:'Filtered by your skill · '+( W.radius||10)+' km radius'},
+    active:{t:'Your Active Jobs',s:'Jobs you have accepted — complete them using OTP'},
+    completed:{t:'Completed Jobs',s:'Your job history'}
+  };
+  document.getElementById('secTitle').textContent = titles[tab].t;
+  document.getElementById('secSub').textContent = titles[tab].s;
+  document.getElementById('filterRow').querySelector('.filter-row').style.display = tab==='available'?'':'none';
+  renderJobs();
+}
+
+/* ── SORT ── */
+function setSort(sort, btn){
+  curSort = sort;
+  document.querySelectorAll('.filter-row .fbtn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderJobs();
+}
+
+/* ── RENDER JOBS ── */
+function renderJobs(){
+  updateCounts();
+  const grid = document.getElementById('jobGrid');
+
+  if(curTab === 'available'){
+    if(!isOnline){grid.innerHTML='';return;}
+    let jobs = getAvailableBookings();
+    /* Sort */
+    if(curSort==='price') jobs.sort((a,b)=>b.price-a.price);
+    else if(curSort==='distance') jobs.sort((a,b)=>(a.dist||5)-(b.dist||5));
+    else jobs.sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+    if(!jobs.length){
+      grid.innerHTML=emptyState('📭','No jobs available right now','New job requests matching your skill will appear here. Make sure you\'re Online.');
+      return;
+    }
+    grid.innerHTML = jobs.map(b=>availableJobCard(b)).join('');
+
+  } else if(curTab === 'active'){
+    const jobs = getMyBookings().filter(b=>b.wStatus==='active');
+    if(!jobs.length){
+      grid.innerHTML=emptyState('🔧','No active jobs','Accept a job from the Available tab to see it here.');
+      return;
+    }
+    grid.innerHTML = jobs.map(b=>activeJobCard(b)).join('');
+
+  } else {
+    const jobs = getMyBookings().filter(b=>b.wStatus==='completed');
+    if(!jobs.length){
+      grid.innerHTML=emptyState('🏆','No completed jobs yet','Completed jobs will show your earnings here.');
+      return;
+    }
+    grid.innerHTML = jobs.map(b=>completedJobCard(b)).join('');
+  }
+}
+
+/* ── UPDATE TAB COUNTS ── */
+function updateCounts(){
+  const avail = isOnline ? getAvailableBookings().length : 0;
+  const active = getMyBookings().filter(b=>b.wStatus==='active').length;
+  const done = getMyBookings().filter(b=>b.wStatus==='completed').length;
+  document.getElementById('cntAvail').textContent = avail;
+  document.getElementById('cntActive').textContent = active;
+  document.getElementById('cntDone').textContent = done;
+  /* Update profile stats */
+  document.getElementById('stActive').textContent = active;
+  document.getElementById('stJobs').textContent = done;
+}
+
+/* ── COUNTDOWN HELPER ── */
+function timeLeft(createdAt){
+  if(!createdAt) return {secs:0,expired:true};
+  const elapsed = (Date.now()-new Date(createdAt).getTime())/1000;
+  const left = Math.max(0, 120-elapsed); /* 2 min window */
+  return {secs:Math.floor(left), expired:left<=0};
+}
+function fmtCountdown(secs){
+  const m=Math.floor(secs/60), s=secs%60;
+  return m+':'+(s<10?'0':'')+s;
+}
+function fmt12(hhmm){
+  if(!hhmm) return '';
+  const[h,m]=hhmm.split(':').map(Number);
+  return `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`;
+}
+function fmtDate(d){
+  return new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+}
+
+/* ── AVAILABLE JOB CARD ── */
+function availableJobCard(b){
+  const tl = timeLeft(b.createdAt);
+  const isUrgent = tl.secs < 30 && !tl.expired;
+  const emoji = SKILL_EMOJI[b.workerRole]||'🔧';
+  const earning = Math.round(b.price * 0.80); /* worker gets 80% */
+
+  if(tl.expired){
+    return `<div class="job-card expired">
+      <div class="job-top">
+        <div class="job-left">
+          <div class="job-ico">${emoji}</div>
+          <div class="job-meta">
+            <div class="job-service">${b.service}</div>
+            <div class="job-sub"><span>${b.workerRole}</span><span class="job-dot"></span><span>${fmtDate(b.date)} · ${fmt12(b.time)}</span></div>
+          </div>
+        </div>
+        <div class="job-right">
+          <div class="job-price">₹${earning} <span>your cut</span></div>
+          <span class="countdown done">⌛ Expired</span>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  return `<div class="job-card${isUrgent?' urgent':''}" id="jcard-${b.id}">
+    <div class="job-top">
+      <div class="job-left">
+        <div class="job-ico${isUrgent?' urg':''}">${emoji}</div>
+        <div class="job-meta">
+          <div class="job-service">${b.service}
+            ${b.isEmergency?'&nbsp;<span class="bdg bga">🚨 Emergency</span>':''}
+            ${b.isAdvance?'&nbsp;<span class="bdg bgb">📅 Advance</span>':''}
+          </div>
+          <div class="job-sub">
+            <span>${b.workerRole}</span>
+            <span class="job-dot"></span>
+            <span>${fmtDate(b.date)}</span>
+            <span class="job-dot"></span>
+            <span>${fmt12(b.time)}</span>
+            <span class="job-dot"></span>
+            <span>📍 ~${(Math.random()*3+0.5).toFixed(1)} km</span>
+          </div>
+        </div>
+      </div>
+      <div class="job-right">
+        <div class="job-price">₹${earning} <span>your cut</span></div>
+        <span class="countdown${isUrgent?' urgent':''}" id="cd-${b.id}">⏱ ${fmtCountdown(tl.secs)}</span>
+      </div>
+    </div>
+    ${b.notes?`<div class="job-desc">"${b.notes}"</div>`:`<div class="job-desc empty">No additional notes from user.</div>`}
+    <div class="job-details">
+      <span class="jd-pill">📍 ${b.address}</span>
+      <span class="jd-pill">💳 ${b.paymentMethod==='gpay'?'GPay (Paid)':'Cash on Arrival'}</span>
+      <span class="jd-pill">₹${b.price} total booking</span>
+    </div>
+    <div class="job-actions">
+      <button class="btn btn-accept" onclick="promptAccept(${b.id})">✅ Accept Job</button>
+      <button class="btn btn-reject" onclick="rejectJob(${b.id})">✕ Skip</button>
+    </div>
+  </div>`;
+}
+
+/* ── ACTIVE JOB CARD ── */
+function activeJobCard(b){
+  const emoji = SKILL_EMOJI[b.workerRole]||'🔧';
+  const earning = Math.round(b.price * 0.80);
+  const hasReached = b.wStatus === 'reached' || b.arrivalOtpVerified;
+  return `<div class="job-card accepted">
+    <div class="job-top">
+      <div class="job-left">
+        <div class="job-ico acc">${emoji}</div>
+        <div class="job-meta">
+          <div class="job-service">${b.service} <span class="bdg bgn">✅ Accepted</span>${hasReached?` <span class="bdg bgt">📍 Reached</span>`:''}</div>
+          <div class="job-sub">
+            <span>${fmtDate(b.date)}</span>
+            <span class="job-dot"></span>
+            <span>${fmt12(b.time)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="job-right">
+        <div class="job-price">₹${earning} <span>your cut</span></div>
+      </div>
+    </div>
+    <div class="accepted-info">
+      <strong>📍 Address:</strong> ${b.address}<br/>
+      <strong>💳 Payment:</strong> ${b.paymentMethod==='gpay'?'GPay — Already Paid ✅':'Cash on Arrival 💵'}<br/>
+      ${b.notes?`<strong>📝 Notes:</strong> ${b.notes}<br/>`:''}
+    </div>
+    <div class="job-actions">
+      ${hasReached?`<button class="btn btn-complete" onclick="promptComplete(${b.id})">✅ Job Completed</button>`:`<button class="btn btn-accept" onclick="promptReached(${b.id})">📍 Reached at Location</button>`}
+      ${b.userPhone?`<button class="btn btn-call" onclick="callUser('${b.userPhone}')">📞 Call User</button>`:''}
+    </div>
+  </div>`;
+}
+
+/* ── COMPLETED JOB CARD ── */
+function completedJobCard(b){
+  const emoji = SKILL_EMOJI[b.workerRole]||'🔧';
+  const earning = Math.round(b.price * 0.80);
+  return `<div class="job-card completed-card">
+    <div class="job-top">
+      <div class="job-left">
+        <div class="job-ico">${emoji}</div>
+        <div class="job-meta">
+          <div class="job-service">${b.service} <span class="bdg bgn">✅ Done</span></div>
+          <div class="job-sub">
+            <span>${fmtDate(b.date)}</span>
+            <span class="job-dot"></span>
+            <span>${fmt12(b.time)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="job-right">
+        <div class="job-price" style="color:var(--teal)">+₹${earning}</div>
+      </div>
+    </div>
+    <div class="job-details">
+      <span class="jd-pill">📍 ${b.address}</span>
+      <span class="jd-pill">💳 ${b.paymentMethod==='gpay'?'GPay':'Cash'}</span>
+      ${b.completedAt?`<span class="jd-pill">🕐 Completed ${new Date(b.completedAt).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</span>`:''}
+    </div>
+  </div>`;
+}
+
+/* ── EMPTY STATE ── */
+function emptyState(ico, h, p){
+  return `<div class="empty"><div class="empty-ico">${ico}</div><h3>${h}</h3><p>${p}</p></div>`;
+}
+
+/* ── REACHED & OTP VERIFICATION ── */
+let pendReachedId = null;
+
+function promptReached(id){
+  pendReachedId = id;
+  document.getElementById('arrivalOtpInput').value = '';
+  document.getElementById('arrivalOtpInput').focus();
+  document.getElementById('arrivalOtpModal').classList.add('on');
+}
+
+function verifyArrivalOtp(){
+  if(!pendReachedId) return;
+  const otpInput = document.getElementById('arrivalOtpInput').value.trim();
+  if(otpInput.length !== 6 || isNaN(otpInput)){
+    showToast('❌ Please enter a valid 6-digit OTP');
+    return;
+  }
+  const bks = getAllBookings();
+  const idx = bks.findIndex(x=>x.id===pendReachedId);
+  if(idx===-1) return;
+  
+  /* Verify OTP matches the arrival OTP stored in the booking */
+  if(otpInput !== bks[idx].arrivalOtp){
+    showToast('❌ Incorrect OTP! Try again.');
+    document.getElementById('arrivalOtpInput').value = '';
+    document.getElementById('arrivalOtpInput').focus();
+    return;
+  }
+  
+  /* OTP verified - mark as reached */
+  bks[idx].wStatus = 'reached';
+  bks[idx].arrivalOtpVerified = true;
+  bks[idx].arrivedAt = new Date().toISOString();
+  localStorage.setItem('qf_bookings', JSON.stringify(bks));
+  closeModal('arrivalOtpModal');
+  showToast('✅ Arrival verified! Now complete the work and click "Job Completed".');
+  renderJobs();
+}
+
+function promptComplete(id){
+  pendCompleteId = id;
+  document.getElementById('completionOtpInput').value = '';
+  document.getElementById('completionOtpInput').focus();
+  document.getElementById('completionOtpModal').classList.add('on');
+}
+
+function verifyCompletionOtp(){
+  if(!pendCompleteId) return;
+  const otpInput = document.getElementById('completionOtpInput').value.trim();
+  if(otpInput.length !== 6 || isNaN(otpInput)){
+    showToast('❌ Please enter a valid 6-digit OTP');
+    return;
+  }
+  const bks = getAllBookings();
+  const idx = bks.findIndex(x=>x.id===pendCompleteId);
+  if(idx===-1) return;
+  
+  /* Verify OTP matches the completion OTP stored in the booking */
+  if(otpInput !== bks[idx].completionOtp){
+    showToast('❌ Incorrect OTP! Try again.');
+    document.getElementById('completionOtpInput').value = '';
+    document.getElementById('completionOtpInput').focus();
+    return;
+  }
+  
+  /* OTP verified - mark as completed */
+  bks[idx].wStatus = 'completed';
+  bks[idx].completionOtpVerified = true;
+  bks[idx].status = 'Completed';
+  bks[idx].completedAt = new Date().toISOString();
+  localStorage.setItem('qf_bookings', JSON.stringify(bks));
+  closeModal('completionOtpModal');
+  showToast('🏁 Job completed! Earnings credited to your account.');
+  renderEarnings();
+  renderProfile();
+  renderJobs();
+  switchTab('completed', document.querySelectorAll('.tab')[2]);
+}
+function promptAccept(id){
+  pendAcceptId = id;
+  const b = getAllBookings().find(x=>x.id===id);
+  if(!b) return;
+  const earning = Math.round(b.price*0.80);
+  document.getElementById('acceptModalDesc').innerHTML =
+    `<strong>${b.service}</strong> · ${fmtDate(b.date)} at ${fmt12(b.time)}<br/>
+     📍 ${b.address}<br/>
+     💰 You earn <strong style="color:var(--teal)">₹${earning}</strong> for this job.`;
+  document.getElementById('acceptModal').classList.add('on');
+}
+
+function confirmAccept(){
+  closeModal('acceptModal');
+  if(!pendAcceptId) return;
+  const bks = getAllBookings();
+  const idx = bks.findIndex(x=>x.id===pendAcceptId);
+  if(idx===-1) return;
+  bks[idx].workerAcceptedBy = W.email;
+  bks[idx].wStatus = 'active';
+  bks[idx].acceptedAt = new Date().toISOString();
+  bks[idx].workerEarning = Math.round(bks[idx].price*0.80);
+  bks[idx].status = 'Worker on Way';
+  localStorage.setItem('qf_bookings', JSON.stringify(bks));
+  showToast('✅ Job accepted! Head to the Active tab and click "Reached at Location".');
+  renderEarnings();
+  renderProfile();
+  renderJobs();
+  switchTab('active', document.querySelectorAll('.tab')[1]);
+}
+
+function rejectJob(id){
+  /* Just hide the card locally — don't delete from DB so other workers can see it */
+  const card = document.getElementById('jcard-'+id);
+  if(card){card.style.opacity='0';card.style.transform='translateX(30px)';card.style.transition='all .3s ease';setTimeout(()=>card.remove(),320);}
+  showToast('Skipped — job stays available for other workers');
+}
+
+/* ── CLOCK ── */
+function getIST(){ return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'})); }
+function tickClock(){
+  const d=getIST(), h=d.getHours(), m=d.getMinutes(), s=d.getSeconds();
+  const str=`${String(h%12||12).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} ${h<12?'AM':'PM'}`;
+  document.getElementById('istTime').textContent=str;
+}
+
+/* ── COUNTDOWN TICK ── */
+function tickCountdowns(){
+  if(curTab!=='available') return;
+  const jobs = getAvailableBookings();
+  jobs.forEach(b=>{
+    const el = document.getElementById('cd-'+b.id);
+    if(!el) return;
+    const tl = timeLeft(b.createdAt);
+    if(tl.expired){renderJobs();return;}
+    el.textContent = '⏱ '+fmtCountdown(tl.secs);
+    el.className = 'countdown'+(tl.secs<30?' urgent':'');
+  });
+}
+
+/* ── DEMO: seed some bookings if localStorage is empty ── */
+function seedDemoBookings(){
+  const existing = getAllBookings();
+  /* Only seed if there are no bookings matching worker's skill */
+  const skill = W.skill||'Electrician';
+  const hasMatching = existing.some(b=>b.workerRole===skill && !b.workerAcceptedBy);
+  if(hasMatching) return;
+
+  const demos = [
+    {id:Date.now()+1, workerRole:skill, service:'Fan Repair', date:new Date().toISOString().split('T')[0], time:'14:30', address:'Flat 4B, Shivaji Nagar, Pune', price:169, basePrice:149, paymentMethod:'gpay', notes:'Fan making grinding noise, not spinning properly.', isEmergency:false, isAdvance:true, status:'Confirmed', arrivalOtp:'482910', completionOtp:'739201', createdAt:new Date().toISOString()},
+    {id:Date.now()+2, workerRole:skill, service:'Switchboard Repair', date:new Date().toISOString().split('T')[0], time:'16:00', address:'House 12, MG Road, Pune', price:199, basePrice:179, paymentMethod:'cash', notes:'One plug not working, sparks when I plug something in.', isEmergency:false, isAdvance:true, status:'Confirmed', arrivalOtp:'128374', completionOtp:'938472', createdAt:new Date(Date.now()-30000).toISOString()},
+    {id:Date.now()+3, workerRole:skill, service:'MCB/Fuse', date:new Date().toISOString().split('T')[0], time:'11:00', address:'Office 7, Baner, Pune', price:169, basePrice:149, paymentMethod:'gpay', notes:'', isEmergency:true, isAdvance:false, status:'Confirmed', arrivalOtp:'002918', completionOtp:'847362', createdAt:new Date(Date.now()-90000).toISOString()},
+  ];
+
+  const all = [...existing, ...demos];
+  localStorage.setItem('qf_bookings', JSON.stringify(all));
+}
+
+function callUser(phone){
+  showToast('📞 Calling '+phone+'… (mock)');
+}
+function goProfile(){
+  window.location.href='worker-profile.html';
+}
+async function logout(){
+  await sb.auth.signOut();
+  sessionStorage.clear();
+  window.location.href = 'landing.html';
+}
+function closeModal(id){ document.getElementById(id).classList.remove('on'); }
+let _tt;
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');
+  clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('on'),3500);
+}
+
+/* ── BACKDROP CLOSE ── */
+['acceptModal','arrivalOtpModal','completionOtpModal'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',function(e){if(e.target===this)closeModal(id);});
+});
+
+/* ── START ── */
+setInterval(tickCountdowns, 1000);
+setInterval(tickClock, 1000); tickClock();
+
+/* Boot: verify session → set global W → then init */
+(async()=>{
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){window.location.href='auth.html?role=worker';return;}
+
+  const raw=sessionStorage.getItem('qf_user');
+  if(raw){
+    W=JSON.parse(raw);
+    if(W.role!=='worker'){window.location.href='index.html';return;}
+  }else{
+    const {data:profile}=await sb.from('users').select('*').eq('id',session.user.id).single();
+    if(!profile||profile.role!=='worker'){window.location.href='index.html';return;}
+    const {data:wp}=await sb.from('workers').select('*').eq('id',session.user.id).single();
+    W={...profile,...(wp||{})};
+    sessionStorage.setItem('qf_user',JSON.stringify(W));
+  }
+
+  /* W is now fully set — safe to run */
+  init();
+  seedDemoBookings();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>QuickFix – Local Service Booking</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>"/>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --brand:#b5651d;--brand-dark:#7a3f0d;--brand-light:#fdf6ee;--brand-mid:#d4875a;
+  --teal:#4a8b6e;--teal-light:#eaf4ef;--amber:#d4890a;--danger:#b83232;
+  --bg:#faf8f3;--surface:#fff;--surface2:#fdf9f4;--surface3:#f7f3ec;
+  --border:#e8e0d4;--border2:#ede6da;--text:#1e150a;--text2:#6b5744;--text3:#a8917c;
+  --radius:14px;--radius-sm:9px;--radius-xs:5px;
+  --sh0:0 1px 3px rgba(80,40,10,.06),0 1px 2px rgba(0,0,0,.04);
+  --sh1:0 3px 16px rgba(80,40,10,.08),0 1px 4px rgba(0,0,0,.05);
+  --sh2:0 10px 36px rgba(80,40,10,.13),0 3px 10px rgba(0,0,0,.07);
+  --tr:.2s cubic-bezier(.4,0,.2,1);
+  --emerg:#7c1c1c;--emerg-light:#fff0f0;--emerg-border:#f5c6c6;
+}
+html{height:100%;width:100%;scroll-behavior:smooth}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);height:100%;width:100%;display:flex;flex-direction:column;overflow-x:hidden;margin:0;padding:0}
+h1,h2,h3,h4{font-family:'Sora',sans-serif}
+button,input,select,textarea{font-family:'DM Sans',sans-serif}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--brand-mid);border-radius:99px}
+
+.ebar{background:linear-gradient(90deg,#7c1c1c,#a52828);color:#fff;padding:.5rem 1.5rem;display:none;align-items:center;gap:10px;font-size:.78rem;font-weight:600;flex-shrink:0}
+.ebar.on{display:flex}
+.elt{font-family:'Sora',sans-serif;font-size:.82rem;background:rgba(255,255,255,.15);padding:2px 10px;border-radius:50px;letter-spacing:.5px}
+.epulse{width:7px;height:7px;border-radius:50%;background:#ffaaaa;animation:ep 1.2s infinite;flex-shrink:0}
+@keyframes ep{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(1.5)}}
+
+nav{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:300;padding:0 1.5rem;flex-shrink:0}
+.navi{max-width:100%;display:flex;align-items:center;justify-content:space-between;height:60px}
+.logo{display:flex;align-items:center;gap:9px;cursor:pointer}
+.lgmk{width:34px;height:34px;background:var(--brand);border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-family:'Sora',sans-serif;font-size:1rem;box-shadow:0 2px 7px rgba(181,101,29,.35)}
+.lgtx{font-family:'Sora',sans-serif;font-size:1.15rem;font-weight:800;color:var(--text);letter-spacing:-.4px}
+.lgtx span{color:var(--brand)}
+.navlinks{display:flex;align-items:center;gap:2px}
+.nl{background:none;border:none;cursor:pointer;padding:7px 13px;border-radius:var(--radius-sm);font-size:.85rem;font-weight:500;color:var(--text2);transition:var(--tr)}
+.nl:hover{color:var(--brand);background:var(--brand-light)}
+.nl.on{color:var(--brand);background:var(--brand-light);font-weight:600}
+.ncta{background:var(--brand)!important;color:#fff!important;padding:7px 16px;font-weight:600;box-shadow:0 2px 7px rgba(181,101,29,.3)}
+.ncta:hover{background:var(--brand-dark)!important;transform:translateY(-1px)}
+.clock{display:flex;align-items:center;gap:6px;font-size:.75rem;font-weight:600;color:var(--text2);background:var(--surface3);border:1px solid var(--border);border-radius:50px;padding:5px 13px;white-space:nowrap;flex-shrink:0;transition:var(--tr)}
+.clock .cdot{width:6px;height:6px;border-radius:50%;background:var(--teal);flex-shrink:0}
+.clock .ctm{font-family:'Sora',sans-serif;font-size:.8rem;color:var(--text);font-weight:700}
+.clock.em{border-color:var(--emerg-border);background:var(--emerg-light)}
+.clock.em .cdot{background:var(--emerg);animation:ep 1.2s infinite}
+.clock.em .ctm{color:var(--emerg)}
+.hbg{display:none;background:none;border:none;cursor:pointer;flex-direction:column;gap:4px;padding:4px}
+.hbg span{display:block;width:22px;height:2px;background:var(--text);border-radius:2px}
+
+.page{display:none;animation:fadeUp .3s ease;width:100%;flex:1;overflow-y:auto}.page.on{display:flex;flex-direction:column}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.wrap{width:100%;max-width:1280px;margin:0 auto;padding:2rem 2rem 5rem;flex:1;display:flex;flex-direction:column}
+
+.hero{background:linear-gradient(135deg,#b5651d 0%,#6b3510 100%);border-radius:20px;padding:2.75rem 2.5rem;color:#fff;margin-bottom:2.25rem;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;right:-60px;top:-60px;width:260px;height:260px;background:rgba(255,255,255,.06);border-radius:50%}
+.hbadge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.28);border-radius:50px;padding:4px 12px;font-size:.75rem;font-weight:600;margin-bottom:1.1rem}
+.hbadge .dot{width:6px;height:6px;background:#a8f5b5;border-radius:50%}
+.hero h1{font-size:clamp(1.6rem,3.5vw,2.3rem);font-weight:800;line-height:1.25;margin-bottom:.65rem;letter-spacing:-.4px}
+.hero>p{opacity:.88;font-size:.95rem;margin-bottom:1.5rem;max-width:440px;line-height:1.6}
+.hsrch{display:flex;background:#fff;border-radius:50px;overflow:hidden;box-shadow:0 5px 20px rgba(0,0,0,.16);max-width:500px}
+.hsrch input{flex:1;border:none;outline:none;padding:.8rem 1.4rem;font-size:.9rem;color:var(--text);background:transparent}
+.hsrch input::placeholder{color:var(--text3)}
+.hsrch button{background:var(--brand);border:none;color:#fff;padding:.8rem 1.5rem;cursor:pointer;font-size:.875rem;font-weight:600;transition:var(--tr);white-space:nowrap;display:flex;align-items:center;gap:5px}
+.hsrch button:hover{background:var(--brand-dark)}
+.hstats{display:flex;gap:1.75rem;margin-top:1.75rem;flex-wrap:wrap}
+.hstats strong{display:block;font-size:1.3rem;font-weight:800;letter-spacing:-.4px}
+.hstats span{font-size:.75rem;opacity:.8}
+
+.sechdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem}
+.sectit{font-size:1.1rem;font-weight:700;color:var(--text);letter-spacing:-.25px}
+.seclink{font-size:.82rem;color:var(--brand);font-weight:600;cursor:pointer;transition:var(--tr)}
+.seclink:hover{opacity:.7}
+.secgap{margin-top:2.25rem}
+
+.cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:.75rem;margin-bottom:2.25rem}
+.catc{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:1.1rem .65rem .9rem;text-align:center;cursor:pointer;transition:var(--tr);display:flex;flex-direction:column;align-items:center;gap:8px;box-shadow:var(--sh0)}
+.catc:hover{border-color:var(--brand);background:var(--brand-light);transform:translateY(-2px);box-shadow:var(--sh1)}
+.catic{width:44px;height:44px;background:var(--surface3);border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;transition:var(--tr)}
+.catc:hover .catic{background:var(--brand)}
+.catlbl{font-size:.71rem;font-weight:600;color:var(--text2);line-height:1.3}
+
+/* ── HOUSEHELP SUB-CATEGORY PICKER ─── */
+.hh-page{display:none;animation:fadeUp .3s ease;width:100%;flex:1;overflow-y:auto}.hh-page.on{display:flex;flex-direction:column}
+.hhsec{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:1.4rem;margin-bottom:1.25rem;box-shadow:var(--sh0)}
+.hhsec-title{font-size:.9rem;font-weight:700;margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;color:var(--text)}
+.hhgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.65rem}
+.hhbtn{background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:.8rem .75rem;cursor:pointer;transition:var(--tr);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.hhbtn:hover{border-color:var(--brand);background:var(--brand-light)}
+.hhbtn-left{display:flex;flex-direction:column;gap:2px}
+.hhbtn-name{font-size:.8rem;font-weight:600;color:var(--text)}
+.hhbtn-price{font-size:.72rem;color:var(--brand);font-weight:700}
+.hhbtn-arrow{font-size:.9rem;color:var(--text3);flex-shrink:0}
+
+.swrap{max-width:680px;margin:0 auto}
+.stepbar{display:flex;align-items:center;margin-bottom:2rem}
+.snode{display:flex;align-items:center;gap:6px;font-size:.78rem;font-weight:600;color:var(--text3)}
+.snode.done{color:var(--teal)}.snode.cur{color:var(--brand)}
+.snum{width:24px;height:24px;border-radius:50%;background:var(--border2);display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;color:var(--text2);flex-shrink:0}
+.snode.done .snum{background:var(--teal);color:#fff}
+.snode.cur .snum{background:var(--brand);color:#fff}
+.sline{flex:1;height:2px;background:var(--border);margin:0 6px;min-width:18px}
+.sline.done{background:var(--teal)}
+.igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:.75rem;margin-bottom:1.5rem}
+.ibtn{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:.85rem .75rem;text-align:center;cursor:pointer;transition:var(--tr);font-size:.82rem;font-weight:600;color:var(--text2);display:flex;flex-direction:column;align-items:center;gap:6px}
+.ibtn:hover,.ibtn.sel{border-color:var(--brand);background:var(--brand-light);color:var(--brand)}
+.ibtn .ii{font-size:1.4rem}
+.ibox{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:1.5rem;box-shadow:var(--sh0);margin-bottom:1.25rem}
+.ibox h3{font-size:1rem;font-weight:700;margin-bottom:.25rem}
+.ibox p{font-size:.82rem;color:var(--text2);margin-bottom:1rem}
+
+.wgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:1.1rem}
+.wcard{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:1.2rem;cursor:pointer;transition:var(--tr);box-shadow:var(--sh0);display:flex;flex-direction:column;gap:.8rem;position:relative;overflow:hidden}
+.wcard::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--brand),var(--teal));opacity:0;transition:var(--tr)}
+.wcard:hover{box-shadow:var(--sh2);transform:translateY(-3px);border-color:var(--brand)}
+.wcard:hover::before,.wcard.ec::before{opacity:1}
+.wcard.ec{border-color:var(--emerg-border);background:var(--emerg-light)}
+.wcard.ec::before{background:linear-gradient(90deg,var(--emerg),#c0392b)}
+.webadge{position:absolute;top:10px;right:10px}
+.wtop{display:flex;gap:11px;align-items:flex-start}
+.wav{width:50px;height:50px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--surface3);color:var(--text3);font-size:1.3rem;border:2px solid var(--border)}
+.wmeta{flex:1;min-width:0}
+.wanon{font-size:.76rem;color:var(--text3);font-style:italic;margin-bottom:3px}
+.wrole{display:inline-block;font-size:.68rem;font-weight:600;color:var(--brand);background:var(--brand-light);padding:2px 8px;border-radius:50px;margin-bottom:4px}
+.wrole.er{color:var(--emerg);background:var(--emerg-light)}
+.wstars{display:flex;align-items:center;gap:2px}
+.star{color:var(--amber);font-size:.8rem}.star.empty{color:var(--border)}
+.rnum{font-size:.74rem;color:var(--text2);font-weight:500;margin-left:3px}
+.wdesc{font-size:.79rem;color:var(--text2);line-height:1.5}
+.wfoot{display:flex;align-items:center;justify-content:space-between;padding-top:.7rem;border-top:1px solid var(--border)}
+.wprice{font-size:1rem;font-weight:700;color:var(--text)}
+.wprice span{font-size:.71rem;color:var(--text3);font-weight:400}
+.wmeta2{font-size:.68rem;color:var(--text3);margin-top:2px}
+
+.btn{display:inline-flex;align-items:center;gap:5px;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:600;transition:var(--tr);font-family:'DM Sans',sans-serif;text-decoration:none;white-space:nowrap}
+.bp{background:var(--brand);color:#fff;padding:8px 17px;font-size:.845rem;box-shadow:0 2px 7px rgba(181,101,29,.28)}
+.bp:hover{background:var(--brand-dark);transform:translateY(-1px)}
+.bo{background:transparent;color:var(--brand);padding:8px 17px;font-size:.845rem;border:1.5px solid var(--brand)}
+.bo:hover{background:var(--brand-light)}
+.bd{background:var(--danger);color:#fff;padding:8px 17px;font-size:.845rem}
+.bd:hover{background:#8b2020;transform:translateY(-1px)}
+.bt{background:var(--teal);color:#fff;padding:8px 17px;font-size:.845rem}
+.bt:hover{background:#3a7056;transform:translateY(-1px)}
+.be{background:var(--emerg);color:#fff;padding:8px 17px;font-size:.845rem}
+.be:hover{background:#5c1313;transform:translateY(-1px)}
+.blg{padding:12px 22px;font-size:.9rem;line-height:1.3}
+.bfull{width:100%;justify-content:center;white-space:normal;text-align:center}
+
+.bdg{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:50px;font-size:.68rem;font-weight:600}
+.bgn{background:var(--teal-light);color:#2a5c3e}
+.bga{background:#fef3d0;color:#8b5e00}
+.bgr{background:#fce8e8;color:var(--danger)}
+.bgbr{background:var(--brand-light);color:var(--brand-dark)}
+.bgg{background:#ede8e0;color:var(--text2)}
+.bgt{background:var(--teal-light);color:var(--teal)}
+.bge{background:var(--emerg-light);color:var(--emerg);border:1px solid var(--emerg-border)}
+.bgb{background:#e8f0fe;color:#1a56db}
+
+.fbar{display:flex;gap:.55rem;flex-wrap:wrap;margin-bottom:1.35rem;align-items:center}
+.flbl{font-size:.82rem;font-weight:600;color:var(--text2);margin-right:3px}
+.fbtn{background:var(--surface);border:1.5px solid var(--border);border-radius:50px;padding:6px 14px;font-size:.78rem;font-weight:600;color:var(--text2);cursor:pointer;transition:var(--tr)}
+.fbtn:hover{border-color:var(--brand);color:var(--brand);background:var(--brand-light)}
+.fbtn.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.fbtn.ehide{display:none}
+
+.profhero{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:1.75rem;box-shadow:var(--sh0);margin-bottom:1.25rem;display:flex;gap:1.5rem;align-items:flex-start;flex-wrap:wrap}
+.pav{width:90px;height:90px;border-radius:50%;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:2.5rem;border:3px solid var(--border);flex-shrink:0}
+.pinf{flex:1;min-width:180px}
+.pnm{font-size:1rem;font-style:italic;color:var(--text3);margin-bottom:4px}
+.prl{font-size:.9rem;color:var(--brand);font-weight:600;margin-bottom:8px}
+.pstats{display:flex;gap:1.25rem;flex-wrap:wrap;margin-top:.875rem}
+.pstat{text-align:center}
+.pstat strong{display:block;font-size:1.15rem;font-weight:800;color:var(--text)}
+.pstat span{font-size:.71rem;color:var(--text2)}
+
+.csec{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:1.4rem;box-shadow:var(--sh0);margin-bottom:1.1rem}
+.cst{font-size:.95rem;font-weight:700;margin-bottom:1rem;padding-bottom:.7rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px}
+.svlist{list-style:none;display:flex;flex-direction:column;gap:.55rem}
+.svitem{display:flex;align-items:center;justify-content:space-between;padding:.7rem .95rem;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border);transition:var(--tr)}
+.svitem:hover{border-color:var(--brand);background:var(--brand-light)}
+.svnm{font-size:.845rem;font-weight:600}
+.svpr{font-size:.875rem;font-weight:700;color:var(--brand)}
+.revlist{display:flex;flex-direction:column;gap:.8rem}
+.revcard{padding:.95rem 1rem;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border)}
+.revhdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.45rem}
+.revauth{font-size:.845rem;font-weight:600}
+.revtxt{font-size:.79rem;color:var(--text2);line-height:1.5}
+
+.bklayout{display:grid;grid-template-columns:1fr 320px;gap:1.4rem;align-items:start}
+@media(max-width:900px){.bklayout{grid-template-columns:1fr}}
+.fg{margin-bottom:1.1rem}
+.flabel{display:block;font-size:.82rem;font-weight:600;color:var(--text2);margin-bottom:.45rem}
+.finput{width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:.7rem .95rem;font-size:.875rem;color:var(--text);background:var(--surface2);outline:none;transition:var(--tr)}
+.finput:focus{border-color:var(--brand);background:#fff;box-shadow:0 0 0 3px rgba(181,101,29,.08)}
+.finput.err,.fselect.err{border-color:var(--danger)!important;background:#fff8f8!important;animation:shake .3s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.fselect{width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:.7rem .95rem;font-size:.875rem;color:var(--text);background:var(--surface2);outline:none;cursor:pointer;transition:var(--tr);appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 12 12'%3E%3Cpath fill='%236b5744' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .95rem center;padding-right:2.4rem}
+.fselect:focus{border-color:var(--brand);background-color:#fff;box-shadow:0 0 0 3px rgba(181,101,29,.08)}
+.pricebox{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:1.4rem;box-shadow:var(--sh0);position:sticky;top:80px}
+.prow{display:flex;justify-content:space-between;align-items:center;padding:.55rem 0;font-size:.845rem}
+.prow .lb{color:var(--text2)}.prow .vl{font-weight:600}
+.pdiv{border:none;border-top:1px solid var(--border);margin:.45rem 0}
+.ptotal .lb{font-weight:700;font-size:.9rem;color:var(--text)}
+.ptotal .vl{font-size:1.15rem;font-weight:800;color:var(--brand)}
+.tip{position:relative;display:inline-flex;align-items:center;cursor:help;margin-left:3px}
+.tip::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--text);color:#fff;font-size:.72rem;font-weight:500;padding:5px 9px;border-radius:6px;white-space:nowrap;opacity:0;pointer-events:none;transition:.2s;z-index:100}
+.tip:hover::after{opacity:1}
+
+.hnotice{border-radius:var(--radius-sm);padding:.875rem 1rem;margin-bottom:1rem;font-size:.82rem;display:flex;align-items:flex-start;gap:8px}
+.hnotice.normal{background:#fffbe6;border:1.5px solid #f0d060;color:#7a5800}
+.hnotice.emerg{background:var(--emerg-light);border:1.5px solid var(--emerg-border);color:var(--emerg)}
+.hnotice .hi{font-size:1.1rem;flex-shrink:0;margin-top:1px}
+
+.ebanner{background:linear-gradient(135deg,#7c1c1c,#a52828);border-radius:var(--radius);padding:1.25rem 1.5rem;color:#fff;margin-bottom:1.5rem;display:flex;align-items:center;gap:12px}
+.ebanner .ebi{font-size:2rem;flex-shrink:0}
+.ebanner h3{font-size:1rem;font-weight:700;margin-bottom:3px}
+.ebanner p{font-size:.8rem;opacity:.88}
+
+.payopts{display:grid;grid-template-columns:1fr 1fr;gap:.875rem;margin-bottom:1.1rem}
+.payopt{background:var(--surface2);border:2px solid var(--border);border-radius:var(--radius-sm);padding:1.25rem 1rem;text-align:center;cursor:pointer;transition:var(--tr)}
+.payopt:hover,.payopt.sel{border-color:var(--brand);background:var(--brand-light)}
+.payopt .poi{font-size:2rem;margin-bottom:.45rem}
+.payopt .pol{font-size:.82rem;font-weight:700;color:var(--text)}
+.payopt .pos{font-size:.72rem;color:var(--text2);margin-top:2px}
+.qrwrap{background:var(--surface2);border:1.5px dashed var(--border);border-radius:var(--radius-sm);padding:1.5rem;text-align:center;margin-bottom:.75rem}
+.qramt{font-family:'Sora',sans-serif;font-size:1.5rem;font-weight:800;color:var(--brand);margin-top:.5rem}
+.qrnote{font-size:.75rem;color:var(--text2);margin-top:4px}
+.qrexpiry{font-size:.73rem;color:var(--danger);font-weight:600;margin-top:.4rem;display:none}
+.gpayok{text-align:center;padding:1rem;display:none}
+.gpayok.on{display:block}
+.gpayok .goi{font-size:2.5rem;margin-bottom:.5rem}
+.gpayok h3{font-size:1rem;font-weight:700;color:var(--teal);margin-bottom:.25rem}
+.gpayok p{font-size:.8rem;color:var(--text2)}
+
+.bktabs{display:flex;gap:.45rem;margin-bottom:1.4rem;background:var(--surface);padding:4px;border-radius:var(--radius-sm);border:1px solid var(--border);width:fit-content;flex-wrap:wrap}
+.tab{background:none;border:none;cursor:pointer;padding:8px 16px;border-radius:var(--radius-xs);font-size:.845rem;font-weight:600;color:var(--text2);transition:var(--tr)}
+.tab.on{background:var(--brand);color:#fff;box-shadow:0 2px 7px rgba(181,101,29,.28)}
+.bklist{display:flex;flex-direction:column;gap:.95rem}
+.bkitem{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:1.2rem 1.4rem;display:flex;align-items:flex-start;gap:.95rem;box-shadow:var(--sh0);transition:var(--tr);flex-wrap:wrap}
+.bkitem:hover{box-shadow:var(--sh1);border-color:var(--brand-mid)}
+.bkico{width:44px;height:44px;background:var(--brand-light);border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0}
+.bkdet{flex:1;min-width:200px}
+.bktit{font-size:.9rem;font-weight:700;margin-bottom:2px}
+.bkmeta{font-size:.76rem;color:var(--text2);display:flex;gap:.65rem;flex-wrap:wrap;margin-top:2px}
+.bkmeta span::before{content:'·';margin-right:.3rem}
+.bkmeta span:first-child::before{display:none}
+.bkst{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.bkacts{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;align-items:flex-start}
+.cbox{background:var(--teal-light);border:1.5px solid var(--teal);border-radius:var(--radius-sm);padding:.6rem .95rem;margin-top:.55rem;font-size:.79rem}
+.cbox strong{color:#266049}
+.otppair{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.55rem}
+.otpbox{background:var(--surface2);border:1.5px dashed var(--brand);border-radius:var(--radius-sm);padding:.6rem;text-align:center}
+.otpbox.c2{border-color:var(--teal)}
+.otplbl{font-size:.62rem;color:var(--text2);margin-bottom:2px;line-height:1.3}
+.otpcode{font-family:'Sora',sans-serif;font-size:1.1rem;font-weight:800;color:var(--brand);letter-spacing:4px}
+.otpcode.c2{color:var(--teal)}
+
+.bigtmr{font-family:'Sora',sans-serif;font-size:2.75rem;font-weight:800;color:var(--brand);letter-spacing:2px;margin:.4rem 0 .9rem}
+.progwrap{width:100%;height:7px;background:var(--border);border-radius:99px;overflow:hidden;margin-bottom:1.4rem}
+.progbar{height:100%;background:var(--brand);border-radius:99px;transition:width 1s linear}
+
+.overlay{display:none;position:fixed;inset:0;background:rgba(30,18,5,.5);backdrop-filter:blur(5px);z-index:500;align-items:center;justify-content:center;padding:1rem}
+.overlay.on{display:flex;animation:fi .22s ease}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+.modal{background:var(--surface);border-radius:18px;padding:2.25rem 1.75rem;max-width:440px;width:100%;text-align:center;box-shadow:0 20px 56px rgba(30,18,5,.22);animation:pi .28s cubic-bezier(.34,1.56,.64,1);max-height:92vh;overflow-y:auto}
+@keyframes pi{from{opacity:0;transform:scale(.84)}to{opacity:1;transform:scale(1)}}
+@keyframes popanim{0%{transform:scale(.5);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+.mico{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.85rem;margin:0 auto 1.1rem;background:var(--teal-light)}
+.mico.anim{animation:popanim .5s cubic-bezier(.34,1.56,.64,1)}
+.modal h2{font-size:1.3rem;font-weight:800;margin-bottom:.45rem}
+.modal p{font-size:.875rem;color:var(--text2);margin-bottom:1.35rem;line-height:1.6}
+.mdet{background:var(--surface2);border-radius:var(--radius-sm);padding:.95rem;margin-bottom:1.1rem;text-align:left;border:1px solid var(--border)}
+.mrow{display:flex;justify-content:space-between;font-size:.82rem;padding:.3rem 0}
+.mrow .ml{color:var(--text2)}.mrow .mv{font-weight:600}
+.cotps{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1.1rem}
+.cotp{background:var(--surface2);border:1.5px dashed var(--brand);border-radius:var(--radius-sm);padding:.95rem}
+.cotp.c2{border-color:var(--teal)}
+.cotplbl{font-size:.68rem;color:var(--text2);margin-bottom:5px;line-height:1.4}
+.cotpcode{font-family:'Sora',sans-serif;font-size:1.5rem;font-weight:800;color:var(--brand);letter-spacing:6px}
+.cotpcode.c2{color:var(--teal)}
+
+.sdots{display:flex;justify-content:center;gap:6px;margin:.5rem 0 .75rem}
+.sdots span{width:8px;height:8px;border-radius:50%;background:var(--brand);animation:sd 1.2s ease-in-out infinite}
+.sdots span:nth-child(2){animation-delay:.2s}
+.sdots span:nth-child(3){animation-delay:.4s}
+@keyframes sd{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+
+.starinput{display:flex;gap:6px;justify-content:center;margin-bottom:.75rem}
+.starinput span{font-size:2rem;cursor:pointer;color:var(--border);transition:var(--tr);line-height:1}
+.starinput span.lit{color:var(--amber)}
+
+.upzone{border:2px dashed var(--border);border-radius:var(--radius-sm);padding:1.25rem;text-align:center;cursor:pointer;transition:var(--tr);background:var(--surface2);position:relative;overflow:hidden}
+.upzone:hover,.upzone.done{border-color:var(--teal);background:var(--teal-light)}
+.upzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.uzi{font-size:1.75rem;margin-bottom:.35rem}
+.uzt{font-size:.8rem;color:var(--text2);font-weight:500}
+.uzs{font-size:.7rem;color:var(--text3);margin-top:2px}
+.upprev{margin-top:.65rem;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border);display:none}
+.upprev img{width:100%;max-height:160px;object-fit:cover;display:block}
+.upok{font-size:.75rem;color:var(--teal);font-weight:600;margin-top:.4rem;display:none}
+
+.empty{text-align:center;padding:2.75rem 1rem;color:var(--text2)}
+.emptyico{font-size:2.75rem;margin-bottom:.875rem;opacity:.38}
+.empty h3{font-size:1.05rem;color:var(--text);margin-bottom:.4rem}
+
+.toast{position:fixed;bottom:1.4rem;right:1.4rem;background:var(--text);color:#fff;padding:.8rem 1.1rem;border-radius:var(--radius-sm);font-size:.845rem;font-weight:500;z-index:600;display:flex;align-items:center;gap:7px;box-shadow:0 6px 24px rgba(0,0,0,.22);transform:translateY(90px);opacity:0;transition:.32s cubic-bezier(.4,0,.2,1);max-width:300px}
+.toast.on{transform:translateY(0);opacity:1}
+
+.pghdr{margin-bottom:1.6rem}
+.pghdr h2{font-size:1.4rem;font-weight:800;letter-spacing:-.35px;margin-bottom:.3rem}
+.pghdr p{font-size:.875rem;color:var(--text2)}
+.bc{display:flex;align-items:center;gap:5px;font-size:.76rem;color:var(--text3);margin-bottom:.65rem}
+.bc a{color:var(--brand);cursor:pointer;font-weight:500}
+.bc a:hover{text-decoration:underline}
+.rg{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+footer{background:var(--text);color:rgba(255,255,255,.55);text-align:center;padding:1.4rem;font-size:.79rem;flex-shrink:0}
+footer strong{color:#fff;font-family:'Sora',sans-serif}
+
+@media(max-width:860px){
+  .navlinks{display:none;flex-direction:column;position:absolute;top:60px;left:0;right:0;background:var(--surface);border-bottom:1px solid var(--border);padding:.875rem;gap:3px;z-index:299}
+  .navlinks.open{display:flex}.hbg{display:flex}
+  .clock{font-size:.7rem;padding:4px 9px}
+}
+@media(max-width:640px){
+  .hero{padding:1.75rem 1.1rem}.hstats{gap:1.1rem}
+  .profhero{flex-direction:column;align-items:center;text-align:center}
+  .pstats{justify-content:center}
+  .wrap{padding:1.1rem .875rem 4.5rem}
+  .cats{grid-template-columns:repeat(auto-fill,minmax(75px,1fr));gap:.6rem}
+  .igrid{grid-template-columns:repeat(auto-fill,minmax(108px,1fr))}
+  .cotps,.otppair{grid-template-columns:1fr}
+  .rg{grid-template-columns:1fr}
+  .hhgrid{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="ebar" id="emergBar">
+  <div class="epulse"></div>
+  <span>🚨 Emergency Hours — Only Electrician &amp; Plumber available</span>
+  <span class="elt" id="emergTime"></span>
+  <span style="opacity:.75;font-size:.72rem;margin-left:4px">(9:45 PM – 8:30 AM IST)</span>
+</div>
+
+<nav>
+  <div class="navi">
+    <div class="logo" onclick="goPage('home')"><div class="lgmk">Q</div><span class="lgtx">Quick<span>Fix</span></span></div>
+    <div class="navlinks" id="navLinks">
+      <a class="nl" href="landing.html" style="text-decoration:none;display:inline-block;padding:7px 13px;border-radius:var(--radius-sm);font-size:.85rem;font-weight:500;color:var(--text2);transition:var(--tr)">← Back to Home</a>
+      <button class="nl on" onclick="goPage('home')" data-pg="home">Home</button>
+      <button class="nl" onclick="goPage('services')" data-pg="services">Services</button>
+      <button class="nl" onclick="goPage('bookings')" data-pg="bookings">My Bookings</button>
+      <button class="nl" onclick="goPage('profile')" data-pg="profile">👤 Profile</button>
+      <button class="nl" onclick="goPage('register')" data-pg="register">Join as Worker</button>
+      <button class="nl" onclick="openCategory('Massage & Wellness')">💆 Massage</button>
+      <button class="nl ncta" onclick="goPage('services')">Book Now</button>
+      <button class="nl" onclick="signOut()" style="color:var(--danger)">Sign Out</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="clock" id="istClock"><div class="cdot"></div><span class="ctm" id="istTime">--:-- --</span><span style="color:var(--text3);font-size:.68rem">IST</span></div>
+      <button class="hbg" onclick="toggleMenu()"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</nav>
+
+<!-- HOME -->
+<div class="page on" id="page-home">
+  <div class="wrap">
+    <div class="hero">
+      <div class="hbadge"><div class="dot"></div> 500+ Verified Professionals</div>
+      <h1>Trusted local repair<br/>crew, on demand</h1>
+      <p>Pick a category, describe your issue, and the nearest worker gets assigned in minutes.</p>
+      <div class="hsrch">
+        <input type="text" id="homeSearch" placeholder="Search for services…" onkeydown="if(event.key==='Enter')doSearch()"/>
+        <button onclick="doSearch()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>Search</button>
+      </div>
+      <div class="hstats">
+        <div><strong>4.9★</strong><span>Avg Rating</span></div>
+        <div><strong>2k+</strong><span>Jobs Done</span></div>
+        <div><strong>2 min</strong><span>Acceptance</span></div>
+        <div><strong>24/7</strong><span>Emergency</span></div>
+      </div>
+    </div>
+    <div class="sechdr"><span class="sectit">What do you need fixed?</span><span class="seclink" onclick="goPage('services')">All services →</span></div>
+    <div class="cats" id="homeCats"></div>
+    <div class="sechdr secgap"><span class="sectit">⭐ Top-Rated Near You</span><span class="seclink" onclick="goPage('services')">See all →</span></div>
+    <div class="wgrid" id="homeWorkers"></div>
+  </div>
+</div>
+
+<!-- HOUSEHELP SUB-CATEGORY PICKER -->
+<div class="page" id="page-househelp">
+  <div class="wrap">
+    <div class="bc"><a onclick="goPage('home')">Home</a> / <span>Househelp</span></div>
+    <div class="pghdr">
+      <h2>🏠 Househelp Services</h2>
+      <p>Select the exact service you need — a verified helper will be assigned near you.</p>
+    </div>
+    <div id="hhSections"></div>
+  </div>
+</div>
+
+<!-- GENERIC CATEGORY PICKER -->
+<div class="page" id="page-category">
+  <div class="wrap">
+    <div class="bc"><a onclick="goPage('home')">Home</a> / <span id="catBread">Category</span></div>
+    <div class="pghdr">
+      <h2 id="catTitle"></h2>
+      <p id="catDesc"></p>
+    </div>
+    <div id="catSections"></div>
+  </div>
+</div>
+
+<!-- SMART SEARCH (other categories) -->
+<div class="page" id="page-smart">
+  <div class="wrap">
+    <div class="bc"><a onclick="goPage('home')">Home</a> / <span id="smartBread">Category</span></div>
+    <div class="swrap">
+      <div class="stepbar" id="stepBar"></div>
+      <div id="ss1"></div>
+      <div id="ss2" style="display:none"></div>
+      <div id="ss3" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SERVICES -->
+<div class="page" id="page-services">
+  <div class="wrap">
+    <div class="pghdr">
+      <div class="bc"><a onclick="goPage('home')">Home</a> / <span>Services</span></div>
+      <h2>Find a Professional</h2>
+      <p>Worker identity hidden — revealed only after booking confirmed.</p>
+    </div>
+    <div style="margin-bottom:.875rem">
+      <div class="hsrch" style="max-width:100%;border-radius:var(--radius-sm);box-shadow:var(--sh0)">
+        <input type="text" id="svcSearch" placeholder="Search by service or type…" oninput="applyFilters()"/>
+        <button onclick="applyFilters()">Search</button>
+      </div>
+    </div>
+    <div class="fbar" id="catBar">
+      <span class="flbl">Category:</span>
+      <button class="fbtn on" data-cat="all" onclick="setFilter('cat','all',this)">All</button>
+      <button class="fbtn" data-cat="Electrician" onclick="setFilter('cat','Electrician',this)">⚡ Electrician</button>
+      <button class="fbtn" data-cat="Plumber" onclick="setFilter('cat','Plumber',this)">🔧 Plumber</button>
+      <button class="fbtn eonly" data-cat="Carpenter" onclick="setFilter('cat','Carpenter',this)">🪚 Carpenter</button>
+      <button class="fbtn eonly" data-cat="Painter" onclick="setFilter('cat','Painter',this)">🎨 Painter</button>
+      <button class="fbtn eonly" data-cat="Cleaner" onclick="setFilter('cat','Cleaner',this)">🧹 Cleaner</button>
+      <button class="fbtn eonly" data-cat="AC Repair" onclick="setFilter('cat','AC Repair',this)">❄️ AC Repair</button>
+      <button class="fbtn eonly" data-cat="Mason" onclick="setFilter('cat','Mason',this)">🧱 Mason</button>
+      <button class="fbtn eonly" data-cat="Pest Control" onclick="setFilter('cat','Pest Control',this)">🐜 Pest Control</button>
+      <button class="fbtn eonly" data-cat="Househelp" onclick="setFilter('cat','Househelp',this)">🏠 Househelp</button>
+      <button class="fbtn eonly" data-cat="Massage & Wellness" onclick="setFilter('cat','Massage &amp; Wellness',this)">💆 Massage</button>
+    </div>
+    <div class="fbar">
+      <span class="flbl">Sort:</span>
+      <button class="fbtn on" onclick="setFilter('sort','default',this)">Default</button>
+      <button class="fbtn" onclick="setFilter('sort','rating',this)">⭐ Top Rated</button>
+      <button class="fbtn" onclick="setFilter('sort','price-asc',this)">💰 Low→High</button>
+      <button class="fbtn" onclick="setFilter('sort','price-desc',this)">💰 High→Low</button>
+    </div>
+    <div id="svcCount" style="font-size:.8rem;color:var(--text2);margin-bottom:.875rem"></div>
+    <div class="wgrid" id="svcGrid"></div>
+  </div>
+</div>
+
+<!-- PROFILE -->
+<div class="page" id="page-profile">
+  <div class="wrap">
+    <div class="bc"><a onclick="goPage('services')">Services</a> / <span id="profBread">Profile</span></div>
+    <div id="profContent"></div>
+  </div>
+</div>
+
+<!-- BOOKING -->
+<div class="page" id="page-booking">
+  <div class="wrap">
+    <div class="bc"><a onclick="goPage('services')">Services</a> / <a onclick="goBack()" id="bkBread">Worker</a> / <span>Book</span></div>
+    <div class="pghdr"><h2>Book a Service</h2><p>Fill details → Pay → Nearest worker gets the job automatically.</p></div>
+    <div id="bkNotice"></div>
+    <div class="bklayout">
+      <div class="csec">
+        <div class="cst">📋 Booking Details</div>
+        <div id="bkWorkerInfo" style="margin-bottom:1.1rem"></div>
+        <div class="fg"><label class="flabel">Select Service</label><select class="fselect" id="bkSvc" onchange="updatePrice()"></select></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.95rem">
+          <div class="fg"><label class="flabel">Date</label><input type="date" class="finput" id="bkDate" onchange="onDateChange()"/></div>
+          <div class="fg" id="bkTimeGrp"><label class="flabel">Time (8:30 AM – 9:45 PM)</label><select class="fselect" id="bkTime" onchange="onTimeChange()"><option value="">Select time…</option></select></div>
+        </div>
+        <div class="fg"><label class="flabel">Your Address</label><input type="text" class="finput" id="bkAddr" placeholder="Enter your full address…"/></div>
+        <div class="fg"><label class="flabel">Notes (Optional)</label><textarea class="finput" id="bkNotes" rows="3" placeholder="Describe the issue…" style="resize:vertical"></textarea></div>
+      </div>
+      <div>
+        <div class="pricebox">
+          <div class="cst" style="border-bottom:1px solid var(--border);padding-bottom:.7rem;margin-bottom:.7rem">💳 Price Summary</div>
+          <div class="prow"><span class="lb">Service</span><span class="vl" id="pSvc">—</span></div>
+          <div class="prow"><span class="lb">Service Price</span><span class="vl" id="pBase">—</span></div>
+          <div class="prow"><span class="lb">Handling Fee<span class="tip" data-tip="Covers platform support &amp; booking assistance"> ℹ️</span></span><span class="vl" id="pFee">—</span></div>
+          <hr class="pdiv"/>
+          <div class="prow ptotal"><span class="lb">Total</span><span class="vl" id="pTotal">—</span></div>
+          <div style="margin-top:1.1rem"><button class="btn bp bfull blg" id="bkBtn" onclick="initiateBooking()">📡 Book &amp; Pay</button></div>
+          <p style="font-size:.7rem;color:var(--text3);text-align:center;margin-top:.65rem">Nearest available worker gets the job</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MY BOOKINGS -->
+<div class="page" id="page-bookings">
+  <div class="wrap">
+    <div class="pghdr" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:.75rem">
+      <div><h2>My Bookings</h2><p>All bookings shown — including cancelled ones.</p></div>
+      <button class="btn bd" style="font-size:.78rem;padding:7px 14px;flex-shrink:0" onclick="clearHistory()">🗑 Clear History</button>
+    </div>
+    <div class="bktabs">
+      <button class="tab on" onclick="switchTab('all',this)">All</button>
+      <button class="tab" onclick="switchTab('upcoming',this)">Upcoming</button>
+      <button class="tab" onclick="switchTab('completed',this)">Completed</button>
+      <button class="tab" onclick="switchTab('cancelled',this)">Cancelled</button>
+    </div>
+    <div id="bkList"></div>
+  </div>
+</div>
+
+<!-- REGISTER -->
+<div class="page" id="page-register">
+  <div class="wrap">
+    <div class="pghdr"><h2>🛠 Register as a Worker</h2><p>Join QuickFix and start receiving job requests near you.</p></div>
+    <div style="max-width:620px">
+      <div class="csec">
+        <div class="cst">👤 Personal Details</div>
+        <div class="rg">
+          <div class="fg"><label class="flabel">Full Name *</label><input type="text" class="finput" id="rName" placeholder="Your full name"/></div>
+          <div class="fg"><label class="flabel">Phone *</label><input type="tel" class="finput" id="rPhone" placeholder="+91 98765 43210"/></div>
+        </div>
+        <div class="fg"><label class="flabel">Email *</label><input type="email" class="finput" id="rEmail" placeholder="you@email.com"/></div>
+        <div class="fg"><label class="flabel">Home Area *</label><input type="text" class="finput" id="rArea" placeholder="Your locality"/></div>
+      </div>
+      <div class="csec">
+        <div class="cst">🔧 Professional Details</div>
+        <div class="rg">
+          <div class="fg"><label class="flabel">Category *</label>
+            <select class="fselect" id="rCat"><option value="">Select…</option><option>Electrician</option><option>Plumber</option><option>Carpenter</option><option>Painter</option><option>Cleaner</option><option>AC Repair</option><option>Mason</option><option>Pest Control</option><option>Househelp</option><option>Massage &amp; Wellness</option></select>
+          </div>
+          <div class="fg"><label class="flabel">Experience (yrs) *</label><input type="number" class="finput" id="rExp" placeholder="e.g. 5" min="0"/></div>
+        </div>
+        <div class="rg">
+          <div class="fg"><label class="flabel">Service Radius (km)</label><input type="number" class="finput" id="rRadius" placeholder="e.g. 10" min="1"/></div>
+          <div class="fg"><label class="flabel">Starting Price (₹) *</label><input type="number" class="finput" id="rPrice" placeholder="e.g. 199"/></div>
+        </div>
+        <div class="fg"><label class="flabel">Short Bio *</label><textarea class="finput" id="rBio" rows="3" placeholder="Describe your skills…" style="resize:vertical"></textarea></div>
+        <div class="fg" style="display:flex;align-items:center;gap:10px">
+          <input type="checkbox" id="rEmerg" style="width:16px;height:16px;accent-color:var(--emerg)"/>
+          <label for="rEmerg" style="font-size:.845rem;font-weight:600;cursor:pointer">🚨 Available for Emergency (24/7) service</label>
+        </div>
+      </div>
+      <div class="csec">
+        <div class="cst">🪪 Verification</div>
+        <div class="rg">
+          <div class="fg"><label class="flabel">Aadhaar Number *</label><input type="text" class="finput" id="rAadhaar" placeholder="XXXX XXXX XXXX" maxlength="14"/></div>
+          <div class="fg"><label class="flabel">PAN (Optional)</label><input type="text" class="finput" id="rPan" placeholder="ABCDE1234F" maxlength="10"/></div>
+        </div>
+        <div class="fg">
+          <label class="flabel">Aadhaar Card Photo * <span style="font-size:.72rem;color:var(--text3)">(Front side · JPG/PNG · Max 5MB)</span></label>
+          <div class="upzone" id="upZone">
+            <input type="file" id="rAadhaarPhoto" accept="image/*" onchange="handleUpload(this)"/>
+            <div class="uzi">🪪</div>
+            <div class="uzt">Click or drag to upload Aadhaar card photo</div>
+            <div class="uzs">Front side only</div>
+          </div>
+          <div class="upprev" id="upPrev"><img id="upPrevImg" src="" alt="Aadhaar preview"/></div>
+          <div class="upok" id="upOk">✅ Aadhaar photo uploaded successfully</div>
+        </div>
+      </div>
+      <button class="btn bp blg bfull" onclick="submitReg()">✅ Submit Registration</button>
+    </div>
+  </div>
+</div>
+
+<!-- REG SUCCESS -->
+<div class="page" id="page-regsuccess">
+  <div class="wrap" style="max-width:520px;margin:0 auto;text-align:center;padding-top:4rem">
+    <div style="font-size:4rem;margin-bottom:1rem">🎉</div>
+    <h2 style="font-size:1.5rem;font-weight:800;margin-bottom:.5rem">Application Submitted!</h2>
+    <p style="font-size:.9rem;color:var(--text2);margin-bottom:1.5rem;line-height:1.7">Thank you for registering with QuickFix.<br/>We'll call you within <strong>24 hours</strong> on <strong id="successPhone"></strong>.<br/>Your Aadhaar will be verified before activation.</p>
+    <div style="background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:1.4rem;text-align:left;margin-bottom:1.5rem;box-shadow:var(--sh0)">
+      <div style="font-size:.82rem;font-weight:700;margin-bottom:.75rem;color:var(--text2)">What happens next:</div>
+      <div style="display:flex;flex-direction:column;gap:.6rem">
+        <div style="display:flex;gap:10px;font-size:.82rem"><span>📞</span><span>Our team will call to verify your details</span></div>
+        <div style="display:flex;gap:10px;font-size:.82rem"><span>🪪</span><span>Aadhaar verification within 24 hours</span></div>
+        <div style="display:flex;gap:10px;font-size:.82rem"><span>✅</span><span>Once approved, your profile goes live and you start receiving jobs</span></div>
+      </div>
+    </div>
+    <button class="btn bp blg" onclick="goPage('home')">Back to Home</button>
+  </div>
+</div>
+
+<!-- PAYMENT MODAL -->
+<div class="overlay" id="payModal">
+  <div class="modal" style="max-width:460px">
+    <div class="mico" style="background:#e8f4ef">💳</div>
+    <h2>Choose Payment</h2>
+    <p>How would you like to pay for this service?</p>
+    <div class="payopts">
+      <div class="payopt" id="pGpay" onclick="selectPay('gpay')"><div class="poi">📱</div><div class="pol">Google Pay</div><div class="pos">Scan &amp; pay instantly</div></div>
+      <div class="payopt" id="pCash" onclick="selectPay('cash')"><div class="poi">💵</div><div class="pol">Cash</div><div class="pos">Pay on arrival</div></div>
+    </div>
+    <div id="gpaySection" style="display:none">
+      <div class="qrwrap">
+        <div id="qrCont" style="display:flex;flex-direction:column;align-items:center;min-height:200px;justify-content:center"></div>
+        <div class="qrexpiry" id="qrExpiry">⏱ QR expires in <span id="qrCountdown">5:00</span></div>
+      </div>
+      <div class="gpayok" id="gpayOk"><div class="goi">✅</div><h3>Payment Received!</h3><p>Finding your nearest worker now…</p></div>
+    </div>
+    <div id="cashSection" style="display:none">
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:1rem;margin-bottom:1rem;text-align:left;border:1px solid var(--border)">
+        <div style="font-size:.82rem;color:var(--text2);line-height:1.6">💵 You'll pay <strong id="cashAmt"></strong> in cash when the worker arrives.<br/>Worker only starts after you confirm arrival with OTP.</div>
+      </div>
+      <button class="btn bt bfull blg" onclick="onCashConfirm()">✔ Confirm &amp; Find Worker</button>
+    </div>
+    <div style="margin-top:.75rem"><button class="btn bo bfull" onclick="stopPoll();closeModal('payModal')">Cancel</button></div>
+  </div>
+</div>
+
+<!-- BROADCAST MODAL -->
+<div class="overlay" id="acceptModal">
+  <div class="modal">
+    <div class="mico" style="background:#fef3d0">📡</div>
+    <h2>Broadcasting…</h2>
+    <p>Notifying nearby workers. The closest one who accepts gets your job.</p>
+    <div class="sdots"><span></span><span></span><span></span></div>
+    <div class="bigtmr" id="acceptTimer">2:00</div>
+    <div class="progwrap"><div class="progbar" id="acceptBar" style="width:100%"></div></div>
+    <p style="font-size:.76rem;color:var(--text3);margin-bottom:0">If no one accepts in 2 minutes, you can try again.</p>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="overlay" id="confirmModal">
+  <div class="modal">
+    <div class="mico" id="confIco">✅</div>
+    <h2 id="confTitle">Worker Assigned!</h2>
+    <p id="confDesc" style="font-size:.875rem;color:var(--text2);margin-bottom:1.35rem;line-height:1.6"></p>
+    <div class="mdet" id="confDet"></div>
+    <div id="confOtps"></div>
+    <div style="display:flex;gap:.65rem;justify-content:center;flex-wrap:wrap">
+      <button class="btn bo" onclick="closeModal('confirmModal');goPage('bookings')">View Bookings</button>
+      <button class="btn bp" onclick="closeModal('confirmModal');goPage('home')">Back to Home</button>
+    </div>
+  </div>
+</div>
+
+<!-- NO ACCEPT MODAL -->
+<div class="overlay" id="noAcceptModal">
+  <div class="modal">
+    <div class="mico" style="background:#fce8e8">⏱️</div>
+    <h2>No Workers Accepted</h2>
+    <p>No nearby worker accepted in time. Please try again.</p>
+    <div style="display:flex;gap:.65rem;justify-content:center">
+      <button class="btn bo" onclick="closeModal('noAcceptModal')">Close</button>
+      <button class="btn bp" onclick="closeModal('noAcceptModal');initiateBooking()">🔄 Try Again</button>
+    </div>
+  </div>
+</div>
+
+<!-- ARRIVAL MODAL -->
+<div class="overlay" id="arrivalModal">
+  <div class="modal">
+    <div class="mico" style="background:var(--teal-light)">🚗</div>
+    <h2>Worker is on the Way!</h2>
+    <p>Your worker should arrive within 15 minutes. Share the Arrival OTP when they arrive.</p>
+    <div class="bigtmr" id="arrivalTimer">15:00</div>
+    <div class="progwrap"><div class="progbar" id="arrivalBar" style="width:100%;background:var(--teal)"></div></div>
+    <div class="otpbox" style="margin-bottom:1.1rem;padding:.95rem">
+      <div style="font-size:.72rem;color:var(--text2);margin-bottom:4px">🚗 Arrival OTP — Share with worker:</div>
+      <div class="otpcode" style="font-size:1.6rem;letter-spacing:7px" id="arrOtpShow"></div>
+    </div>
+    <div style="display:flex;gap:.65rem;justify-content:center;flex-wrap:wrap">
+      <button class="btn bt" onclick="triggerOtp('arrival')">✔ Worker Arrived — Verify OTP</button>
+      <button class="btn bo" onclick="closeModal('arrivalModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- NOT ARRIVED MODAL -->
+<div class="overlay" id="notArrivedModal">
+  <div class="modal">
+    <div class="mico" style="background:#fce8e8">⚠️</div>
+    <h2>Worker Has Not Arrived</h2>
+    <p>15-minute window passed. Extend by 5 minutes or cancel?</p>
+    <div style="display:flex;gap:.65rem;justify-content:center;flex-wrap:wrap">
+      <button class="btn bt" onclick="extendTimer()">⏱ Extend 5 Min</button>
+      <button class="btn bd" onclick="autoCancel()">❌ Cancel Booking</button>
+    </div>
+  </div>
+</div>
+
+<!-- OTP MODAL -->
+<div class="overlay" id="otpModal">
+  <div class="modal">
+    <div class="mico" style="background:var(--teal-light)">🔐</div>
+    <h2 id="otpTitle">Verify OTP</h2>
+    <p id="otpDesc">Enter the 6-digit OTP.</p>
+    <div class="fg" style="margin-bottom:.95rem">
+      <input type="text" class="finput" id="otpInput" placeholder="● ● ● ● ● ●" maxlength="6" style="text-align:center;font-size:1.5rem;letter-spacing:9px;font-family:'Sora',sans-serif;font-weight:700"/>
+    </div>
+    <div style="display:flex;gap:.65rem;justify-content:center">
+      <button class="btn bo" onclick="closeModal('otpModal')">Cancel</button>
+      <button class="btn bt" onclick="verifyOtp()">Verify ✔</button>
+    </div>
+  </div>
+</div>
+
+<!-- REVIEW MODAL -->
+<div class="overlay" id="reviewModal">
+  <div class="modal">
+    <div class="mico" style="background:#fef3d0">⭐</div>
+    <h2>Rate Your Experience</h2>
+    <p id="reviewDesc" style="font-size:.875rem;color:var(--text2);margin-bottom:.75rem;line-height:1.6"></p>
+    <div class="starinput" id="starInput">
+      <span onclick="setRating(1)">★</span><span onclick="setRating(2)">★</span><span onclick="setRating(3)">★</span><span onclick="setRating(4)">★</span><span onclick="setRating(5)">★</span>
+    </div>
+    <div class="fg" style="margin-bottom:.95rem">
+      <textarea class="finput" id="reviewComment" rows="3" placeholder="Tell us about your experience… (Optional)" style="resize:vertical"></textarea>
+    </div>
+    <div style="display:flex;gap:.65rem;justify-content:center">
+      <button class="btn bo" onclick="closeModal('reviewModal')">Skip</button>
+      <button class="btn bp" onclick="submitReview()">Submit ⭐</button>
+    </div>
+  </div>
+</div>
+
+<!-- CLEAR HISTORY MODAL -->
+<div class="overlay" id="clrModal">
+  <div class="modal" style="max-width:360px">
+    <div class="mico" style="background:#fce8e8">🗑</div>
+    <h2>Clear History?</h2>
+    <p>This will permanently delete all booking records. Cannot be undone.</p>
+    <div style="display:flex;gap:.65rem;justify-content:center">
+      <button class="btn bo" onclick="closeModal('clrModal')">Cancel</button>
+      <button class="btn bd" onclick="clrConfirmed()">Yes, Clear All</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<footer><strong>QuickFix</strong> &nbsp;·&nbsp; Trusted local service booking &nbsp;·&nbsp; © 2025</footer>
+
+<script>
+/* ── DATA LAYER ───────────────────────────────────────────── */
+/* ── SUPABASE ── */
+const SUPABASE_URL='https://oycurbgzzgfzilpflwks.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95Y3VyYmd6emdmemlscGZsd2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjkwMDMsImV4cCI6MjA5MzIwNTAwM30.B9KujxSHzhzpKM_IhVvpTqImVPjF4Yrv3RKn6mgtqxg';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+/* Auth check - redirect if not logged in */
+(async()=>{
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){window.location.href='auth.html';return;}
+  const cached=sessionStorage.getItem('qf_user');
+  if(!cached){
+    const {data:p}=await sb.from('users').select('*').eq('id',session.user.id).single();
+    if(p)sessionStorage.setItem('qf_user',JSON.stringify(p));
+  }
+})();
+
+/* Sign out */
+async function signOut(){
+  await sb.auth.signOut();
+  sessionStorage.clear();
+  window.location.href='auth.html';
+}
+
+const DB = {
+  workers:  ()  => JSON.parse(localStorage.getItem('qf_workers')||'null') || WORKERS,
+  bookings: ()  => JSON.parse(localStorage.getItem('qf_bookings')||'[]'),
+  save:     (b) => {
+    localStorage.setItem('qf_bookings', JSON.stringify(b));
+    /* Sync latest booking to Supabase */
+    const u=JSON.parse(sessionStorage.getItem('qf_user')||'null');
+    if(b.length&&u){
+      const bk=b[0];
+      sb.from('bookings').upsert({
+        id:String(bk.id),user_id:u.id,
+        worker_role:bk.workerRole,worker_emoji:bk.workerEmoji,
+        service:bk.service,date:bk.date,time:bk.time,
+        address:bk.address,notes:bk.notes||'',
+        price:bk.price,base_price:bk.basePrice,
+        payment_method:bk.paymentMethod,status:bk.status,
+        arrival_otp:bk.arrivalOtp,completion_otp:bk.completionOtp,
+        is_emergency:bk.isEmergency||false,is_advance:bk.isAdvance||false,
+        worker_name:bk.workerName||'',worker_phone:bk.workerPhone||'',
+        worker_dist:bk.workerDist||0,rated:bk.rated||false,
+        created_at:bk.createdAt
+      }).then(({error})=>{if(error)console.warn('Supabase sync:',error.message);});
+    }
+  },
+  saveReg:  (r) => { const l=JSON.parse(localStorage.getItem('qf_regs')||'[]'); l.push(r); localStorage.setItem('qf_regs',JSON.stringify(l)); }
+};
+
+/* ── WORKERS ──────────────────────────────────────────────── */
+const WORKERS = [
+  {id:1,  name:'Arjun Sharma',  phone:'+91 98001 11001', role:'Electrician',  rating:4.9, reviews:124, exp:'8 yrs',  price:149, dist:1.2, ea:true,
+   desc:'Expert in home wiring, switchboard repair & solar installation.', emoji:'⚡',
+   svcs:[{n:'Fan Repair',p:149},{n:'Switchboard Repair',p:179},{n:'Light Fitting',p:129},{n:'Wiring Fix',p:229},{n:'MCB/Fuse',p:149}],
+   revs:[{a:'Rahul M.',s:5,t:'Very professional, fixed our issue within an hour!'},{a:'Priya K.',s:5,t:'Arjun was punctual and did clean work.'}]},
+  {id:2,  name:'Meena Pillai',  phone:'+91 98001 11002', role:'Plumber',       rating:4.8, reviews:98,  exp:'6 yrs',  price:149, dist:0.8, ea:false,
+   desc:'Specialises in pipe fitting, leak repair, tap & bathroom fitting.', emoji:'🔧',
+   svcs:[{n:'Tap Repair',p:129},{n:'Pipe Leak Fix',p:179},{n:'Blocked Drain',p:149},{n:'Toilet Repair',p:199},{n:'Geyser Check',p:179}],
+   revs:[{a:'Sunita R.',s:5,t:'Fixed our leaking pipe quickly.'},{a:'Deepak J.',s:4,t:'Great work, affordable prices.'}]},
+  {id:3,  name:'Ravi Kumar',    phone:'+91 98001 11003', role:'Carpenter',     rating:4.7, reviews:76,  exp:'10 yrs', price:199, dist:2.1, ea:false,
+   desc:'Custom furniture, door fitting, wardrobe making & wood polishing.', emoji:'🪚',
+   svcs:[{n:'Door Hinge Fix',p:149},{n:'Furniture Repair',p:199},{n:'Lock Replacement',p:179},{n:'Wood Polishing',p:249},{n:'Window Fix',p:189}],
+   revs:[{a:'Anita S.',s:5,t:'Built a beautiful wardrobe for us.'},{a:'Mohan T.',s:4,t:'Good work, timely delivery.'}]},
+  {id:4,  name:'Sunita Devi',   phone:'+91 98001 11004', role:'Cleaner',       rating:4.6, reviews:211, exp:'4 yrs',  price:149, dist:0.5, ea:false,
+   desc:'Full home deep cleaning, sofa, kitchen scrubbing & post-construction.', emoji:'🧹',
+   svcs:[{n:'Room Cleaning',p:129},{n:'Kitchen Clean',p:149},{n:'Bathroom Clean',p:129},{n:'Sofa Cleaning',p:199},{n:'Full Home',p:349}],
+   revs:[{a:'Kavya M.',s:5,t:'The house was spotless after Sunita!'},{a:'Raj P.',s:4,t:'Very thorough and efficient.'}]},
+  {id:5,  name:'Vijay Singh',   phone:'+91 98001 11005', role:'Painter',       rating:4.8, reviews:63,  exp:'12 yrs', price:249, dist:3.0, ea:false,
+   desc:'Interior/exterior wall painting, waterproofing & texture specialist.', emoji:'🎨',
+   svcs:[{n:'1 Room Interior',p:249},{n:'Touch-up Paint',p:179},{n:'Wall Putty',p:199},{n:'Waterproofing',p:349},{n:'Full Room Texture',p:449}],
+   revs:[{a:'Leena G.',s:5,t:'Superb finish!'},{a:'Harish N.',s:5,t:'Vijay is truly an artist.'}]},
+  {id:6,  name:'Priya Nair',    phone:'+91 98001 11006', role:'AC Repair',     rating:4.9, reviews:143, exp:'7 yrs',  price:199, dist:1.5, ea:false,
+   desc:'AC servicing, gas refill, compressor repair & installation.', emoji:'❄️',
+   svcs:[{n:'AC Cleaning/Service',p:199},{n:'Not Cooling Check',p:179},{n:'Water Leak Fix',p:179},{n:'Remote/Sensor Issue',p:129},{n:'Filter Clean',p:129}],
+   revs:[{a:'Amitabh D.',s:5,t:'Priya fixed it perfectly.'},{a:'Geeta S.',s:5,t:'Quick response!'}]},
+  {id:7,  name:'Suresh Babu',   phone:'+91 98001 11007', role:'Electrician',   rating:4.5, reviews:55,  exp:'5 yrs',  price:149, dist:4.2, ea:false,
+   desc:'MCB & fuse box repair, safety audits & appliance wiring.', emoji:'⚡',
+   svcs:[{n:'Fan Repair',p:129},{n:'MCB Trip Fix',p:149},{n:'Fuse Replacement',p:129},{n:'Socket Fix',p:139},{n:'Appliance Wiring',p:179}],
+   revs:[{a:'Ritu V.',s:4,t:'Good work at fair price.'},{a:'Prakash L.',s:5,t:'Very professional.'}]},
+  {id:8,  name:'Lakshmi Reddy', phone:'+91 98001 11008', role:'Mason',         rating:4.6, reviews:40,  exp:'15 yrs', price:249, dist:2.8, ea:false,
+   desc:'Tile fixing, plastering, waterproofing & wall crack repair.', emoji:'🧱',
+   svcs:[{n:'Wall Crack Fill',p:179},{n:'Tile Fixing',p:249},{n:'Plastering',p:299},{n:'Waterproofing',p:349},{n:'Floor Grouting',p:199}],
+   revs:[{a:'Sanjay G.',s:5,t:'Excellent tile work.'},{a:'Neha R.',s:4,t:'Good plastering job.'}]},
+  {id:9,  name:'Amit Gupta',    phone:'+91 98001 11009', role:'Pest Control',  rating:4.7, reviews:88,  exp:'6 yrs',  price:199, dist:1.9, ea:false,
+   desc:'Termite, cockroach & rodent control, mosquito fogging.', emoji:'🐜',
+   svcs:[{n:'Cockroach Treatment',p:199},{n:'Ant Control',p:169},{n:'Mosquito Spray',p:169},{n:'Rodent Trap',p:199},{n:'Termite Check',p:249}],
+   revs:[{a:'Divya M.',s:5,t:'No pests since treatment.'},{a:'Rohit S.',s:4,t:'Effective and fair.'}]},
+  {id:10, name:'Kiran Rao',     phone:'+91 98001 11010', role:'Electrician',   rating:4.8, reviews:67,  exp:'9 yrs',  price:149, dist:0.9, ea:true,
+   desc:'24/7 emergency electrical repairs — fans, wiring, fuses & more.', emoji:'⚡',
+   svcs:[{n:'Fan Repair',p:149},{n:'Fuse Replacement',p:129},{n:'MCB Trip Fix',p:149},{n:'Power Outage Check',p:179},{n:'Emergency Wiring',p:229}],
+   revs:[{a:'Neha P.',s:5,t:'Came at 2am, fixed everything. Lifesaver!'},{a:'Suman T.',s:5,t:'Amazing emergency service.'}]},
+  {id:11, name:'Deepak Sharma', phone:'+91 98001 11011', role:'Plumber',       rating:4.7, reviews:62,  exp:'7 yrs',  price:149, dist:1.1, ea:true,
+   desc:'24/7 emergency plumbing — burst pipes, overflows, blocked drains.', emoji:'🔧',
+   svcs:[{n:'Burst Pipe Fix',p:199},{n:'Overflow Stop',p:169},{n:'Emergency Drain',p:169},{n:'Tap Shutoff',p:139},{n:'Toilet Block',p:159}],
+   revs:[{a:'Ramesh K.',s:5,t:'Called at midnight, came in 20 min. Saved us!'},{a:'Ananya T.',s:5,t:'Very fast and professional.'}]},
+  {id:12, name:'Rekha Nair',    phone:'+91 98001 11012', role:'Househelp',     rating:4.7, reviews:89,  exp:'5 yrs',  price:99,  dist:1.3, ea:false,
+   desc:'Full household help — cleaning, cooking, laundry, errands & care services.', emoji:'🏠',
+   svcs:[
+     {n:'Room Cleaning',p:99},{n:'Bathroom Cleaning',p:99},{n:'Kitchen Cleaning',p:129},{n:'Deep Cleaning (Full House)',p:299},{n:'Sofa / Carpet Cleaning',p:199},
+     {n:'Cooking Assistance',p:149},{n:'Full-time Cook (Daily)',p:399},{n:'Meal Prep – Weekly Batch',p:279},{n:'Utensil Washing',p:79},
+     {n:'Clothes Washing',p:99},{n:'Ironing Service',p:89},{n:'Folding & Organizing',p:79},
+     {n:'Dusting & Tidying',p:79},{n:'Daily Chores Support',p:129},{n:'Organizing Rooms',p:99},
+     {n:'Grocery Pickup',p:79},{n:'Market Errands',p:79},{n:'Parcel Drop / Pickup',p:69},
+     {n:'Babysitting',p:199},{n:'Elder Care Assistance',p:249},{n:'Patient Assistance',p:229},
+     {n:'Balcony Cleaning',p:99},{n:'Window Cleaning',p:129},{n:'Post-Party Cleanup',p:349}
+   ],
+   revs:[{a:'Priya S.',s:5,t:'Rekha is reliable and thorough — our home feels brand new!'},{a:'Sunil K.',s:4,t:'Great cooking and very organized.'}]},
+  {id:13, name:'Savita Rao',    phone:'+91 98001 11013', role:'Househelp',     rating:4.8, reviews:112, exp:'7 yrs',  price:99,  dist:0.7, ea:false,
+   desc:'Experienced in cooking, deep cleaning, laundry & baby care.', emoji:'🏠',
+   svcs:[
+     {n:'Room Cleaning',p:99},{n:'Bathroom Cleaning',p:99},{n:'Kitchen Cleaning',p:129},{n:'Deep Cleaning (Full House)',p:299},{n:'Sofa / Carpet Cleaning',p:199},
+     {n:'Cooking Assistance',p:149},{n:'Full-time Cook (Daily)',p:399},{n:'Meal Prep – Weekly Batch',p:279},{n:'Utensil Washing',p:79},
+     {n:'Clothes Washing',p:99},{n:'Ironing Service',p:89},{n:'Folding & Organizing',p:79},
+     {n:'Dusting & Tidying',p:79},{n:'Daily Chores Support',p:129},{n:'Organizing Rooms',p:99},
+     {n:'Grocery Pickup',p:79},{n:'Market Errands',p:79},{n:'Parcel Drop / Pickup',p:69},
+     {n:'Babysitting',p:199},{n:'Elder Care Assistance',p:249},{n:'Patient Assistance',p:229},
+     {n:'Balcony Cleaning',p:99},{n:'Window Cleaning',p:129},{n:'Post-Party Cleanup',p:349}
+   ],
+   revs:[{a:'Meena T.',s:5,t:'Savita cooks amazingly and keeps everything clean.'},{a:'Arpit S.',s:5,t:'Very trustworthy and hard-working.'}]},
+  {id:14, name:'Anjali Sharma',  phone:'+91 98001 11014', role:'Massage & Wellness', rating:4.9, reviews:97, exp:'6 yrs', price:349, dist:1.1, ea:false,
+   desc:'Professional home massage, spa & salon services for relaxation and wellness.', emoji:'💆',
+   svcs:[
+     {n:'Full Body Massage (60 min)',p:599},{n:'Full Body Massage (90 min)',p:799},{n:'Back & Shoulder Massage',p:349},{n:'Head Massage',p:199},{n:'Foot Massage',p:249},
+     {n:'Swedish Massage',p:649},{n:'Deep Tissue Massage',p:699},{n:'Couple Massage (60 min)',p:999},
+     {n:'Home Spa Package',p:999},{n:'Aromatherapy Massage',p:749},{n:'Hot Stone Massage',p:849},
+     {n:'Facial (Basic)',p:399},{n:'Facial (Premium)',p:599},{n:'Cleanup & Glow',p:349},
+     {n:'Waxing – Full Arms',p:199},{n:'Waxing – Full Legs',p:249},{n:'Full Body Wax',p:599},
+     {n:'Threading (Eyebrows)',p:49},{n:'Eyebrow & Upper Lip',p:79},
+     {n:'Manicure',p:299},{n:'Pedicure',p:349},{n:'Manicure + Pedicure',p:549},
+     {n:'Hair Spa',p:499},{n:'Hair Oil Massage',p:249},{n:'Blowdry & Styling',p:299}
+   ],
+   revs:[{a:'Sneha R.',s:5,t:'Anjali was amazing! Best home massage I have had.'},{a:'Pooja M.',s:5,t:'Very professional and relaxing experience.'}]},
+  {id:15, name:'Preethi Nair',   phone:'+91 98001 11015', role:'Massage & Wellness', rating:4.8, reviews:74, exp:'5 yrs', price:349, dist:2.0, ea:false,
+   desc:'Certified spa therapist offering massage, salon and beauty services at home.', emoji:'💆',
+   svcs:[
+     {n:'Full Body Massage (60 min)',p:599},{n:'Full Body Massage (90 min)',p:799},{n:'Back & Shoulder Massage',p:349},{n:'Head Massage',p:199},{n:'Foot Massage',p:249},
+     {n:'Swedish Massage',p:649},{n:'Deep Tissue Massage',p:699},{n:'Couple Massage (60 min)',p:999},
+     {n:'Home Spa Package',p:999},{n:'Aromatherapy Massage',p:749},{n:'Hot Stone Massage',p:849},
+     {n:'Facial (Basic)',p:399},{n:'Facial (Premium)',p:599},{n:'Cleanup & Glow',p:349},
+     {n:'Waxing – Full Arms',p:199},{n:'Waxing – Full Legs',p:249},{n:'Full Body Wax',p:599},
+     {n:'Threading (Eyebrows)',p:49},{n:'Eyebrow & Upper Lip',p:79},
+     {n:'Manicure',p:299},{n:'Pedicure',p:349},{n:'Manicure + Pedicure',p:549},
+     {n:'Hair Spa',p:499},{n:'Hair Oil Massage',p:249},{n:'Blowdry & Styling',p:299}
+   ],
+   revs:[{a:'Kavita S.',s:5,t:'Preethi is so skilled — felt like a 5-star spa at home!'},{a:'Ritu P.',s:4,t:'Great service, very punctual.'}]},
+];
+
+/* ── CATEGORIES ───────────────────────────────────────────── */
+const CATS = [
+  {id:'Electrician',  lb:'Electrician',  em:'⚡', items:[{i:'🌀',l:'Fan'},{i:'🔌',l:'Switchboard'},{i:'💡',l:'Lights'},{i:'🔋',l:'Wiring'},{i:'📦',l:'MCB/Fuse'},{i:'📷',l:'CCTV'}]},
+  {id:'Plumber',      lb:'Plumber',      em:'🔧', items:[{i:'🚿',l:'Tap/Shower'},{i:'🚰',l:'Pipe Leak'},{i:'🚽',l:'Toilet'},{i:'♨️',l:'Geyser'},{i:'🪣',l:'Tank'},{i:'🕳️',l:'Drain'}]},
+  {id:'Carpenter',    lb:'Carpenter',    em:'🪚', items:[{i:'🚪',l:'Door'},{i:'🪑',l:'Furniture'},{i:'🗄️',l:'Wardrobe'},{i:'🪟',l:'Window'},{i:'🛏️',l:'Bed Frame'},{i:'✨',l:'Polishing'}]},
+  {id:'Painter',      lb:'Painter',      em:'🎨', items:[{i:'🏠',l:'Interior'},{i:'🏗️',l:'Exterior'},{i:'💧',l:'Waterproof'},{i:'🖌️',l:'Texture'},{i:'🔤',l:'Stencil'},{i:'🪟',l:'Window Paint'}]},
+  {id:'Cleaner',      lb:'Cleaner',      em:'🧹', items:[{i:'🏡',l:'Full Home'},{i:'🍳',l:'Kitchen'},{i:'🛋️',l:'Sofa'},{i:'🚿',l:'Bathroom'},{i:'🪟',l:'Windows'},{i:'🏗️',l:'Post-Build'}]},
+  {id:'AC Repair',    lb:'AC Repair',    em:'❄️', items:[{i:'🌬️',l:'Servicing'},{i:'⛽',l:'Gas Refill'},{i:'⚙️',l:'Compressor'},{i:'🔧',l:'Installation'},{i:'💧',l:'Water Leak'},{i:'❄️',l:'Not Cooling'}]},
+  {id:'Mason',        lb:'Mason',        em:'🧱', items:[{i:'🪨',l:'Tiling'},{i:'🏗️',l:'Plastering'},{i:'💧',l:'Waterproof'},{i:'🔨',l:'Wall Repair'},{i:'🧱',l:'Brick Work'},{i:'🏠',l:'Flooring'}]},
+  {id:'Pest Control', lb:'Pest Control', em:'🐜', items:[{i:'🪲',l:'Cockroach'},{i:'🐜',l:'Ants'},{i:'🐀',l:'Rodents'},{i:'🪱',l:'Termites'},{i:'🦟',l:'Mosquitoes'},{i:'🛏️',l:'Bed Bugs'}]},
+];
+
+/* ── HOUSEHELP SUBCATEGORIES ────────────────────────────────
+   Each section has a title, and items with name + price.
+   Clicking an item goes straight to the booking page
+   with the service pre-selected on the nearest HH worker.
+─────────────────────────────────────────────────────────── */
+const HH_SECTIONS = [
+  { title:'🧹 Cleaning Services', items:[
+    {n:'Room Cleaning',p:99},{n:'Bathroom Cleaning',p:99},
+    {n:'Kitchen Cleaning',p:129},{n:'Deep Cleaning (Full House)',p:299},{n:'Sofa / Carpet Cleaning',p:199}
+  ]},
+  { title:'🍽️ Kitchen Help', items:[
+    {n:'Cooking Assistance',p:149},{n:'Full-time Cook (Daily)',p:399},
+    {n:'Meal Prep – Weekly Batch',p:279},{n:'Utensil Washing',p:79}
+  ]},
+  { title:'🧺 Laundry & Ironing', items:[
+    {n:'Clothes Washing',p:99},{n:'Ironing Service',p:89},{n:'Folding & Organizing',p:79}
+  ]},
+  { title:'🧼 General Household Help', items:[
+    {n:'Dusting & Tidying',p:79},{n:'Organizing Rooms',p:99},{n:'Daily Chores Support',p:129}
+  ]},
+  { title:'🛒 Errands / Small Tasks', items:[
+    {n:'Grocery Pickup',p:79},{n:'Market Errands',p:79},{n:'Parcel Drop / Pickup',p:69}
+  ]},
+  { title:'👶 Care Services', items:[
+    {n:'Babysitting',p:199},{n:'Elder Care Assistance',p:249},{n:'Patient Assistance',p:229}
+  ]},
+  { title:'🌿 Specialized Cleaning', items:[
+    {n:'Balcony Cleaning',p:99},{n:'Window Cleaning',p:129},{n:'Post-Party Cleanup',p:349}
+  ]},
+];
+
+/* ── MASSAGE & WELLNESS SUBCATEGORIES ──────────────────────── */
+const MW_SECTIONS = [
+  { title:'💆 Body Massage', items:[
+    {n:'Full Body Massage (60 min)',p:599},{n:'Full Body Massage (90 min)',p:799},
+    {n:'Back & Shoulder Massage',p:349},{n:'Swedish Massage',p:649},
+    {n:'Deep Tissue Massage',p:699},{n:'Aromatherapy Massage',p:749},
+    {n:'Hot Stone Massage',p:849},{n:'Couple Massage (60 min)',p:999}
+  ]},
+  { title:'🦶 Head & Foot Massage', items:[
+    {n:'Head Massage',p:199},{n:'Foot Massage',p:249},
+    {n:'Head + Foot Combo',p:399},{n:'Hair Oil Massage',p:249}
+  ]},
+  { title:'🛁 Home Spa Services', items:[
+    {n:'Home Spa Package (Full)',p:999},{n:'Aromatherapy Session',p:749},
+    {n:'Detox Body Wrap',p:849},{n:'Hot Stone Therapy',p:849}
+  ]},
+  { title:'✨ Salon at Home – Face', items:[
+    {n:'Facial (Basic)',p:399},{n:'Facial (Premium)',p:599},
+    {n:'Cleanup & Glow',p:349},{n:'Tan Removal',p:299},
+    {n:'Threading (Eyebrows)',p:49},{n:'Eyebrow + Upper Lip',p:79}
+  ]},
+  { title:'🪒 Waxing & Hair Removal', items:[
+    {n:'Waxing – Full Arms',p:199},{n:'Waxing – Full Legs',p:249},
+    {n:'Underarm Waxing',p:99},{n:'Full Body Wax',p:599}
+  ]},
+  { title:'💅 Nails & Hands', items:[
+    {n:'Manicure',p:299},{n:'Pedicure',p:349},
+    {n:'Manicure + Pedicure',p:549},{n:'Nail Art (per hand)',p:199}
+  ]},
+  { title:'💇 Hair Services', items:[
+    {n:'Hair Spa',p:499},{n:'Hair Oil Massage',p:249},
+    {n:'Blowdry & Styling',p:299},{n:'Keratin Treatment',p:999}
+  ]},
+];
+
+const CAT_SECTIONS = {
+  Electrician:[{ title:'⚡ Electrical Services', items:[
+      {n:'Fan',p:149},{n:'Switchboard',p:179},{n:'Lights',p:129},{n:'Wiring',p:179},{n:'MCB/Fuse',p:149},{n:'CCTV',p:249}
+    ]}],
+  Plumber:[{ title:'🔧 Plumbing Services', items:[
+      {n:'Tap/Shower',p:149},{n:'Pipe Leak',p:179},{n:'Toilet',p:169},{n:'Geyser',p:199},{n:'Tank',p:159},{n:'Drain',p:169}
+    ]}],
+  Carpenter:[{ title:'🪚 Carpentry Services', items:[
+      {n:'Door',p:149},{n:'Furniture',p:199},{n:'Wardrobe',p:249},{n:'Window',p:189},{n:'Bed Frame',p:249},{n:'Polishing',p:199}
+    ]}],
+  Painter:[{ title:'🎨 Painting Services', items:[
+      {n:'Interior',p:249},{n:'Exterior',p:299},{n:'Waterproof',p:349},{n:'Texture',p:449},{n:'Stencil',p:199},{n:'Window Paint',p:229}
+    ]}],
+  Cleaner:[{ title:'🧹 Cleaning Services', items:[
+      {n:'Full Home',p:299},{n:'Kitchen',p:149},{n:'Sofa',p:199},{n:'Bathroom',p:129},{n:'Windows',p:129},{n:'Post-Build',p:349}
+    ]}],
+  'AC Repair':[{ title:'❄️ AC Repair Services', items:[
+      {n:'Servicing',p:199},{n:'Gas Refill',p:179},{n:'Compressor',p:249},{n:'Installation',p:299},{n:'Water Leak',p:179},{n:'Not Cooling',p:179}
+    ]}],
+  Mason:[{ title:'🧱 Masonry Services', items:[
+      {n:'Tiling',p:249},{n:'Plastering',p:299},{n:'Waterproof',p:349},{n:'Wall Repair',p:179},{n:'Brick Work',p:299},{n:'Flooring',p:299}
+    ]}],
+  'Pest Control':[{ title:'🐜 Pest Control Services', items:[
+      {n:'Cockroach',p:199},{n:'Ants',p:169},{n:'Rodents',p:199},{n:'Termites',p:249},{n:'Mosquitoes',p:169},{n:'Bed Bugs',p:199}
+    ]}],
+  Househelp:HH_SECTIONS,
+  'Massage & Wellness':MW_SECTIONS
+};
+
+function getCategorySections(catId){
+  return CAT_SECTIONS[catId] || [{ title:'Services', items:(CATS.find(c=>c.id===catId)?.items||[]).map(it=>({n:it.l,p:0})) }];
+}
+
+function renderCategoryPage(catId){
+  const cat=CATS.find(c=>c.id===catId)||{id:catId,lb:catId,em:'',items:[]};
+  document.getElementById('catBread').textContent=cat.lb;
+  document.getElementById('catTitle').textContent=`${cat.em} ${cat.lb}`;
+  document.getElementById('catDesc').textContent=`Select the service you need — a certified professional will be assigned near you.`;
+  document.getElementById('catSections').innerHTML=getCategorySections(catId).map(sec=>`
+    <div class="hhsec">
+      <div class="hhsec-title">${sec.title}</div>
+      <div class="hhgrid">
+        ${sec.items.map(it=>`
+          <div class="hhbtn" onclick="bookCategoryService('${it.n.replace(/'/g,"\\'")}', '${catId}')">
+            <div class="hhbtn-left">
+              <div class="hhbtn-name">${it.n}</div>
+              ${it.p?`<div class="hhbtn-price">₹${it.p}</div>`:''}
+            </div>
+            <div class="hhbtn-arrow">›</div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function openCategory(catId){ renderCategoryPage(catId); goPage('category'); }
+
+function bookCategoryService(serviceName, catId){
+  const pool=[...DB.workers()].filter(w=>w.role===catId).sort((a,b)=>a.dist-b.dist);
+  if(!pool.length){ showToast(`⚠️ No ${catId} workers available right now`); return; }
+  sst={catId, item:serviceName, issue:''};
+  openBooking(pool[0].id);
+}
+
+/* ── HOURS ────────────────────────────────────────────────── */
+const WS_H=8, WS_M=30, WE_H=21, WE_M=45;
+const EROLES = ['Electrician','Plumber'];
+
+function getIST(){ return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'})); }
+function istDateStr(){
+  const d=getIST();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function isEmerg(){
+  const d=getIST(), mins=d.getHours()*60+d.getMinutes();
+  return mins>=WE_H*60+WE_M || mins<WS_H*60+WS_M;
+}
+function inWork(hhmm){
+  const [h,m]=hhmm.split(':').map(Number), mins=h*60+m;
+  return mins>=WS_H*60+WS_M && mins<WE_H*60+WE_M;
+}
+function nowSlot(){
+  const d=getIST();
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function fmt12(hhmm){
+  if(!hhmm) return '';
+  const [h,m]=hhmm.split(':').map(Number);
+  return `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`;
+}
+function fmtDate(d){ return new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); }
+function revealAt(time){
+  const [h,m]=time.split(':').map(Number);
+  let rh=h, rm=m-10; if(rm<0){rm+=60;rh--;} if(rh<0)rh+=24;
+  return fmt12(`${String(rh).padStart(2,'0')}:${String(rm).padStart(2,'0')}`);
+}
+function isAdv(date,time){
+  const ist=getIST(), [h,m]=time.split(':').map(Number);
+  const slot=new Date(date); slot.setHours(h,m,0,0);
+  return slot-ist>10*60*1000;
+}
+function shouldReveal(bk){
+  if(!bk.isAdvance) return true;
+  const ist=getIST(), [h,m]=bk.time.split(':').map(Number);
+  const slot=new Date(bk.date); slot.setHours(h,m,0,0);
+  return slot-ist<=10*60*1000;
+}
+
+/* ── CLOCK ─────────────────────────────────────────────────── */
+function tickClock(){
+  const d=getIST(), h=d.getHours(), m=d.getMinutes(), s=d.getSeconds();
+  const str=`${String(h%12||12).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} ${h<12?'AM':'PM'}`;
+  document.getElementById('istTime').textContent=str;
+  document.getElementById('emergTime').textContent=str;
+  const e=isEmerg(), bar=document.getElementById('emergBar'), prev=bar.classList.contains('on');
+  document.getElementById('istClock').classList.toggle('em',e);
+  bar.classList.toggle('on',e);
+  syncEmergFilters(e);
+  if(e!==prev){
+    if(isActivePage('home')) renderHomeCats();
+    if(isActivePage('services')) renderServices();
+  }
+  if(isActivePage('booking')&&!document.getElementById('bkTime').value) setBkBtn(e);
+}
+function isActivePage(id){ return document.getElementById('page-'+id).classList.contains('on'); }
+function syncEmergFilters(e){
+  document.querySelectorAll('#catBar .fbtn.eonly').forEach(b=>b.classList.toggle('ehide',e));
+  const ab=document.querySelector('#catBar .fbtn[data-cat="all"]');
+  if(ab) ab.classList.toggle('ehide',e);
+  if(e){
+    const ac=document.querySelector('#catBar .fbtn.on');
+    if(ac&&ac.classList.contains('ehide')){
+      document.querySelectorAll('#catBar .fbtn').forEach(b=>b.classList.remove('on'));
+      const el=document.querySelector('#catBar .fbtn[data-cat="Electrician"]');
+      if(el){el.classList.add('on'); filters.cat='Electrician';}
+    }
+  }
+}
+
+/* ── STATE ─────────────────────────────────────────────────── */
+const filters={cat:'all',sort:'default',search:''};
+let curW=null, curTab='all';
+let accInt=null, accLeft=120;
+let arrInt=null, arrLeft=900, arrExt=false;
+let pendBk=null, pendBkId=null, otpMode=null;
+let payMethod=null, sst={catId:null,item:null,issue:''};
+let pollInt=null, pollCnt=0, qrInt=null;
+let revRat=0, revId=null, aadhaarData=null;
+const POLL_MAX=60, POLL_MS=3000;
+
+setInterval(tickClock,1000); tickClock();
+
+/* ── HELPERS ───────────────────────────────────────────────── */
+function stars(r){ return Array.from({length:5},(_,i)=>`<span class="star${i<Math.round(r)?'':' empty'}">★</span>`).join(''); }
+function genOtp(){ return String(Math.floor(100000+Math.random()*900000)); }
+function closeModal(id){ document.getElementById(id).classList.remove('on'); }
+let _tt;
+function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(_tt); _tt=setTimeout(()=>t.classList.remove('on'),3500); }
+function markErr(id){ const el=document.getElementById(id); if(!el)return; el.classList.add('err'); el.addEventListener('input',()=>el.classList.remove('err'),{once:true}); el.addEventListener('change',()=>el.classList.remove('err'),{once:true}); }
+
+/* ── NAV ───────────────────────────────────────────────────── */
+function goPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.nl[data-pg]').forEach(l=>l.classList.remove('on'));
+  const pg=document.getElementById('page-'+id);
+  if(!pg) return;
+  pg.classList.add('on');
+  const b=document.querySelector(`.nl[data-pg="${id}"]`);
+  if(b) b.classList.add('on');
+  window.scrollTo({top:0,behavior:'smooth'});
+  if(id==='services') renderServices();
+  if(id==='home'){ renderHomeCats(); renderHomeWorkers(); }
+  if(id==='bookings') renderBookings();
+  if(id==='househelp') renderHousehelp();
+}
+function toggleMenu(){ document.getElementById('navLinks').classList.toggle('open'); }
+function goBack(){ sst.catId?goPage('smart'):goPage('services'); }
+function doSearch(){ filters.search=document.getElementById('homeSearch').value; document.getElementById('svcSearch').value=filters.search; goPage('services'); }
+
+/* ── HOME ──────────────────────────────────────────────────── */
+function renderHomeCats(){
+  const e=isEmerg();
+  /* Show all cats including Househelp (househelp not available during emergency) */
+  const vis=e ? CATS.filter(c=>EROLES.includes(c.id)) : CATS;
+  const hhCard=e?'':'<div class="catc" onclick="openCategory(\'Househelp\')"><div class="catic">🏠</div><div class="catlbl">Househelp</div></div>';
+  const mwCard=e?'':'<div class="catc" onclick="openCategory(\'Massage & Wellness\')"><div class="catic">💆</div><div class="catlbl">Massage & Wellness</div></div>';
+  document.getElementById('homeCats').innerHTML=
+    vis.map(c=>`<div class="catc" onclick="openCategory('${c.id}')"><div class="catic">${c.em}</div><div class="catlbl">${c.lb}</div></div>`).join('')+
+    hhCard+
+    mwCard+
+    (e?`<div style="grid-column:1/-1;text-align:center;font-size:.76rem;color:var(--emerg);font-weight:600;padding:.4rem .875rem;background:var(--emerg-light);border-radius:var(--radius-sm);border:1px solid var(--emerg-border)">🚨 Emergency hours — Only Electrician &amp; Plumber available (9:45 PM – 8:30 AM IST)</div>`:'');
+}
+function renderHomeWorkers(){
+  const e=isEmerg();
+  let ws=[...DB.workers()];
+  if(e) ws=ws.filter(w=>EROLES.includes(w.role)&&w.ea);
+  document.getElementById('homeWorkers').innerHTML=ws.sort((a,b)=>b.rating-a.rating).slice(0,3).map(wCard).join('');
+}
+
+/* ── HOUSEHELP PICKER ──────────────────────────────────────── */
+function renderHousehelp(){
+  document.getElementById('hhSections').innerHTML=HH_SECTIONS.map(sec=>`
+    <div class="hhsec">
+      <div class="hhsec-title">${sec.title}</div>
+      <div class="hhgrid">
+        ${sec.items.map(it=>`
+          <div class="hhbtn" onclick="bookHousehelp('${it.n.replace(/'/g,"\\'")}',${it.p})">
+            <div class="hhbtn-left">
+              <div class="hhbtn-name">${it.n}</div>
+              <div class="hhbtn-price">₹${it.p}</div>
+            </div>
+            <div class="hhbtn-arrow">›</div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function bookHousehelp(serviceName, price){
+  /* Find nearest househelp worker */
+  const pool=[...DB.workers()].filter(w=>w.role==='Househelp').sort((a,b)=>a.dist-b.dist);
+  if(!pool.length){ showToast('⚠️ No Househelp workers available right now'); return; }
+  sst={catId:'Househelp', item:serviceName, issue:''};
+  openBooking(pool[0].id);
+}
+
+/* ── MASSAGE & WELLNESS ──────────────────────────────────── */
+/* ── SMART SEARCH (other categories) ───────────────────────── */
+function openSmart(catId){
+  sst={catId,item:null,issue:''};
+  document.getElementById('smartBread').textContent=CATS.find(c=>c.id===catId).lb;
+  renderStep(1); goPage('smart');
+}
+
+function renderStep(step){
+  drawStepBar(step);
+  const cat=CATS.find(c=>c.id===sst.catId);
+  ['ss1','ss2','ss3'].forEach((id,i)=>document.getElementById(id).style.display=(i+1===step)?'':'none');
+
+  if(step===1){
+    document.getElementById('ss1').innerHTML=`<div class="ibox">
+      <h3>${cat.em} What needs attention?</h3><p>Select the item or area that needs service</p>
+      <div class="igrid">${cat.items.map(it=>`<div class="ibtn${sst.item===it.l?' sel':''}" onclick="pickItem('${it.l}')"><span class="ii">${it.i}</span>${it.l}</div>`).join('')}</div>
+      ${sst.item?`<button class="btn bp bfull" style="margin-top:.5rem" onclick="renderStep(2)">Next: Describe Issue →</button>`:''}</div>`;
+  }
+
+  if(step===2){
+    document.getElementById('ss2').innerHTML=`<div class="ibox">
+      <h3>📝 Describe the issue</h3><p>Tell us what's wrong with your <strong>${sst.item}</strong> in simple words</p>
+      <div class="fg"><textarea class="finput" id="issueText" rows="4" placeholder="e.g. My fan makes a noise and spins slowly…" style="resize:vertical">${sst.issue}</textarea></div>
+      <div style="display:flex;gap:.65rem">
+        <button class="btn bo" onclick="renderStep(1)">← Back</button>
+        <button class="btn bp" style="flex:1;justify-content:center" onclick="runSearch()">🔍 Find Workers →</button>
+      </div></div>`;
+  }
+
+  if(step===3){
+    sst.issue=document.getElementById('issueText')?.value||sst.issue;
+    const e=isEmerg();
+    let pool=[...DB.workers()].filter(w=>w.role===sst.catId);
+    if(e) pool=pool.filter(w=>w.ea);
+    pool.sort((a,b)=>a.dist-b.dist);
+    const noW=pool.length===0;
+    const nearest=pool[0];
+    document.getElementById('ss3').innerHTML=
+      (e?`<div class="ebanner"><div class="ebi">🚨</div><div><h3>Emergency Hours (9:45 PM – 8:30 AM IST)</h3><p>Only 24/7 emergency workers shown. Nearest worker auto-assigned.</p></div></div>`:'')+
+      (noW?`<div class="hnotice emerg"><span class="hi">⚠️</span><div><strong>No workers available right now</strong><br/>Please try again shortly or choose a different category.</div></div>`:'')+
+      `<div class="ibox" style="margin-bottom:1rem">
+        <div style="font-size:.79rem;color:var(--text2);margin-bottom:.4rem">Your request:</div>
+        <strong>${cat.em} ${sst.item}</strong>
+        ${sst.issue?`<div style="font-size:.79rem;color:var(--text2);margin-top:.3rem">"${sst.issue}"</div>`:''}
+        <button class="btn bo" style="margin-top:.65rem;font-size:.76rem;padding:6px 12px" onclick="renderStep(2)">✏️ Edit</button>
+      </div>
+      <div style="background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:1.5rem;box-shadow:var(--sh0);text-align:center">
+        <div style="font-size:2rem;margin-bottom:.5rem">📋</div>
+        <h3 style="font-size:1rem;font-weight:700;margin-bottom:.4rem">Ready to Book</h3>
+        <p style="font-size:.82rem;color:var(--text2);margin-bottom:1.25rem">
+          ${noW?'No workers available in your area right now.'
+            :`${pool.length} worker${pool.length!==1?'s':''} available · Nearest is <strong>${nearest.dist} km</strong> away`}
+        </p>
+        <button class="btn${e?' be':' bp'} blg bfull"
+          ${noW?'disabled style="opacity:.5;cursor:not-allowed"':'onclick="openBookingFromSmart()"'}>
+          ${noW?'⚠️ No Workers Available':e?'🚨 Request Emergency Worker':'📅 Continue to Booking'}
+        </button>
+      </div>`;
+  }
+}
+
+function pickItem(l){ sst.item=l; renderStep(1); }
+function runSearch(){ sst.issue=document.getElementById('issueText')?.value.trim()||''; renderStep(3); }
+function openBookingFromSmart(){
+  const e=isEmerg();
+  let pool=[...DB.workers()].filter(w=>w.role===sst.catId);
+  if(e) pool=pool.filter(w=>w.ea);
+  if(!pool.length){ showToast('⚠️ No workers available right now.'); return; }
+  openBooking(pool.sort((a,b)=>a.dist-b.dist)[0].id);
+}
+
+function drawStepBar(cur){
+  const steps=['Select Item','Describe Issue','Results'];
+  document.getElementById('stepBar').innerHTML=steps.map((s,i)=>{
+    const n=i+1, cls=n<cur?'done':n===cur?'cur':'', lc=n<cur?'done':'';
+    return `<div class="snode ${cls}"><div class="snum">${n<cur?'✓':n}</div>${s}</div>${n<steps.length?`<div class="sline ${lc}"></div>`:''}`;
+  }).join('');
+}
+
+/* ── WORKER CARD ──────────────────────────────────────────── */
+function wCard(w){
+  const e=isEmerg()&&w.ea;
+  return `<div class="wcard${e?' ec':''}" onclick="openProfile(${w.id})">
+    ${w.ea?`<div class="webadge"><span class="bdg bge">🚨 24/7</span></div>`:''}
+    <div class="wtop">
+      <div class="wav">🔒</div>
+      <div class="wmeta">
+        <div class="wanon">Identity revealed after booking</div>
+        <div class="wrole${e?' er':''}">${w.emoji} ${w.role}</div>
+        <div class="wstars">${stars(w.rating)}<span class="rnum">${w.rating} (${w.reviews} reviews)</span></div>
+      </div>
+    </div>
+    <div class="wdesc">${w.desc}</div>
+    <div class="wfoot">
+      <div><div class="wprice">₹${w.price} <span>/ visit</span></div><div class="wmeta2">📍 ${w.dist} km away · ${w.exp}</div></div>
+      <button class="btn${e?' be':' bp'}" onclick="event.stopPropagation();openBooking(${w.id})">Book</button>
+    </div>
+  </div>`;
+}
+
+/* ── SERVICES PAGE ────────────────────────────────────────── */
+function setFilter(type,val,btn){
+  filters[type]=val;
+  btn.closest('.fbar').querySelectorAll('.fbtn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  applyFilters();
+}
+function applyFilters(){ filters.search=document.getElementById('svcSearch').value.toLowerCase(); renderServices(); }
+
+function renderServices(){
+  const e=isEmerg();
+  let ws=[...DB.workers()];
+  if(e) ws=ws.filter(w=>EROLES.includes(w.role)&&w.ea);
+  else if(filters.cat!=='all') ws=ws.filter(w=>w.role===filters.cat);
+  if(filters.search) ws=ws.filter(w=>w.role.toLowerCase().includes(filters.search)||w.desc.toLowerCase().includes(filters.search));
+  if(filters.sort==='rating') ws.sort((a,b)=>b.rating-a.rating);
+  if(filters.sort==='price-asc') ws.sort((a,b)=>a.price-b.price);
+  if(filters.sort==='price-desc') ws.sort((a,b)=>b.price-a.price);
+  const note=e?`<div style="grid-column:1/-1;font-size:.78rem;color:var(--emerg);font-weight:600;background:var(--emerg-light);border:1px solid var(--emerg-border);border-radius:var(--radius-sm);padding:.5rem .875rem;margin-bottom:.875rem">🚨 Emergency Hours — Only Electrician &amp; Plumber (24/7) workers shown (9:45 PM – 8:30 AM IST)</div>`:'';
+  document.getElementById('svcCount').textContent=`Showing ${ws.length} professional${ws.length!==1?'s':''}`;
+  document.getElementById('svcGrid').innerHTML=note+(ws.length===0?`<div class="empty" style="grid-column:1/-1"><div class="emptyico">🔍</div><h3>No results</h3><p>Try different filters.</p></div>`:ws.map(wCard).join(''));
+}
+
+/* ── PROFILE ──────────────────────────────────────────────── */
+function openProfile(id){
+  const w=DB.workers().find(w=>w.id===id); if(!w) return;
+  curW=w;
+  document.getElementById('profBread').textContent=w.role+' Professional';
+  document.getElementById('profContent').innerHTML=`
+    <div class="profhero">
+      <div class="pav">🔒</div>
+      <div class="pinf">
+        <div class="pnm">Identity revealed after booking</div>
+        <div class="prl">${w.emoji} ${w.role}${w.ea?' &nbsp;<span class="bdg bge">🚨 24/7</span>':''}</div>
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:.5rem">${stars(w.rating)}<span style="font-size:.8rem;color:var(--text2)">${w.rating} · ${w.reviews} reviews</span></div>
+        <span class="bdg bgn">✔ Verified</span>&nbsp;<span class="bdg bgg">📞 Name &amp; contact after booking</span>
+        <div style="margin-top:.4rem;font-size:.76rem;color:var(--text2)">📍 ${w.dist} km away</div>
+        <div class="pstats">
+          <div class="pstat"><strong>${w.exp}</strong><span>Experience</span></div>
+          <div class="pstat"><strong>${w.reviews}</strong><span>Reviews</span></div>
+          <div class="pstat"><strong>₹${w.price}</strong><span>Starting</span></div>
+          <div class="pstat"><strong>${w.rating}★</strong><span>Rating</span></div>
+        </div>
+      </div>
+      <div style="align-self:center"><button class="btn bp blg" onclick="openBooking(${w.id})">📅 Book Service</button></div>
+    </div>
+    <div class="csec"><div class="cst">📖 About</div><p style="font-size:.875rem;color:var(--text2);line-height:1.65">${w.desc} With ${w.exp} of experience, has served 200+ satisfied customers.</p></div>
+    <div class="csec"><div class="cst">🛠 Services &amp; Pricing</div><ul class="svlist">${w.svcs.map(s=>`<li class="svitem"><span class="svnm">${s.n}</span><span class="svpr">₹${s.p}</span></li>`).join('')}</ul></div>
+    <div class="csec"><div class="cst">💬 Reviews (${w.revs.length})</div><div class="revlist">${w.revs.map(r=>`<div class="revcard"><div class="revhdr"><span class="revauth">${r.a}</span><span>${stars(r.s)}</span></div><p class="revtxt">${r.t}</p></div>`).join('')}</div></div>`;
+  goPage('profile');
+}
+
+/* ── BOOKING PAGE ─────────────────────────────────────────── */
+function openBooking(id){
+  const w=DB.workers().find(w=>w.id===id); if(!w) return;
+  curW=w;
+  const e=isEmerg();
+  document.getElementById('bkBread').textContent=w.role;
+  document.getElementById('bkWorkerInfo').innerHTML=`
+    <div style="display:flex;align-items:center;gap:11px;background:var(--surface2);border-radius:var(--radius-sm);padding:.95rem;border:1px solid var(--border)">
+      <div style="width:44px;height:44px;border-radius:50%;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">${w.emoji}</div>
+      <div>
+        <div style="font-weight:700;font-size:.9rem">${w.role} Service</div>
+        <div style="font-size:.76rem;color:var(--text2)">Nearest worker · ${w.dist} km radius</div>
+        ${w.ea?'<span class="bdg bge" style="margin-top:3px;display:inline-flex">🚨 Emergency Available</span>':''}
+      </div>
+      <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+        ${stars(w.rating)}<span style="font-size:.68rem;color:var(--text3)">🔒 Identity hidden</span>
+      </div>
+    </div>`;
+
+  const sel=document.getElementById('bkSvc');
+  sel.innerHTML=w.svcs.map(s=>`<option value="${s.p}" data-sname="${s.n}">${s.n} — ₹${s.p}</option>`).join('');
+  if(sst.item){
+    const kw=sst.item.toLowerCase();
+    let best=-1, bscore=-1;
+    for(let i=0;i<sel.options.length;i++){
+      const sn=sel.options[i].dataset.sname.toLowerCase();
+      const sc=sn===kw?4:sn.includes(kw)?3:sn.startsWith(kw)?2:sn.split(' ').some(w=>w.startsWith(kw))?1:0;
+      if(sc>bscore){bscore=sc;best=i;}
+    }
+    if(best>=0&&bscore>0) sel.selectedIndex=best;
+    if(sst.issue) document.getElementById('bkNotes').value=sst.issue;
+  } else { document.getElementById('bkNotes').value=''; }
+
+  const tg=document.getElementById('bkTimeGrp');
+  if(e){ tg.style.display='none'; document.getElementById('bkTime').value=nowSlot(); }
+  else { tg.style.display=''; buildSlots(); document.getElementById('bkTime').value=''; }
+
+  const today=istDateStr();
+  const maxDt=getIST(); maxDt.setDate(maxDt.getDate()+30);
+  const maxStr=`${maxDt.getFullYear()}-${String(maxDt.getMonth()+1).padStart(2,'0')}-${String(maxDt.getDate()).padStart(2,'0')}`;
+  document.getElementById('bkDate').min=today;
+  document.getElementById('bkDate').max=maxStr;
+  document.getElementById('bkDate').value='';
+  document.getElementById('bkAddr').value='';
+  document.getElementById('bkNotice').innerHTML=e?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Emergency Hours Active (9:45 PM – 8:30 AM IST)</strong><br/>Worker dispatched immediately. Time set to now automatically.</div></div>`:'';
+  setBkBtn(e); updatePrice(); goPage('booking');
+}
+
+function setBkBtn(e){
+  const b=document.getElementById('bkBtn');
+  b.textContent=e?'🚨 Request Emergency Worker & Pay':'📡 Book & Pay';
+  b.className=`btn ${e?'be':'bp'} bfull blg`;
+}
+
+function buildSlots(){
+  const sel=document.getElementById('bkTime');
+  const dateVal=document.getElementById('bkDate').value;
+  const ist=getIST(), isToday=(dateVal===istDateStr()), nowMins=ist.getHours()*60+ist.getMinutes();
+  sel.innerHTML='<option value="">Select time…</option>';
+  for(let h=WS_H;h<=WE_H;h++){
+    const ms=h===WS_H?WS_M:0, me=h===WE_H?WE_M:60;
+    for(let m=ms;m<me;m+=15){
+      if(isToday&&h*60+m<=nowMins) continue;
+      const hh=String(h).padStart(2,'0'), mm=String(m).padStart(2,'0');
+      sel.innerHTML+=`<option value="${hh}:${mm}">${fmt12(`${hh}:${mm}`)}</option>`;
+    }
+  }
+  if(isToday&&sel.options.length===1) sel.innerHTML='<option value="">No more slots today — pick tomorrow</option>';
+}
+
+function onDateChange(){ if(!isEmerg()){ buildSlots(); document.getElementById('bkNotice').innerHTML=''; } }
+function onTimeChange(){
+  if(isEmerg()) return;
+  const t=document.getElementById('bkTime').value, el=document.getElementById('bkNotice');
+  if(!t){el.innerHTML='';return;}
+  el.innerHTML=!inWork(t)
+    ?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Outside working hours (8:30 AM – 9:45 PM)</strong><br/>Request goes to 24/7 emergency workers only.</div></div>`
+    :`<div class="hnotice normal"><span class="hi">🕙</span><div>Working hours: <strong>8:30 AM – 9:45 PM</strong>. Slot is within working hours.</div></div>`;
+}
+
+function updatePrice(){
+  const sel=document.getElementById('bkSvc'), opt=sel.options[sel.selectedIndex];
+  const base=parseInt(sel.value)||0, fee=base?Math.min(50,Math.max(20,Math.round(base*.1))):0;
+  document.getElementById('pSvc').textContent=opt?opt.dataset.sname:'—';
+  document.getElementById('pBase').textContent=base?`₹${base}`:'—';
+  document.getElementById('pFee').textContent=base?`₹${fee}`:'—';
+  document.getElementById('pTotal').textContent=base?`₹${base+fee}`:'—';
+}
+
+/* ── INITIATE BOOKING ─────────────────────────────────────── */
+function initiateBooking(){
+  const date=document.getElementById('bkDate').value;
+  const addr=document.getElementById('bkAddr').value.trim();
+  const sel=document.getElementById('bkSvc');
+  const svcName=sel.options[sel.selectedIndex]?.dataset.sname||'';
+  const base=parseInt(sel.value)||0;
+  const fee=base?Math.min(50,Math.max(20,Math.round(base*.1))):0;
+  const total=base+fee;
+  const e=isEmerg();
+  let time=document.getElementById('bkTime').value;
+  if(e) time=nowSlot();
+  let ok=true;
+  if(!date){markErr('bkDate');ok=false;}
+  if(!time&&!e){markErr('bkTime');ok=false;}
+  if(!addr){markErr('bkAddr');ok=false;}
+  if(!ok){showToast('⚠️ Please fill in all required fields');return;}
+  pendBk={
+    workerId:curW.id, workerRole:curW.role, workerEmoji:curW.emoji,
+    service:svcName, date, time, address:addr,
+    price:total, basePrice:base,
+    notes:document.getElementById('bkNotes').value.trim(),
+    isEmergency:e||!inWork(time)
+  };
+  paymentMethod=null;
+  ['pGpay','pCash'].forEach(id=>document.getElementById(id).classList.remove('sel'));
+  document.getElementById('gpaySection').style.display='none';
+  document.getElementById('cashSection').style.display='none';
+  document.getElementById('gpayOk').classList.remove('on');
+  document.getElementById('cashAmt').textContent=`₹${total}`;
+  document.getElementById('payModal').classList.add('on');
+}
+
+/* ── PAYMENT ──────────────────────────────────────────────── */
+function selectPay(m){
+  paymentMethod=m;
+  document.getElementById('pGpay').classList.toggle('sel',m==='gpay');
+  document.getElementById('pCash').classList.toggle('sel',m==='cash');
+  if(m==='gpay'){
+    document.getElementById('gpaySection').style.display='';
+    document.getElementById('cashSection').style.display='none';
+    document.getElementById('gpayOk').classList.remove('on');
+    drawQR(pendBk.price);
+    startPoll();
+  } else {
+    document.getElementById('gpaySection').style.display='none';
+    document.getElementById('cashSection').style.display='';
+    stopPoll();
+  }
+}
+
+function startPoll(){
+  stopPoll(); pollCnt=0;
+  let qrSecs=300;
+  document.getElementById('qrExpiry').style.display='';
+  qrInt=setInterval(()=>{
+    qrSecs--;
+    const mn=Math.floor(qrSecs/60), sc=qrSecs%60;
+    document.getElementById('qrCountdown').textContent=`${mn}:${String(sc).padStart(2,'0')}`;
+    if(qrSecs<=0){ clearInterval(qrInt); stopPoll(); document.getElementById('qrExpiry').textContent='❌ QR expired — please try again'; }
+  },1000);
+  pollInt=setInterval(async()=>{
+    pollCnt++;
+    if(pollCnt>POLL_MAX){ stopPoll(); showToast('⚠️ Payment timeout. Try again or choose Cash.'); return; }
+    if(await checkPayStatus()){ stopPoll(); onPayOk(); }
+  },POLL_MS);
+}
+
+function stopPoll(){ clearInterval(pollInt); pollInt=null; pollCnt=0; clearInterval(qrInt); qrInt=null; }
+async function checkPayStatus(){ return pollCnt>=3; }
+function onPayOk(){
+  document.getElementById('gpayOk').classList.add('on');
+  setTimeout(()=>{ closeModal('payModal'); startBroadcast(); },1400);
+}
+function onCashConfirm(){ stopPoll(); closeModal('payModal'); startBroadcast(); }
+
+function drawQR(amount){
+  const url=`upi://pay?pa=quickfix@upi&pn=${encodeURIComponent('QuickFix')}&am=${amount}&cu=INR&tn=${encodeURIComponent('QuickFix Service Booking')}`;
+  const cont=document.getElementById('qrCont'); cont.innerHTML='';
+  function render(){
+    try{
+      new QRCode(cont,{text:url,width:190,height:190,colorDark:'#1a1a1a',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
+      const d=document.createElement('div');
+      d.innerHTML=`<div class="qramt">₹${amount}</div><div class="qrnote">quickfix@upi · Scan with any UPI app</div>`;
+      cont.appendChild(d);
+    } catch(e){ showQRFallback(); }
+  }
+  function showQRFallback(){
+    cont.innerHTML=`<div style="padding:1rem;text-align:center"><div style="font-size:.78rem;color:var(--text2);margin-bottom:.5rem">Open in UPI app:</div><a href="${url}" style="color:var(--brand);font-weight:600;font-size:.78rem;word-break:break-all">${url}</a><div class="qramt" style="margin-top:.75rem">₹${amount}</div></div>`;
+  }
+  if(typeof QRCode!=='undefined'){ render(); }
+  else {
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    s.onload=render;
+    s.onerror=showQRFallback;
+    s.setAttribute('crossorigin','anonymous');
+    document.head.appendChild(s);
+  }
+}
+
+/* ── BROADCAST ────────────────────────────────────────────── */
+function startBroadcast(){
+  accLeft=120; clearInterval(accInt);
+  document.getElementById('acceptModal').classList.add('on');
+  updateAcc();
+  accInt=setInterval(()=>{ accLeft--; updateAcc(); if(accLeft<=0){ clearInterval(accInt); closeModal('acceptModal'); document.getElementById('noAcceptModal').classList.add('on'); } },1000);
+  /* Worker accepts after 3–7 seconds; timer keeps running visually until accept fires */
+  const delay=3000+Math.random()*4000;
+  setTimeout(()=>{ if(accLeft>0){ clearInterval(accInt); closeModal('acceptModal'); onAccepted(); } },delay);
+}
+function updateAcc(){
+  const mn=Math.floor(accLeft/60), sc=accLeft%60;
+  document.getElementById('acceptTimer').textContent=`${mn}:${String(sc).padStart(2,'0')}`;
+  document.getElementById('acceptBar').style.width=((accLeft/120)*100)+'%';
+}
+
+/* ── ON ACCEPTED ──────────────────────────────────────────── */
+function onAccepted(){
+  let pool=[...DB.workers()].filter(w=>w.role===pendBk.workerRole);
+  if(pendBk.isEmergency) pool=pool.filter(w=>w.ea);
+  const nearest=pool.sort((a,b)=>a.dist-b.dist)[0]||DB.workers().find(w=>w.id===pendBk.workerId);
+  const arrivalOtp=genOtp(), completionOtp=genOtp(), advance=isAdv(pendBk.date,pendBk.time);
+  const bk={
+    id:Date.now(),
+    workerId:nearest.id, workerName:nearest.name, workerPhone:nearest.phone,
+    workerRole:nearest.role, workerEmoji:nearest.emoji, workerDist:nearest.dist,
+    service:pendBk.service, date:pendBk.date, time:pendBk.time,
+    address:pendBk.address, price:pendBk.price, basePrice:pendBk.basePrice,
+    notes:pendBk.notes,
+    isEmergency:pendBk.isEmergency,
+    isAdvance:advance,
+    paymentMethod,
+    status:advance?'Scheduled':'Confirmed',
+    arrivalOtp,
+    completionOtp,
+    rated:false,
+    createdAt:new Date().toISOString()
+  };
+  const bks=DB.bookings(); bks.unshift(bk); DB.save(bks);
+  const sf=fmt12(bk.time), rf=revealAt(bk.time);
+  const ico=document.getElementById('confIco');
+  ico.textContent=advance?'📅':'✅';
+  ico.style.background=advance?'#fef3d0':'var(--teal-light)';
+  ico.className='mico anim';
+  document.getElementById('confTitle').textContent=advance?'Booking Scheduled!':'Worker Assigned!';
+  document.getElementById('confDesc').innerHTML=advance
+    ?`Your service is booked for <strong>${fmtDate(bk.date)} at ${sf}</strong>.<br/>Worker details &amp; OTPs appear in My Bookings at <strong>${rf}</strong> (30 min before).`
+    :`The nearest available worker accepted. Their details are now in My Bookings.`;
+  document.getElementById('confDet').innerHTML=`
+    <div class="mrow"><span class="ml">Service</span><span class="mv">${bk.service}</span></div>
+    <div class="mrow"><span class="ml">Date &amp; Time</span><span class="mv">${fmtDate(bk.date)} · ${sf}</span></div>
+    ${advance
+      ?`<div class="mrow"><span class="ml">Worker</span><span class="mv" style="color:var(--text3);font-style:italic">🔒 Revealed at ${rf}</span></div>
+         <div class="mrow"><span class="ml">Phone</span><span class="mv" style="color:var(--text3);font-style:italic">🔒 Revealed at ${rf}</span></div>`
+      :`<div class="mrow"><span class="ml">Worker</span><span class="mv">${nearest.name}</span></div>
+         <div class="mrow"><span class="ml">Phone</span><span class="mv">${nearest.phone}</span></div>
+         <div class="mrow"><span class="ml">Distance</span><span class="mv">${nearest.dist} km away</span></div>`}
+    <div class="mrow"><span class="ml">Payment</span><span class="mv">${paymentMethod==='gpay'?'📱 GPay (Paid)':'💵 Cash on Arrival'}</span></div>
+    <div class="mrow"><span class="ml">Total</span><span class="mv" style="color:var(--brand)">₹${bk.price}</span></div>`;
+  document.getElementById('confOtps').innerHTML=advance
+    ?`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.95rem;text-align:center;margin-bottom:1.1rem"><div style="font-size:.82rem;color:var(--text2)">🔒 OTPs appear in My Bookings at <strong>${rf}</strong></div></div>`
+    :`<div class="cotps">
+        <div class="cotp"><div class="cotplbl">🚗 Arrival OTP<br/><span style="font-size:.58rem;opacity:.75">Give to worker on arrival</span></div><div class="cotpcode">${arrivalOtp}</div></div>
+        <div class="cotp c2"><div class="cotplbl">✅ Completion OTP<br/><span style="font-size:.58rem;opacity:.75">Give after service is done</span></div><div class="cotpcode c2">${completionOtp}</div></div>
+      </div>`;
+  document.getElementById('confirmModal').classList.add('on');
+}
+
+/* ── MY BOOKINGS ──────────────────────────────────────────── */
+function renderBookings(){
+  const all=DB.bookings();
+  let list=all;
+  if(curTab==='upcoming') list=all.filter(b=>['Scheduled','Confirmed','Worker on Way','Arrived'].includes(b.status));
+  if(curTab==='completed') list=all.filter(b=>b.status==='Completed');
+  if(curTab==='cancelled') list=all.filter(b=>b.status==='Cancelled');
+  const c=document.getElementById('bkList');
+  if(!list.length){
+    c.innerHTML=`<div class="empty"><div class="emptyico">📋</div><h3>No bookings here</h3><p>Your bookings will appear here.</p>${curTab==='all'?`<button class="btn bp" style="margin-top:1rem" onclick="goPage('services')">Browse Services</button>`:''}</div>`;
+    return;
+  }
+  const sMap={Scheduled:'bgb',Confirmed:'bgbr','Worker on Way':'bga',Arrived:'bgt',Completed:'bgn',Cancelled:'bgr',Pending:'bgg'};
+  c.innerHTML=`<div class="bklist">${list.map(b=>{
+    const cls=sMap[b.status]||'bgg';
+    const rev=shouldReveal(b);
+    const show=['Confirmed','Worker on Way','Arrived','Completed'].includes(b.status)||(b.status==='Scheduled'&&rev);
+    const rf=b.isAdvance?revealAt(b.time):null;
+    const payLabel=b.paymentMethod==='gpay'?'📱 GPay (Paid)':'💵 Cash on Arrival';
+    const contactHtml=show
+      ?`<div class="cbox"><strong>👤 ${b.workerName}</strong>&nbsp; 📞 <a href="tel:${b.workerPhone}" style="color:#266049;font-weight:600;text-decoration:none">${b.workerPhone}</a>&nbsp; 📍 ${b.workerDist}km</div>`
+      :b.isAdvance?`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.6rem .95rem;margin-top:.55rem;font-size:.79rem;color:var(--text2)">🔒 Worker details revealed at <strong>${rf}</strong></div>`:'';
+    const otpHtml=show?`<div class="otppair">
+      <div class="otpbox"><div class="otplbl">🚗 Arrival OTP</div><div class="otpcode">${b.arrivalOtp||'——'}</div></div>
+      <div class="otpbox c2"><div class="otplbl">✅ Completion OTP</div><div class="otpcode c2">${b.completionOtp||'——'}</div></div></div>`:'';
+    const payHtml=(show||b.status==='Scheduled')?`<div style="font-size:.72rem;color:var(--text2);margin-top:.3rem">${payLabel}</div>`:'';
+    const schedNote=b.status==='Scheduled'&&!rev?`<div style="font-size:.76rem;color:var(--brand);font-weight:600;margin-top:.4rem">📅 Scheduled for ${fmt12(b.time)} · Worker assigned</div>`:'';
+    const trackBtn=b.status==='Confirmed'?`<button class="btn bt" style="font-size:.72rem;padding:5px 10px" onclick="openArrival(${b.id})">🚗 Track</button>`:'';
+    const compBtn=b.status==='Arrived'?`<button class="btn bt" style="font-size:.72rem;padding:5px 10px" onclick="triggerOtp('complete',${b.id})">✅ Complete</button>`:'';
+    const canCancel=['Confirmed','Scheduled'].includes(b.status)&&!rev;
+const cancelBtn=canCancel
+  ?`<div><button class="btn bd" style="font-size:.72rem;padding:5px 10px" onclick="cancelBk(${b.id})">❌ Cancel</button><div style="font-size:.65rem;color:var(--text3);margin-top:3px">Free cancellation up to 10 min before</div></div>`
+  :(['Confirmed','Scheduled'].includes(b.status)&&rev)?`<div style="font-size:.65rem;color:var(--danger);font-weight:600;margin-top:4px">🔒 Cancellation locked — worker is on the way</div>`:'' ;
+    const bookAgainBtn=b.status==='Cancelled'?`<button class="btn bp" style="font-size:.72rem;padding:5px 10px" onclick="goPage('services')">🔄 Book Again</button>`:'';
+    const rateBtn=b.status==='Completed'&&!b.rated?`<button class="btn" style="font-size:.72rem;padding:5px 10px;background:var(--amber);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:600" onclick="openReview(${b.id})">⭐ Rate</button>`:'';
+    return `<div class="bkitem">
+      <div class="bkico">${b.workerEmoji}</div>
+      <div class="bkdet">
+        <div class="bktit">${b.service}
+          ${b.isEmergency?'&nbsp;<span class="bdg bge">🚨 Emergency</span>':''}
+          ${b.isAdvance&&b.status==='Scheduled'?'&nbsp;<span class="bdg bgb">📅 Advance</span>':''}
+        </div>
+        <div class="bkmeta"><span>${b.workerRole}</span><span>${fmtDate(b.date)} · ${fmt12(b.time)}</span><span>₹${b.price}</span></div>
+        ${schedNote}${contactHtml}${otpHtml}${payHtml}
+        <div class="bkacts">${trackBtn}${compBtn}${cancelBtn}${bookAgainBtn}${rateBtn}</div>
+      </div>
+      <div class="bkst"><span class="bdg ${cls}">${b.status}</span></div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function cancelBk(id){
+  const bks=DB.bookings(), b=bks.find(x=>x.id===id);
+  if(b){b.status='Cancelled';DB.save(bks);sb.from('bookings').update({status:'Cancelled'}).eq('id',String(id)).then(()=>{});}
+  showToast('🗑 Booking cancelled'); renderBookings();
+}
+function clearHistory(){ document.getElementById('clrModal').classList.add('on'); }
+function clrConfirmed(){
+  closeModal('clrModal'); localStorage.removeItem('qf_bookings');
+  curTab='all'; document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('on',i===0));
+  showToast('🗑 Booking history cleared'); renderBookings();
+}
+function switchTab(tab,btn){
+  curTab=tab; document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on'); renderBookings();
+}
+
+/* ── ARRIVAL TIMER ────────────────────────────────────────── */
+function openArrival(bkId){
+  const bks=DB.bookings(), b=bks.find(x=>x.id===bkId); if(!b) return;
+  b.status='Worker on Way'; DB.save(bks);
+  pendBkId=bkId; arrExt=false; arrLeft=900;
+  document.getElementById('arrOtpShow').textContent=b.arrivalOtp||'——';
+  document.getElementById('arrivalModal').classList.add('on');
+  startArr(); renderBookings();
+}
+function startArr(){
+  clearInterval(arrInt); updateArr();
+  arrInt=setInterval(()=>{ arrLeft--; updateArr(); if(arrLeft<=0){ clearInterval(arrInt); closeModal('arrivalModal'); if(!arrExt) document.getElementById('notArrivedModal').classList.add('on'); else autoCancel(); } },1000);
+}
+function updateArr(){
+  const tot=arrExt?300:900, mn=Math.floor(arrLeft/60), sc=arrLeft%60;
+  document.getElementById('arrivalTimer').textContent=`${mn}:${String(sc).padStart(2,'0')}`;
+  document.getElementById('arrivalBar').style.width=((arrLeft/tot)*100)+'%';
+}
+function extendTimer(){
+  closeModal('notArrivedModal'); arrExt=true; arrLeft=300;
+  document.getElementById('arrivalModal').classList.add('on'); startArr(); showToast('⏱ Extended by 5 minutes');
+}
+function autoCancel(){
+  closeModal('notArrivedModal'); closeModal('arrivalModal'); if(!pendBkId) return;
+  const bks=DB.bookings(), b=bks.find(x=>x.id===pendBkId);
+  if(b) b.status='Cancelled'; DB.save(bks); showToast('❌ Auto-cancelled — worker did not arrive'); renderBookings();
+}
+
+/* ── OTP VERIFICATION ─────────────────────────────────────── */
+function triggerOtp(mode,id){
+  otpMode=mode; if(id) pendBkId=id;
+  document.getElementById('otpTitle').textContent=mode==='arrival'?'Verify Arrival OTP':'Verify Completion OTP';
+  document.getElementById('otpDesc').textContent=mode==='arrival'?'Enter the 6-digit Arrival OTP to confirm the worker has arrived.':'Enter the 6-digit Completion OTP to mark the service as done.';
+  document.getElementById('otpInput').value='';
+  document.getElementById('otpModal').classList.add('on');
+}
+function verifyOtp(){
+  const entered=document.getElementById('otpInput').value.trim();
+  const bks=DB.bookings(), b=bks.find(x=>x.id===pendBkId);
+  if(!b){ showToast('⚠️ Booking not found'); return; }
+  if(otpMode==='arrival'){
+    if(entered!==b.arrivalOtp){ showToast('❌ Incorrect Arrival OTP'); return; }
+    clearInterval(arrInt); closeModal('arrivalModal'); closeModal('otpModal');
+    b.status='Arrived'; DB.save(bks); showToast('✅ Arrival confirmed!'); renderBookings();
+  } else {
+    if(entered!==b.completionOtp){ showToast('❌ Incorrect Completion OTP'); return; }
+    closeModal('otpModal'); b.status='Completed'; DB.save(bks); showToast('🎉 Service marked as Completed!'); renderBookings();
+  }
+}
+
+/* ── REVIEW ───────────────────────────────────────────────── */
+function openReview(bkId){
+  revId=bkId; revRat=0;
+  const b=DB.bookings().find(x=>x.id===bkId);
+  document.getElementById('reviewDesc').innerHTML=`How was your <strong>${b.workerRole}</strong> service experience?`;
+  setRating(0); document.getElementById('reviewComment').value='';
+  document.getElementById('reviewModal').classList.add('on');
+}
+function setRating(r){ revRat=r; document.querySelectorAll('#starInput span').forEach((s,i)=>s.classList.toggle('lit',i<r)); }
+function submitReview(){
+  if(!revRat){ showToast('⚠️ Please select a star rating'); return; }
+  const bks=DB.bookings(), b=bks.find(x=>x.id===revId); if(!b) return;
+  b.rated=true; b.review={rating:revRat,comment:document.getElementById('reviewComment').value.trim(),at:new Date().toISOString()};
+  DB.save(bks); closeModal('reviewModal'); showToast('⭐ Thank you for your review!'); renderBookings();
+}
+
+/* ── AADHAAR UPLOAD ───────────────────────────────────────── */
+function handleUpload(input){
+  const file=input.files[0]; if(!file) return;
+  if(file.size>5*1024*1024){ showToast('⚠️ File too large. Max 5MB.'); input.value=''; return; }
+  if(!file.type.startsWith('image/')){ showToast('⚠️ Please upload an image file (JPG or PNG).'); input.value=''; return; }
+  const reader=new FileReader();
+  reader.onload=e=>{
+    aadhaarData=e.target.result;
+    document.getElementById('upPrevImg').src=aadhaarData;
+    document.getElementById('upPrev').style.display='';
+    document.getElementById('upOk').style.display='';
+    document.getElementById('upZone').classList.add('done');
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ── REGISTRATION ─────────────────────────────────────────── */
+function submitReg(){
+  const fields=['rName','rPhone','rEmail','rArea','rCat','rExp','rPrice','rBio','rAadhaar'];
+  let ok=true;
+  fields.forEach(id=>{ if(!document.getElementById(id).value.trim()){ markErr(id); ok=false; } });
+  if(!aadhaarData){ showToast('⚠️ Please upload your Aadhaar card photo'); ok=false; }
+  if(!ok){ showToast('⚠️ Please fill all required fields'); return; }
+  const entry={};
+  fields.forEach(id=>entry[id]=document.getElementById(id).value.trim());
+  entry.aadhaarPhoto=aadhaarData;
+  entry.emergencyAvailable=document.getElementById('rEmerg').checked;
+  entry.pan=document.getElementById('rPan').value.trim();
+  entry.status='Pending Review'; entry.joinedAt=new Date().toISOString();
+  const phone=entry.rPhone;
+  DB.saveReg(entry);
+  [...fields,'rPan','rRadius'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('rEmerg').checked=false;
+  aadhaarData=null;
+  document.getElementById('upPrev').style.display='none';
+  document.getElementById('upOk').style.display='none';
+  document.getElementById('upZone').classList.remove('done');
+  document.getElementById('rAadhaarPhoto').value='';
+  document.getElementById('successPhone').textContent=phone;
+  goPage('regsuccess');
+}
+
+/* ── BACKDROP CLOSE ───────────────────────────────────────── */
+['payModal','confirmModal','noAcceptModal','otpModal','clrModal','reviewModal'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',function(e){
+    if(e.target===this){ if(id==='payModal') stopPoll(); closeModal(id); }
+  });
+});
+
+/* ── INIT ─────────────────────────────────────────────────── */
+renderHomeCats();
+renderHomeWorkers();
+</script>
+</body>
+</html>

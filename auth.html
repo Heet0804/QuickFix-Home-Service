@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>QuickFix — Sign In</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --brand:#b5651d;--brand-dark:#7a3f0d;--brand-light:#fdf6ee;
+  --teal:#2d7a5f;--teal-light:#e8f5f0;
+  --text:#1a0e04;--text2:#5c3d1e;--text3:#a07850;
+  --bg:#faf7f2;--surface:#fff;--border:#e8ddd0;--border2:#f0e8dc;
+  --danger:#b83232;--radius:14px;--radius-sm:9px;
+}
+html,body{height:100%;width:100%}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:grid;grid-template-columns:1fr 1fr;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 70% at 0% 50%,rgba(181,101,29,.07),transparent 60%);pointer-events:none;z-index:0;}
+.left{position:relative;z-index:1;background:linear-gradient(160deg,#1a0e04 0%,#2d1a08 50%,#1a0e04 100%);display:flex;flex-direction:column;padding:2.5rem;overflow:hidden;}
+.left::before{content:'';position:absolute;top:-100px;right:-100px;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(181,101,29,.2),transparent 70%);pointer-events:none}
+.left::after{content:'';position:absolute;bottom:-80px;left:-60px;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(45,122,95,.15),transparent 70%);pointer-events:none}
+.left-logo{display:flex;align-items:center;gap:10px;text-decoration:none;margin-bottom:auto}
+.logo-mark{width:38px;height:38px;background:linear-gradient(135deg,var(--brand),var(--brand-dark));border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Sora',sans-serif;font-weight:900;font-size:1.1rem;box-shadow:0 3px 10px rgba(181,101,29,.4);flex-shrink:0}
+.left-logo span{font-family:'Sora',sans-serif;font-weight:800;font-size:1.15rem;color:#fff}
+.left-logo span em{color:var(--brand);font-style:normal}
+.left-main{position:relative;z-index:1;flex:1;display:flex;flex-direction:column;justify-content:center;padding:1rem 0}
+.left-tag{font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--brand);margin-bottom:1rem}
+.left h2{font-family:'Sora',sans-serif;font-weight:900;font-size:clamp(1.8rem,3vw,2.6rem);color:#fff;line-height:1.15;letter-spacing:-.03em;margin-bottom:1rem}
+.left h2 span{color:var(--brand)}
+.left-desc{font-size:.9rem;color:rgba(255,255,255,.55);line-height:1.7;max-width:340px;margin-bottom:2rem}
+.left-perks{list-style:none;display:flex;flex-direction:column;gap:.65rem}
+.left-perks li{display:flex;align-items:center;gap:10px;font-size:.82rem;color:rgba(255,255,255,.65);font-weight:500}
+.perk-ico{width:28px;height:28px;border-radius:7px;background:rgba(181,101,29,.15);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0}
+.left-footer{position:relative;z-index:1;font-size:.72rem;color:rgba(255,255,255,.25)}
+.left-footer a{color:rgba(255,255,255,.4);text-decoration:none}
+.left-footer a:hover{color:rgba(255,255,255,.7)}
+.left-mobile-tag{display:none;font-size:.72rem;font-weight:600;color:rgba(255,255,255,.5);text-align:right;line-height:1.4}
+.right{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2.5rem;overflow-y:auto;}
+.role-toggle{display:flex;background:var(--border2);border-radius:50px;padding:4px;margin-bottom:2rem;width:100%;max-width:340px}
+.rtab{flex:1;padding:.6rem;border:none;background:none;border-radius:50px;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:600;color:var(--text2);cursor:pointer;transition:all .22s ease;display:flex;align-items:center;justify-content:center;gap:5px}
+.rtab.on{background:var(--brand);color:#fff;box-shadow:0 2px 10px rgba(181,101,29,.3)}
+.auth-box{width:100%;max-width:380px}
+.auth-box h1{font-family:'Sora',sans-serif;font-weight:800;font-size:1.75rem;letter-spacing:-.03em;color:var(--text);margin-bottom:.3rem}
+.auth-box .sub{font-size:.875rem;color:var(--text2);margin-bottom:2rem;line-height:1.5}
+.form-tabs{display:flex;gap:.5rem;margin-bottom:1.5rem}
+.ftab{background:none;border:none;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:600;color:var(--text3);cursor:pointer;padding:.25rem 0;border-bottom:2px solid transparent;transition:all .2s}
+.ftab.on{color:var(--brand);border-bottom-color:var(--brand)}
+.ftab-sep{color:var(--border);font-size:.9rem;line-height:1.8}
+.form-panel{display:none}.form-panel.on{display:block}
+.fg{margin-bottom:1rem}
+.flabel{display:block;font-size:.78rem;font-weight:600;color:var(--text2);margin-bottom:.4rem}
+.finput{width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:.7rem .95rem;font-size:.875rem;color:var(--text);background:#fdfaf7;outline:none;transition:all .2s ease;font-family:'DM Sans',sans-serif}
+.finput:focus{border-color:var(--brand);background:#fff;box-shadow:0 0 0 3px rgba(181,101,29,.08)}
+.finput.err{border-color:var(--danger)!important;background:#fff8f8!important}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.fselect{width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:.7rem .95rem;font-size:.875rem;color:var(--text);background:#fdfaf7;outline:none;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 12 12'%3E%3Cpath fill='%23a07850' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .95rem center;padding-right:2.4rem}
+.fselect:focus{border-color:var(--brand);background-color:#fff;box-shadow:0 0 0 3px rgba(181,101,29,.08)}
+.fselect.err{border-color:var(--danger)!important}
+.err-banner{border-radius:var(--radius-sm);padding:.75rem .95rem;font-size:.78rem;margin-bottom:1rem;display:none;align-items:flex-start;gap:7px;line-height:1.5;background:#fff0f0;border:1px solid rgba(184,50,50,.25);color:var(--danger)}
+.submit-btn{width:100%;border:none;border-radius:var(--radius-sm);padding:.875rem;background:var(--brand);color:#fff;font-family:'DM Sans',sans-serif;font-weight:700;font-size:.95rem;cursor:pointer;transition:all .25s ease;box-shadow:0 3px 14px rgba(181,101,29,.3);display:flex;align-items:center;justify-content:center;gap:7px;margin-top:.25rem}
+.submit-btn:hover{background:var(--brand-dark);transform:translateY(-1px)}
+.submit-btn.loading{opacity:.7;pointer-events:none}
+.back-link{display:inline-flex;align-items:center;gap:5px;color:var(--text3);font-size:.78rem;font-weight:600;text-decoration:none;margin-bottom:1.75rem;transition:color .2s}
+.back-link:hover{color:var(--brand)}
+.divider{display:flex;align-items:center;gap:.75rem;margin:1.25rem 0;color:var(--text3);font-size:.75rem;font-weight:600}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.social-btns{display:flex;gap:.65rem}
+.sbtn{flex:1;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:.65rem;background:#fff;cursor:pointer;font-size:.82rem;font-weight:600;color:var(--text2);transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;font-family:'DM Sans',sans-serif}
+.sbtn:hover{border-color:var(--brand);background:var(--brand-light);color:var(--brand)}
+.spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--text);color:#fff;padding:.75rem 1.1rem;border-radius:var(--radius-sm);font-size:.845rem;font-weight:500;z-index:600;display:flex;align-items:center;gap:7px;box-shadow:0 6px 24px rgba(0,0,0,.22);transform:translateY(90px);opacity:0;transition:.3s cubic-bezier(.4,0,.2,1);max-width:300px}
+.toast.on{transform:translateY(0);opacity:1}
+@media(max-width:780px){
+  body{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .left{padding:1rem 1.25rem;min-height:auto;flex-direction:row;align-items:center;justify-content:space-between;gap:1rem}
+  .left::before,.left::after{display:none}
+  .left-main,.left-footer{display:none}
+  .left-logo{margin-bottom:0}
+  .left-mobile-tag{display:block}
+  .right{padding:1.5rem 1.25rem 2.5rem}
+  .role-toggle,.auth-box{max-width:100%}
+  .frow{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="left">
+  <a class="left-logo" href="landing.html">
+    <div class="logo-mark">Q</div>
+    <span>Quick<em>Fix</em></span>
+  </a>
+  <span class="left-mobile-tag">Trusted local<br/>services on demand</span>
+  <div class="left-main" id="leftMain"></div>
+  <div class="left-footer">© 2025 QuickFix &nbsp;·&nbsp; <a href="landing.html">Home</a></div>
+</div>
+
+<div class="right">
+  <a class="back-link" href="landing.html">← Back to Home</a>
+  <div class="role-toggle">
+    <button class="rtab on" id="tabUser" onclick="setRole('user')">🏠 I'm a User</button>
+    <button class="rtab" id="tabWorker" onclick="setRole('worker')">🔧 I'm a Worker</button>
+  </div>
+  <div class="auth-box">
+    <h1 id="authTitle">Welcome back</h1>
+    <p class="sub" id="authSub">Sign in to book services near you.</p>
+    <div class="form-tabs">
+      <button class="ftab on" id="ftLogin" onclick="setForm('login')">Sign In</button>
+      <span class="ftab-sep">/</span>
+      <button class="ftab" id="ftSignup" onclick="setForm('signup')">Create Account</button>
+    </div>
+    <div class="err-banner" id="errBanner"></div>
+
+    <!-- LOGIN -->
+    <div class="form-panel on" id="fLogin">
+      <div class="fg"><label class="flabel">Email Address</label><input type="email" class="finput" id="lEmail" placeholder="you@email.com" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+      <div class="fg"><label class="flabel">Password</label><input type="password" class="finput" id="lPass" placeholder="Your password" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+      <div style="text-align:right;margin-bottom:1rem"><a href="#" onclick="forgotPassword(event)" style="font-size:.78rem;color:var(--brand);font-weight:600;text-decoration:none">Forgot password?</a></div>
+      <button class="submit-btn" id="loginBtn" onclick="doLogin()"><span id="loginBtnTxt">Sign In →</span></button>
+    </div>
+
+    <!-- SIGNUP USER -->
+    <div class="form-panel" id="fSignupUser">
+      <div class="frow">
+        <div class="fg"><label class="flabel">First Name *</label><input type="text" class="finput" id="suFname" placeholder="Rahul"/></div>
+        <div class="fg"><label class="flabel">Last Name</label><input type="text" class="finput" id="suLname" placeholder="Sharma"/></div>
+      </div>
+      <div class="fg"><label class="flabel">Email Address *</label><input type="email" class="finput" id="suEmail" placeholder="you@email.com"/></div>
+      <div class="fg"><label class="flabel">Phone Number *</label><input type="tel" class="finput" id="suPhone" placeholder="+91 98765 43210"/></div>
+      <div class="fg"><label class="flabel">Password * <span style="font-size:.68rem;color:var(--text3)">(min 6 characters)</span></label><input type="password" class="finput" id="suPass" placeholder="Create a password"/></div>
+      <button class="submit-btn" id="signupUserBtn" onclick="doSignup('user')"><span id="suBtnTxt">Create Account →</span></button>
+    </div>
+
+    <!-- SIGNUP WORKER -->
+    <div class="form-panel" id="fSignupWorker">
+      <div class="frow">
+        <div class="fg"><label class="flabel">Full Name *</label><input type="text" class="finput" id="swName" placeholder="Your name"/></div>
+        <div class="fg"><label class="flabel">Phone *</label><input type="tel" class="finput" id="swPhone" placeholder="+91 98765 43210"/></div>
+      </div>
+      <div class="fg"><label class="flabel">Email Address *</label><input type="email" class="finput" id="swEmail" placeholder="you@email.com"/></div>
+      <div class="frow">
+        <div class="fg"><label class="flabel">Skill / Category *</label>
+          <select class="fselect" id="swSkill">
+            <option value="">Select…</option>
+            <option>Electrician</option><option>Plumber</option><option>Carpenter</option>
+            <option>Painter</option><option>Cleaner</option><option>AC Repair</option>
+            <option>Mason</option><option>Pest Control</option><option>Househelp</option>
+          </select>
+        </div>
+        <div class="fg"><label class="flabel">Work Radius (km) *</label><input type="number" class="finput" id="swRadius" placeholder="e.g. 10" min="1"/></div>
+      </div>
+      <div class="fg"><label class="flabel">Password * <span style="font-size:.68rem;color:var(--text3)">(min 6 characters)</span></label><input type="password" class="finput" id="swPass" placeholder="Create a password"/></div>
+      <button class="submit-btn" id="signupWorkerBtn" onclick="doSignup('worker')"><span id="swBtnTxt">Register as Worker →</span></button>
+    </div>
+
+    <div class="divider">or continue with</div>
+    <div class="social-btns">
+      <button class="sbtn" onclick="showToast('📌 Google auth coming soon')">🔵 Google</button>
+      <button class="sbtn" onclick="showToast('📌 Phone OTP coming soon')">📱 Phone OTP</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL='https://oycurbgzzgfzilpflwks.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95Y3VyYmd6emdmemlscGZsd2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjkwMDMsImV4cCI6MjA5MzIwNTAwM30.B9KujxSHzhzpKM_IhVvpTqImVPjF4Yrv3RKn6mgtqxg';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+let curRole='user',curForm='login';
+
+const LEFT_CONTENT={
+  user:{tag:'For Homeowners',heading:'Book trusted<br/><span>pros instantly</span>',desc:'Find verified local professionals for any home repair or service — booked in under 2 minutes.',perks:['Browse 9 service categories','Live job tracking with OTP safety','Pay cash or UPI — your choice','Rate your experience after each job']},
+  worker:{tag:'For Professionals',heading:'Get jobs that<br/><span>match your skill</span>',desc:'Receive job requests filtered by your skill and radius. Go online when ready, offline anytime.',perks:['Jobs matched to your exact skill','Set your own work radius','Toggle availability anytime','Fast payments after each job']}
+};
+
+/* Auto-redirect if already logged in */
+(async()=>{
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){
+    const {data:p}=await sb.from('users').select('role').eq('id',session.user.id).single();
+    if(p)redirect(p.role);
+  }
+})();
+
+const params=new URLSearchParams(location.search);
+setRole(params.get('role')||sessionStorage.getItem('qf_role')||'user');
+
+function setRole(role){
+  curRole=role;sessionStorage.setItem('qf_role',role);
+  document.getElementById('tabUser').classList.toggle('on',role==='user');
+  document.getElementById('tabWorker').classList.toggle('on',role==='worker');
+  updateLeftPanel(role);updateAuthText();
+  if(curForm==='signup')showSignupPanel(role);
+  hideErr();
+}
+function setForm(form){
+  curForm=form;
+  document.getElementById('ftLogin').classList.toggle('on',form==='login');
+  document.getElementById('ftSignup').classList.toggle('on',form==='signup');
+  document.getElementById('fLogin').classList.toggle('on',form==='login');
+  if(form==='signup')showSignupPanel(curRole);
+  else{document.getElementById('fSignupUser').classList.remove('on');document.getElementById('fSignupWorker').classList.remove('on');}
+  updateAuthText();hideErr();
+}
+function showSignupPanel(role){
+  if(curForm!=='signup')return;
+  document.getElementById('fLogin').classList.remove('on');
+  document.getElementById('fSignupUser').classList.toggle('on',role==='user');
+  document.getElementById('fSignupWorker').classList.toggle('on',role==='worker');
+}
+function updateLeftPanel(role){
+  const c=LEFT_CONTENT[role];
+  document.getElementById('leftMain').innerHTML=`<div class="left-tag">${c.tag}</div><h2>${c.heading}</h2><p class="left-desc">${c.desc}</p><ul class="left-perks">${c.perks.map(p=>`<li><div class="perk-ico">✓</div>${p}</li>`).join('')}</ul>`;
+}
+function updateAuthText(){
+  const T={user:{login:'Welcome back',signup:'Create your account'},worker:{login:'Worker sign in',signup:'Join as a Worker'}};
+  const S={user:{login:'Sign in to book services near you.',signup:'Set up your account in seconds.'},worker:{login:'Sign in to see job requests near you.',signup:'Register to start receiving local jobs.'}};
+  document.getElementById('authTitle').textContent=T[curRole][curForm]||'Welcome';
+  document.getElementById('authSub').textContent=S[curRole][curForm]||'';
+}
+
+async function doLogin(){
+  hideErr();
+  const email=document.getElementById('lEmail').value.trim();
+  const pass=document.getElementById('lPass').value.trim();
+  if(!email)markErr('lEmail');
+  if(!pass)markErr('lPass');
+  if(!email||!pass){showErr('Please fill in all fields.');return;}
+  setBtn('loginBtn','loginBtnTxt',true,'Signing in…');
+  const {data,error}=await sb.auth.signInWithPassword({email,password:pass});
+  if(error){
+    setBtn('loginBtn','loginBtnTxt',false,'Sign In →');
+    if(error.message.includes('Invalid login'))showErr('Incorrect email or password.');
+    else if(error.message.includes('not confirmed'))showErr('Please confirm your email first. Check your inbox.');
+    else showErr(error.message);
+    return;
+  }
+  const {data:profile}=await sb.from('users').select('*').eq('id',data.user.id).single();
+  if(!profile){setBtn('loginBtn','loginBtnTxt',false,'Sign In →');showErr('Profile not found. Please sign up.');return;}
+  const sess={id:data.user.id,email:profile.email,name:profile.name,phone:profile.phone,role:profile.role};
+  if(profile.role==='worker'){
+    const {data:wp}=await sb.from('workers').select('*').eq('id',data.user.id).single();
+    if(wp)Object.assign(sess,{skill:wp.skill,radius:wp.radius,exp:wp.exp,price:wp.price,bio:wp.bio,is_available:wp.is_available});
+  }
+  sessionStorage.setItem('qf_user',JSON.stringify(sess));
+  sessionStorage.setItem('qf_role',profile.role);
+  showToast('✅ Signed in! Redirecting…');
+  setTimeout(()=>redirect(profile.role),800);
+}
+
+async function doSignup(role){
+  hideErr();
+  if(role==='user'){
+    const fname=document.getElementById('suFname').value.trim();
+    const email=document.getElementById('suEmail').value.trim();
+    const phone=document.getElementById('suPhone').value.trim();
+    const pass=document.getElementById('suPass').value.trim();
+    if(!fname)markErr('suFname');if(!email)markErr('suEmail');if(!phone)markErr('suPhone');if(!pass)markErr('suPass');
+    if(!fname||!email||!phone||!pass){showErr('Please fill in all required fields.');return;}
+    if(pass.length<6){showErr('Password must be at least 6 characters.');return;}
+    const name=fname+' '+(document.getElementById('suLname').value.trim());
+    setBtn('signupUserBtn','suBtnTxt',true,'Creating account…');
+    const {data:a,error:ae}=await sb.auth.signUp({email,password:pass,options:{data:{name,role:'user'}}});
+    if(ae){setBtn('signupUserBtn','suBtnTxt',false,'Create Account →');showErr(ae.message.includes('already registered')?'Email already registered. Try signing in.':ae.message);return;}
+    const {error:de}=await sb.from('users').insert({id:a.user.id,email,name,phone,role:'user'});
+    if(de){setBtn('signupUserBtn','suBtnTxt',false,'Create Account →');showErr('Profile save failed: '+de.message);return;}
+    sessionStorage.setItem('qf_user',JSON.stringify({id:a.user.id,email,name,phone,role:'user'}));
+    sessionStorage.setItem('qf_role','user');
+    setBtn('signupUserBtn','suBtnTxt',false,'Create Account →');
+    showToast('🎉 Account created! Redirecting…');
+    setTimeout(()=>redirect('user'),800);
+  }else{
+    const name=document.getElementById('swName').value.trim();
+    const email=document.getElementById('swEmail').value.trim();
+    const phone=document.getElementById('swPhone').value.trim();
+    const skill=document.getElementById('swSkill').value;
+    const radius=document.getElementById('swRadius').value;
+    const pass=document.getElementById('swPass').value.trim();
+    if(!name)markErr('swName');if(!email)markErr('swEmail');if(!phone)markErr('swPhone');if(!skill)markErr('swSkill');if(!radius)markErr('swRadius');if(!pass)markErr('swPass');
+    if(!name||!email||!phone||!skill||!radius||!pass){showErr('Please fill in all required fields.');return;}
+    if(pass.length<6){showErr('Password must be at least 6 characters.');return;}
+    setBtn('signupWorkerBtn','swBtnTxt',true,'Registering…');
+    const {data:a,error:ae}=await sb.auth.signUp({email,password:pass,options:{data:{name,role:'worker'}}});
+    if(ae){setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');showErr(ae.message.includes('already registered')?'Email already registered. Try signing in.':ae.message);return;}
+    const {error:ue}=await sb.from('users').insert({id:a.user.id,email,name,phone,role:'worker'});
+    if(ue){setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');showErr('User save failed: '+ue.message);return;}
+    const {error:we}=await sb.from('workers').insert({id:a.user.id,skill,radius:parseInt(radius)||10,is_available:false,rating:0,total_jobs:0});
+    if(we){setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');showErr('Worker profile save failed: '+we.message);return;}
+    sessionStorage.setItem('qf_user',JSON.stringify({id:a.user.id,email,name,phone,role:'worker',skill,radius}));
+    sessionStorage.setItem('qf_role','worker');
+    setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
+    showToast('🎉 Registered! Redirecting to your dashboard…');
+    setTimeout(()=>redirect('worker'),800);
+  }
+}
+
+async function forgotPassword(e){
+  e.preventDefault();
+  const email=document.getElementById('lEmail').value.trim();
+  if(!email){markErr('lEmail');showErr('Enter your email address above first.');return;}
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+'/auth.html'});
+  if(error)showErr(error.message);
+  else showToast('📧 Password reset email sent! Check your inbox.');
+}
+
+function redirect(role){window.location.href=role==='worker'?'worker-dashboard.html':'index.html';}
+function setBtn(bid,tid,loading,txt){document.getElementById(bid).classList.toggle('loading',loading);document.getElementById(tid).innerHTML=loading?`<span class="spin"></span> ${txt}`:txt;}
+function markErr(id){const el=document.getElementById(id);if(!el)return;el.classList.add('err');el.addEventListener('input',()=>el.classList.remove('err'),{once:true});}
+function showErr(msg){const b=document.getElementById('errBanner');b.textContent='⚠️ '+msg;b.style.display='flex';b.scrollIntoView({behavior:'smooth',block:'nearest'});}
+function hideErr(){document.getElementById('errBanner').style.display='none';}
+let _tt;
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('on'),3500);}
+document.querySelectorAll('.finput,.fselect').forEach(el=>{el.addEventListener('input',()=>el.classList.remove('err'));el.addEventListener('change',()=>el.classList.remove('err'));});
+</script>
+</body>
+</html>

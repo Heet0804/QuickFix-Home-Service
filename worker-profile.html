@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>QuickFix — Worker Profile</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --brand:#b5651d;--brand-dark:#7a3f0d;--brand-light:#fdf6ee;--brand-mid:#d4875a;
+  --teal:#2d7a5f;--teal-light:#e8f5f0;--teal-dark:#1d5040;
+  --amber:#d4890a;--danger:#b83232;--danger-light:#fce8e8;
+  --bg:#faf7f2;--surface:#fff;--surface2:#fdf9f4;--surface3:#f7f3ec;
+  --border:#e8ddd0;--border2:#f0e8dc;
+  --text:#1a0e04;--text2:#5c3d1e;--text3:#a07850;
+  --radius:14px;--radius-sm:9px;--radius-xs:5px;
+  --sh0:0 1px 4px rgba(80,40,10,.06);
+  --sh1:0 4px 18px rgba(80,40,10,.09);
+  --tr:.2s cubic-bezier(.4,0,.2,1);
+}
+html,body{height:100%;width:100%}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden}
+h1,h2,h3{font-family:'Sora',sans-serif}
+button,input,select,textarea{font-family:'DM Sans',sans-serif}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--brand-mid);border-radius:99px}
+
+/* NAV */
+nav{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;padding:0 1.5rem;flex-shrink:0}
+.navi{display:flex;align-items:center;justify-content:space-between;height:60px;gap:1rem}
+.logo{display:flex;align-items:center;gap:9px;text-decoration:none}
+.lgmk{width:34px;height:34px;background:var(--brand);border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Sora',sans-serif;font-weight:900;font-size:1rem;box-shadow:0 2px 7px rgba(181,101,29,.35)}
+.lgtx{font-family:'Sora',sans-serif;font-size:1.1rem;font-weight:800;color:var(--text);letter-spacing:-.4px}
+.lgtx span{color:var(--brand)}
+.nav-back{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.4rem .9rem;font-size:.8rem;font-weight:600;color:var(--text2);cursor:pointer;text-decoration:none;transition:var(--tr)}
+.nav-back:hover{border-color:var(--brand);color:var(--brand);background:var(--brand-light)}
+
+/* LAYOUT */
+.wrap{width:100%;max-width:860px;margin:0 auto;padding:1.75rem 1.5rem 5rem;flex:1}
+.pg-title{font-size:1.35rem;font-weight:800;letter-spacing:-.03em;margin-bottom:.2rem}
+.pg-sub{font-size:.845rem;color:var(--text2);margin-bottom:1.75rem}
+
+/* HERO */
+.hero{background:linear-gradient(135deg,#1a0e04 0%,#2d1a08 100%);border-radius:18px;padding:1.6rem 1.75rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;right:-60px;top:-60px;width:200px;height:200px;border-radius:50%;background:rgba(181,101,29,.12);pointer-events:none}
+.hero::after{content:'';position:absolute;left:-40px;bottom:-40px;width:140px;height:140px;border-radius:50%;background:rgba(45,122,95,.1);pointer-events:none}
+.hav{width:66px;height:66px;border-radius:50%;background:var(--brand);display:flex;align-items:center;justify-content:center;font-size:1.65rem;font-weight:900;font-family:'Sora',sans-serif;color:#fff;border:3px solid rgba(255,255,255,.18);flex-shrink:0;position:relative;z-index:1}
+.hinfo{flex:1;min-width:160px;position:relative;z-index:1}
+.hname{font-size:1.15rem;font-weight:800;color:#fff;font-family:'Sora',sans-serif;margin-bottom:2px}
+.hrole{font-size:.78rem;color:var(--brand-mid);font-weight:600;margin-bottom:.55rem}
+.htags{display:flex;gap:.4rem;flex-wrap:wrap}
+.htag{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:50px;padding:.2rem .6rem;font-size:.66rem;font-weight:600;color:rgba(255,255,255,.65)}
+.hstats{display:flex;gap:1.5rem;flex-wrap:wrap;position:relative;z-index:1}
+.hstat strong{display:block;font-family:'Sora',sans-serif;font-size:1.2rem;font-weight:800;color:#fff}
+.hstat span{font-size:.64rem;color:rgba(255,255,255,.45)}
+
+/* AVAILABILITY CARD */
+.avail-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.35rem;margin-bottom:1.25rem;box-shadow:var(--sh0);display:flex;align-items:center;justify-content:space-between;gap:1rem;transition:var(--tr)}
+.avail-card.on{border-color:rgba(45,122,95,.4);background:var(--teal-light)}
+.av-left{display:flex;align-items:center;gap:.75rem}
+.av-ico{font-size:1.5rem;flex-shrink:0}
+.av-title{font-size:.92rem;font-weight:700;color:var(--text)}
+.av-sub{font-size:.73rem;color:var(--text2);margin-top:1px}
+.av-sub.on{color:var(--teal-dark)}
+/* big toggle */
+.tgl{display:flex;align-items:center;gap:.65rem;cursor:pointer;user-select:none}
+.tgl-track{width:56px;height:30px;border-radius:50px;background:#d0c8be;position:relative;transition:background .25s;flex-shrink:0}
+.tgl-track.on{background:var(--teal)}
+.tgl-thumb{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.18);transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
+.tgl-track.on .tgl-thumb{transform:translateX(26px)}
+.tgl-lbl{font-size:.875rem;font-weight:700;color:var(--text2);min-width:52px}
+.tgl-lbl.on{color:var(--teal)}
+
+/* SECTION */
+.sec{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:1.35rem;margin-bottom:1.25rem;box-shadow:var(--sh0)}
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;padding-bottom:.7rem;border-bottom:1px solid var(--border)}
+.sec-title{font-size:.92rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:.45rem}
+.sec-acts{display:flex;gap:.45rem}
+.ebtn{background:var(--brand-light);border:1px solid rgba(181,101,29,.2);border-radius:var(--radius-xs);padding:.3rem .75rem;font-size:.74rem;font-weight:600;color:var(--brand);cursor:pointer;transition:var(--tr)}
+.ebtn:hover{background:var(--brand);color:#fff}
+.sbtn{background:var(--teal);border:none;border-radius:var(--radius-xs);padding:.3rem .75rem;font-size:.74rem;font-weight:600;color:#fff;cursor:pointer;transition:var(--tr);display:none}
+.sbtn:hover{background:var(--teal-dark)}
+.cbtn{background:none;border:1px solid var(--border);border-radius:var(--radius-xs);padding:.3rem .75rem;font-size:.74rem;font-weight:600;color:var(--text2);cursor:pointer;transition:var(--tr);display:none}
+.cbtn:hover{border-color:var(--danger);color:var(--danger)}
+
+/* INFO GRID (view) */
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.irow{background:var(--surface2);border-radius:var(--radius-sm);padding:.65rem .9rem;border:1px solid var(--border)}
+.irow.full{grid-column:1/-1}
+.ilbl{font-size:.65rem;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.ival{font-size:.875rem;font-weight:600;color:var(--text)}
+
+/* FORM (edit) */
+.eform{display:none}
+.eform.on{display:block}
+.vmode.hide{display:none}
+.fg{margin-bottom:.9rem}
+.flabel{display:block;font-size:.76rem;font-weight:600;color:var(--text2);margin-bottom:.38rem}
+.finput{width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:.65rem .9rem;font-size:.875rem;color:var(--text);background:var(--surface2);outline:none;transition:var(--tr)}
+.finput:focus{border-color:var(--brand);background:#fff;box-shadow:0 0 0 3px rgba(181,101,29,.08)}
+.finput.err{border-color:var(--danger)!important}
+.fselect{width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:.65rem .9rem;font-size:.875rem;color:var(--text);background:var(--surface2);outline:none;cursor:pointer;transition:var(--tr);appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 12 12'%3E%3Cpath fill='%23a07850' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .9rem center;padding-right:2.2rem}
+.fselect:focus{border-color:var(--brand);background-color:#fff;box-shadow:0 0 0 3px rgba(181,101,29,.08)}
+.fselect.err{border-color:var(--danger)!important}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.fhint{font-size:.7rem;color:var(--text3);margin-top:.3rem}
+
+/* STATS GRID */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.65rem}
+.sbox{background:var(--surface2);border-radius:var(--radius-sm);padding:.875rem;border:1px solid var(--border);text-align:center;transition:var(--tr)}
+.sbox:hover{border-color:var(--brand)}
+.sbox-num{font-family:'Sora',sans-serif;font-size:1.3rem;font-weight:800;color:var(--text);display:block;letter-spacing:-.02em}
+.sbox-lbl{font-size:.65rem;color:var(--text3);font-weight:500;margin-top:2px}
+
+/* EARNINGS */
+.earn-list{display:flex;flex-direction:column;gap:.5rem}
+.earn-item{display:flex;align-items:center;justify-content:space-between;padding:.65rem .9rem;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border);transition:var(--tr)}
+.earn-item:hover{border-color:var(--brand);background:var(--brand-light)}
+.ei-left{display:flex;align-items:center;gap:.6rem}
+.ei-ico{font-size:1rem;flex-shrink:0}
+.ei-svc{font-size:.82rem;font-weight:600;color:var(--text)}
+.ei-date{font-size:.68rem;color:var(--text3);margin-top:1px}
+.ei-amt{font-family:'Sora',sans-serif;font-size:.92rem;font-weight:800;color:var(--teal)}
+
+/* REVIEWS */
+.rev-list{display:flex;flex-direction:column;gap:.65rem}
+.rev-card{padding:.85rem .95rem;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border)}
+.rev-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem}
+.rev-name{font-size:.82rem;font-weight:600}
+.rev-stars{color:var(--amber);font-size:.8rem}
+.rev-txt{font-size:.78rem;color:var(--text2);line-height:1.5}
+
+/* DANGER ZONE */
+.danger-sec{background:#fff8f8;border:1.5px solid rgba(184,50,50,.2);border-radius:var(--radius);padding:1.25rem 1.35rem;margin-bottom:1.25rem}
+.dz-title{font-size:.9rem;font-weight:700;color:var(--danger);margin-bottom:.35rem;display:flex;align-items:center;gap:.4rem}
+.dz-desc{font-size:.78rem;color:var(--text2);margin-bottom:.875rem;line-height:1.55}
+.dz-btns{display:flex;gap:.65rem;flex-wrap:wrap}
+.dbtn{background:none;border:1.5px solid var(--danger);border-radius:var(--radius-sm);padding:.5rem 1rem;font-size:.78rem;font-weight:600;color:var(--danger);cursor:pointer;transition:var(--tr)}
+.dbtn:hover{background:var(--danger);color:#fff}
+.dbtn.fill{background:var(--danger);color:#fff}
+.dbtn.fill:hover{background:#8b2020}
+
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(20,10,2,.5);backdrop-filter:blur(5px);z-index:500;align-items:center;justify-content:center;padding:1rem}
+.overlay.on{display:flex;animation:fi .22s ease}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+.modal{background:var(--surface);border-radius:18px;padding:2rem 1.75rem;max-width:400px;width:100%;text-align:center;box-shadow:0 20px 56px rgba(20,10,2,.22);animation:pi .28s cubic-bezier(.34,1.56,.64,1)}
+@keyframes pi{from{opacity:0;transform:scale(.84)}to{opacity:1;transform:scale(1)}}
+.mico{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.7rem;margin:0 auto .9rem}
+.modal h2{font-size:1.15rem;font-weight:800;margin-bottom:.4rem}
+.modal p{font-size:.845rem;color:var(--text2);margin-bottom:1.1rem;line-height:1.6}
+.mbtns{display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap}
+.mbtn{border:none;border-radius:var(--radius-sm);padding:.65rem 1.25rem;font-size:.845rem;font-weight:600;cursor:pointer;transition:var(--tr);font-family:'DM Sans',sans-serif}
+.mbtn.danger{background:var(--danger);color:#fff}
+.mbtn.danger:hover{background:#8b2020}
+.mbtn.outline{background:none;border:1.5px solid var(--border);color:var(--text2)}
+.mbtn.outline:hover{border-color:var(--brand);color:var(--brand)}
+
+/* TOAST */
+.toast{position:fixed;bottom:1.4rem;right:1.4rem;background:var(--text);color:#fff;padding:.75rem 1.1rem;border-radius:var(--radius-sm);font-size:.845rem;font-weight:500;z-index:600;display:flex;align-items:center;gap:7px;box-shadow:0 6px 24px rgba(0,0,0,.22);transform:translateY(90px);opacity:0;transition:.32s cubic-bezier(.4,0,.2,1);max-width:280px}
+.toast.on{transform:translateY(0);opacity:1}
+
+/* EMPTY */
+.mt-empty{text-align:center;padding:1.75rem;color:var(--text3);font-size:.82rem}
+
+/* BADGE */
+.bdg{display:inline-flex;align-items:center;gap:3px;padding:2px 9px;border-radius:50px;font-size:.67rem;font-weight:600}
+.bgn{background:var(--teal-light);color:var(--teal-dark)}
+.bga{background:#fef3d0;color:#8b5e00}
+.bgb{background:var(--brand-light);color:var(--brand-dark)}
+
+footer{background:var(--text);color:rgba(255,255,255,.4);text-align:center;padding:1.1rem;font-size:.75rem;flex-shrink:0}
+footer strong{color:rgba(255,255,255,.8);font-family:'Sora',sans-serif}
+
+@media(max-width:600px){
+  .wrap{padding:1rem .875rem 4rem}
+  .info-grid,.frow{grid-template-columns:1fr}
+  .irow.full{grid-column:1}
+  nav{padding:0 .875rem}
+  .hstats{gap:1rem}
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .hero{padding:1.1rem}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="navi">
+    <a class="logo" href="landing.html">
+      <div class="lgmk">Q</div>
+      <span class="lgtx">Quick<span>Fix</span></span>
+    </a>
+    <a class="nav-back" href="worker-dashboard.html">← Dashboard</a>
+  </div>
+</nav>
+
+<div class="wrap">
+  <h1 class="pg-title">My Profile</h1>
+  <p class="pg-sub">Manage your details, skill, radius and availability.</p>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hav" id="hAv">W</div>
+    <div class="hinfo">
+      <div class="hname" id="hName">—</div>
+      <div class="hrole" id="hRole">—</div>
+      <div class="htags" id="hTags"></div>
+    </div>
+    <div class="hstats">
+      <div class="hstat"><strong id="hsJobs">0</strong><span>Jobs Done</span></div>
+      <div class="hstat"><strong id="hsRating">New</strong><span>Rating</span></div>
+      <div class="hstat"><strong id="hsEarn">₹0</strong><span>Total Earned</span></div>
+      <div class="hstat"><strong id="hsRadius">—</strong><span>Radius</span></div>
+    </div>
+  </div>
+
+  <!-- AVAILABILITY -->
+  <div class="avail-card" id="availCard">
+    <div class="av-left">
+      <span class="av-ico" id="avIco">💤</span>
+      <div>
+        <div class="av-title" id="avTitle">You are Offline</div>
+        <div class="av-sub" id="avSub">Toggle ON to receive job requests</div>
+      </div>
+    </div>
+    <button class="tgl" onclick="toggleAvail()" role="switch" aria-checked="false" aria-label="Toggle availability status" id="availToggle">
+      <div class="tgl-track" id="tglTrack"><div class="tgl-thumb"></div></div>
+      <span class="tgl-lbl" id="tglLbl">Offline</span>
+    </button>
+  </div>
+
+  <!-- PERSONAL INFO -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <div class="sec-title">👤 Personal Information</div>
+      <div class="sec-acts">
+        <button class="cbtn" id="cPersonal" onclick="cancelEdit('personal')">Cancel</button>
+        <button class="sbtn" id="sPersonal" onclick="saveSection('personal')">💾 Save</button>
+        <button class="ebtn" id="ePersonal" onclick="startEdit('personal')">✏️ Edit</button>
+      </div>
+    </div>
+    <!-- VIEW -->
+    <div class="vmode info-grid" id="vPersonal">
+      <div class="irow"><div class="ilbl">Full Name</div><div class="ival" id="vvName">—</div></div>
+      <div class="irow"><div class="ilbl">Phone</div><div class="ival" id="vvPhone">—</div></div>
+      <div class="irow full"><div class="ilbl">Email</div><div class="ival" id="vvEmail">—</div></div>
+    </div>
+    <!-- EDIT -->
+    <div class="eform" id="fPersonal">
+      <div class="frow">
+        <div class="fg"><label class="flabel">Full Name *</label><input type="text" class="finput" id="eName" placeholder="Your full name" title="Enter your full name" required/></div>
+        <div class="fg"><label class="flabel">Phone *</label><input type="tel" class="finput" id="ePhone" placeholder="+91 98765 43210" title="Enter a valid phone number" required/></div>
+      </div>
+      <div class="fg"><label class="flabel">Email</label><input type="email" class="finput" id="eEmail" placeholder="you@email.com" title="Enter your email address"/></div>
+    </div>
+  </div>
+
+  <!-- PROFESSIONAL INFO -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <div class="sec-title">🔧 Professional Details</div>
+      <div class="sec-acts">
+        <button class="cbtn" id="cPro" onclick="cancelEdit('pro')">Cancel</button>
+        <button class="sbtn" id="sPro" onclick="saveSection('pro')">💾 Save</button>
+        <button class="ebtn" id="ePro" onclick="startEdit('pro')">✏️ Edit</button>
+      </div>
+    </div>
+    <!-- VIEW -->
+    <div class="vmode info-grid" id="vPro">
+      <div class="irow"><div class="ilbl">Skill / Category</div><div class="ival" id="vvSkill">—</div></div>
+      <div class="irow"><div class="ilbl">Work Radius</div><div class="ival" id="vvRadius">—</div></div>
+      <div class="irow"><div class="ilbl">Experience</div><div class="ival" id="vvExp">—</div></div>
+      <div class="irow"><div class="ilbl">Starting Price</div><div class="ival" id="vvPrice">—</div></div>
+      <div class="irow full"><div class="ilbl">Bio</div><div class="ival" id="vvBio" style="line-height:1.5;font-weight:400">—</div></div>
+    </div>
+    <!-- EDIT -->
+    <div class="eform" id="fPro">
+      <div class="frow">
+        <div class="fg">
+          <label class="flabel">Skill / Category *</label>
+          <select class="fselect" id="eSkill" title="Select your primary skill" required>
+            <option value="">Select…</option>
+            <option>Electrician</option><option>Plumber</option>
+            <option>Carpenter</option><option>Painter</option>
+            <option>Cleaner</option><option>AC Repair</option>
+            <option>Mason</option><option>Pest Control</option>
+            <option>Househelp</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label class="flabel">Work Radius (km) *</label>
+          <input type="number" class="finput" id="eRadius" placeholder="e.g. 10" min="1" max="50" title="Maximum distance you can travel for jobs" required/>
+          <div class="fhint">Jobs within this distance will appear in your feed</div>
+        </div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label class="flabel">Experience (years)</label><input type="number" class="finput" id="eExp" placeholder="e.g. 5" min="0" title="Years of experience in this skill"/></div>
+        <div class="fg"><label class="flabel">Starting Price (₹)</label><input type="number" class="finput" id="ePrice" placeholder="e.g. 199" title="Your base rate per service visit"/></div>
+      </div>
+      <div class="fg"><label class="flabel">Short Bio</label><textarea class="finput" id="eBio" rows="3" placeholder="Describe your skills and experience…" title="Tell customers about yourself" style="resize:vertical"></textarea></div>
+    </div>
+      <div class="fg"><label class="flabel">Short Bio</label><textarea class="finput" id="eBio" rows="3" placeholder="Describe your skills and experience…" style="resize:vertical"></textarea></div>
+    </div>
+  </div>
+
+  <!-- PERFORMANCE STATS -->
+  <div class="sec">
+    <div class="sec-hdr"><div class="sec-title">📊 Performance Stats</div></div>
+    <div class="stats-grid" id="statsGrid">
+      <div class="sbox"><span class="sbox-num" id="stTotal">0</span><span class="sbox-lbl">Total Jobs</span></div>
+      <div class="sbox"><span class="sbox-num" id="stCompleted">0</span><span class="sbox-lbl">Completed</span></div>
+      <div class="sbox"><span class="sbox-num" id="stActive">0</span><span class="sbox-lbl">Active Now</span></div>
+      <div class="sbox"><span class="sbox-num" id="stRating">—</span><span class="sbox-lbl">Avg Rating</span></div>
+      <div class="sbox"><span class="sbox-num" id="stToday">₹0</span><span class="sbox-lbl">Today</span></div>
+      <div class="sbox"><span class="sbox-num" id="stWeek">₹0</span><span class="sbox-lbl">This Week</span></div>
+      <div class="sbox"><span class="sbox-num" id="stTotal2">₹0</span><span class="sbox-lbl">Total Earned</span></div>
+      <div class="sbox"><span class="sbox-num" id="stAccept">—%</span><span class="sbox-lbl">Accept Rate</span></div>
+    </div>
+  </div>
+
+  <!-- EARNINGS HISTORY -->
+  <div class="sec">
+    <div class="sec-hdr">
+      <div class="sec-title">💰 Earnings History</div>
+      <span id="earnTotal" style="font-size:.78rem;font-weight:700;color:var(--teal)"></span>
+    </div>
+    <div id="earnList"></div>
+  </div>
+
+  <!-- RECENT REVIEWS -->
+  <div class="sec">
+    <div class="sec-hdr"><div class="sec-title">⭐ Recent Reviews</div></div>
+    <div id="revList"></div>
+  </div>
+
+  <!-- DANGER ZONE -->
+  <div class="danger-sec">
+    <div class="dz-title">⚠️ Danger Zone</div>
+    <div class="dz-desc">These actions are permanent. Signing out will clear your session. Deleting will remove all your local data.</div>
+    <div class="dz-btns">
+      <button class="dbtn" onclick="signOut()">🚪 Sign Out</button>
+      <button class="dbtn fill" onclick="openDeleteModal()">🗑 Delete My Data</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- DELETE MODAL -->
+<div class="overlay" id="deleteModal">
+  <div class="modal">
+    <div class="mico" style="background:var(--danger-light)">🗑</div>
+    <h2>Delete All Data?</h2>
+    <p>This removes your session and all local booking data. This cannot be undone.</p>
+    <div class="mbtns">
+      <button class="mbtn outline" onclick="closeModal('deleteModal')">Cancel</button>
+      <button class="mbtn danger" onclick="deleteData()">Yes, Delete Everything</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<footer><strong>QuickFix</strong> &nbsp;·&nbsp; Worker Profile &nbsp;·&nbsp; © 2025</footer>
+
+<script>
+/* ── SUPABASE ── */
+const SUPABASE_URL='https://oycurbgzzgfzilpflwks.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95Y3VyYmd6emdmemlscGZsd2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjkwMDMsImV4cCI6MjA5MzIwNTAwM30.B9KujxSHzhzpKM_IhVvpTqImVPjF4Yrv3RKn6mgtqxg';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+/* ── SESSION ── */
+function getWorker(){
+  const u=JSON.parse(sessionStorage.getItem('qf_user')||'null');
+  if(!u||u.role!=='worker')
+    return{name:'Demo Worker',skill:'Electrician',radius:'10',role:'worker',phone:'+91 98001 99001',email:'demo@quickfix.in',exp:'3',price:'149',bio:'Experienced electrician available for home repairs.'};
+  return u;
+}
+
+const EMOJI={Electrician:'⚡',Plumber:'🔧',Carpenter:'🪚',Painter:'🎨',Cleaner:'🧹','AC Repair':'❄️',Mason:'🧱','Pest Control':'🐜',Househelp:'🏠'};
+
+/* ── DB ── */
+const DB={
+  all:()=>JSON.parse(localStorage.getItem('qf_bookings')||'[]'),
+  save:(b)=>localStorage.setItem('qf_bookings',JSON.stringify(b)),
+  worker:()=>JSON.parse(sessionStorage.getItem('qf_user')||'null'),
+  saveWorker:(w)=>sessionStorage.setItem('qf_user',JSON.stringify(w)),
+};
+
+/* ── AVAILABILITY STATE ── */
+let isOnline=JSON.parse(sessionStorage.getItem('qf_online')||'false');
+
+/* ── INIT ── */
+function init(){
+  const W=getWorker();
+  renderHero(W);
+  renderAvail();
+  renderViewPersonal(W);
+  renderViewPro(W);
+  renderStats(W);
+  renderEarnings(W);
+  renderReviews(W);
+}
+
+/* ── HERO ── */
+function renderHero(W){
+  const init=(W.name||'W')[0].toUpperCase();
+  document.getElementById('hAv').textContent=init;
+  document.getElementById('hName').textContent=W.name||'—';
+  document.getElementById('hRole').textContent=(EMOJI[W.skill]||'🔧')+' '+(W.skill||'—');
+  document.getElementById('hTags').innerHTML=`
+    <span class="htag">📍 ${W.radius||'10'}km radius</span>
+    <span class="htag">${W.skill||'—'}</span>
+    ${W.phone?`<span class="htag">📞 ${W.phone}</span>`:''}`;
+  document.getElementById('hsRadius').textContent=(W.radius||'10')+'km';
+
+  const all=DB.all();
+  const skill=W.skill;
+  const done=all.filter(b=>b.workerRole===skill&&b.status==='Completed');
+  const totalEarn=done.reduce((s,b)=>s+(b.workerEarning||Math.round(b.price*.8)),0);
+  const ratings=done.filter(b=>b.review).map(b=>b.review.rating);
+  const avgRating=ratings.length?(ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1):'New';
+
+  document.getElementById('hsJobs').textContent=done.length;
+  document.getElementById('hsRating').textContent=avgRating==='New'?'New':avgRating+'★';
+  document.getElementById('hsEarn').textContent='₹'+totalEarn;
+}
+
+/* ── AVAILABILITY ── */
+function renderAvail(){
+  const card=document.getElementById('availCard');
+  const track=document.getElementById('tglTrack');
+  const lbl=document.getElementById('tglLbl');
+  const toggle=document.getElementById('availToggle');
+  const ico=document.getElementById('avIco');
+  const title=document.getElementById('avTitle');
+  const sub=document.getElementById('avSub');
+  card.classList.toggle('on',isOnline);
+  track.classList.toggle('on',isOnline);
+  lbl.classList.toggle('on',isOnline);
+  lbl.textContent=isOnline?'Online':'Offline';
+  toggle.setAttribute('aria-checked',isOnline);
+  ico.textContent=isOnline?'✅':'💤';
+  title.textContent=isOnline?'You are Online':'You are Offline';
+  sub.textContent=isOnline?'You are receiving job requests matching your skill & radius':'Toggle ON to start receiving job requests';
+  sub.classList.toggle('on',isOnline);
+}
+
+function toggleAvail(){
+  isOnline=!isOnline;
+  sessionStorage.setItem('qf_online',JSON.stringify(isOnline));
+  renderAvail();
+  showToast(isOnline?'✅ You are Online — jobs will appear in your dashboard':'💤 You are Offline');
+}
+
+/* ── VIEW MODES ── */
+function renderViewPersonal(W){
+  document.getElementById('vvName').textContent=W.name||'—';
+  document.getElementById('vvPhone').textContent=W.phone||'—';
+  document.getElementById('vvEmail').textContent=W.email||'—';
+}
+function renderViewPro(W){
+  document.getElementById('vvSkill').textContent=(EMOJI[W.skill]||'')+(W.skill?' '+W.skill:'—');
+  document.getElementById('vvRadius').textContent=W.radius?W.radius+' km':'—';
+  document.getElementById('vvExp').textContent=W.exp?W.exp+' years':'—';
+  document.getElementById('vvPrice').textContent=W.price?'₹'+W.price+' / visit':'—';
+  document.getElementById('vvBio').textContent=W.bio||'No bio added yet.';
+}
+
+/* ── EDIT SECTIONS ── */
+function startEdit(sec){
+  const W=getWorker();
+  if(sec==='personal'){
+    document.getElementById('eName').value=W.name||'';
+    document.getElementById('ePhone').value=W.phone||'';
+    document.getElementById('eEmail').value=W.email||'';
+    document.getElementById('eName').classList.remove('err');
+    document.getElementById('ePhone').classList.remove('err');
+    document.getElementById('eEmail').classList.remove('err');
+    toggle('personal',true);
+  }else{
+    document.getElementById('eSkill').value=W.skill||'';
+    document.getElementById('eRadius').value=W.radius||'';
+    document.getElementById('eExp').value=W.exp||'';
+    document.getElementById('ePrice').value=W.price||'';
+    document.getElementById('eBio').value=W.bio||'';
+    document.getElementById('eSkill').classList.remove('err');
+    document.getElementById('eRadius').classList.remove('err');
+    toggle('pro',true);
+  }
+}
+
+function cancelEdit(sec){
+  if(sec==='personal'){
+    document.getElementById('eName').classList.remove('err');
+    document.getElementById('ePhone').classList.remove('err');
+    document.getElementById('eEmail').classList.remove('err');
+  }else{
+    document.getElementById('eSkill').classList.remove('err');
+    document.getElementById('eRadius').classList.remove('err');
+  }
+  toggle(sec,false);
+}
+
+function toggle(sec,editing){
+  const vId=sec==='personal'?'vPersonal':'vPro';
+  const fId=sec==='personal'?'fPersonal':'fPro';
+  const eId=sec==='personal'?'ePersonal':'ePro';
+  const sId=sec==='personal'?'sPersonal':'sPro';
+  const cId=sec==='personal'?'cPersonal':'cPro';
+  document.getElementById(vId).classList.toggle('hide',editing);
+  document.getElementById(fId).classList.toggle('on',editing);
+  document.getElementById(eId).style.display=editing?'none':'';
+  document.getElementById(sId).style.display=editing?'':'none';
+  document.getElementById(cId).style.display=editing?'':'none';
+}
+
+function saveSection(sec){
+  const W=getWorker();
+  if(sec==='personal'){
+    const name=document.getElementById('eName').value.trim();
+    const phone=document.getElementById('ePhone').value.trim();
+    const email=document.getElementById('eEmail').value.trim();
+    
+    if(!name){document.getElementById('eName').classList.add('err');showToast('⚠️ Name is required');return;}
+    if(!phone){document.getElementById('ePhone').classList.add('err');showToast('⚠️ Phone is required');return;}
+    if(phone.length<10){document.getElementById('ePhone').classList.add('err');showToast('⚠️ Phone must be at least 10 digits');return;}
+    
+    document.getElementById('eName').classList.remove('err');
+    document.getElementById('ePhone').classList.remove('err');
+    document.getElementById('eEmail').classList.remove('err');
+    
+    W.name=name;
+    W.phone=phone;
+    W.email=email;
+    toggle('personal',false);
+    renderViewPersonal(W);
+  }else{
+    const skill=document.getElementById('eSkill').value;
+    const radius=document.getElementById('eRadius').value;
+    
+    if(!skill){document.getElementById('eSkill').classList.add('err');showToast('⚠️ Skill is required');return;}
+    if(!radius){document.getElementById('eRadius').classList.add('err');showToast('⚠️ Radius is required');return;}
+    if(radius<1||radius>50){document.getElementById('eRadius').classList.add('err');showToast('⚠️ Radius must be between 1-50 km');return;}
+    
+    document.getElementById('eSkill').classList.remove('err');
+    document.getElementById('eRadius').classList.remove('err');
+    
+    W.skill=skill;
+    W.radius=radius;
+    W.exp=document.getElementById('eExp').value;
+    W.price=document.getElementById('ePrice').value;
+    W.bio=document.getElementById('eBio').value.trim();
+    toggle('pro',false);
+    renderViewPro(W);
+  }
+  DB.saveWorker(W);
+  /* Sync to Supabase */
+  sb.from('users').update({name:W.name,phone:W.phone,email:W.email}).eq('id',W.id).then(()=>{});
+  if(W.skill)sb.from('workers').update({skill:W.skill,radius:parseInt(W.radius)||10,exp:W.exp,price:W.price?parseInt(W.price):null,bio:W.bio}).eq('id',W.id).then(()=>{});
+  renderHero(W);
+  showToast('✅ Profile updated successfully');
+}
+
+/* ── STATS ── */
+function renderStats(W){
+  const all=DB.all();
+  const skill=W.skill;
+  const mine=all.filter(b=>b.workerRole===skill);
+  const done=mine.filter(b=>b.status==='Completed');
+  const active=mine.filter(b=>['Worker on Way','Arrived'].includes(b.status));
+
+  const today=getIST().toISOString().slice(0,10);
+  const weekAgo=new Date(Date.now()-7*24*60*60*1000).toISOString().slice(0,10);
+
+  const todayEarn=done.filter(b=>b.date>=today).reduce((s,b)=>s+(b.workerEarning||Math.round(b.price*.8)),0);
+  const weekEarn=done.filter(b=>b.date>=weekAgo).reduce((s,b)=>s+(b.workerEarning||Math.round(b.price*.8)),0);
+  const totalEarn=done.reduce((s,b)=>s+(b.workerEarning||Math.round(b.price*.8)),0);
+
+  const ratings=done.filter(b=>b.review).map(b=>b.review.rating);
+  const avgRating=ratings.length?(ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1):'—';
+
+  /* Accept rate: completed + active / total jobs */
+  const total=mine.length;
+  const acceptRate=total>0?Math.round(((done.length+active.length)/total)*100)+'%':'—%';
+
+  document.getElementById('stTotal').textContent=mine.length;
+  document.getElementById('stCompleted').textContent=done.length;
+  document.getElementById('stActive').textContent=active.length;
+  document.getElementById('stRating').textContent=avgRating==='—'?'—':avgRating+'★';
+  document.getElementById('stToday').textContent='₹'+todayEarn;
+  document.getElementById('stWeek').textContent='₹'+weekEarn;
+  document.getElementById('stTotal2').textContent='₹'+totalEarn;
+  document.getElementById('stAccept').textContent=acceptRate;
+}
+
+/* ── EARNINGS ── */
+function renderEarnings(W){
+  const done=DB.all().filter(b=>b.workerRole===W.skill&&b.status==='Completed')
+    .sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const total=done.reduce((s,b)=>s+(b.workerEarning||Math.round(b.price*.8)),0);
+  document.getElementById('earnTotal').textContent=done.length?'Total: ₹'+total:'';
+  const c=document.getElementById('earnList');
+  if(!done.length){
+    c.innerHTML=`<div class="mt-empty">No completed jobs yet. Earnings will appear here.</div>`;
+    return;
+  }
+  c.innerHTML=`<div class="earn-list">${done.slice(0,10).map(b=>{
+    const earn=b.workerEarning||Math.round(b.price*.8);
+    return `<div class="earn-item">
+      <div class="ei-left">
+        <span class="ei-ico">${EMOJI[b.workerRole]||'🔧'}</span>
+        <div><div class="ei-svc">${b.service}</div><div class="ei-date">${fmtDate(b.date)} · ${fmt12(b.time)}</div></div>
+      </div>
+      <div style="text-align:right">
+        <div class="ei-amt">₹${earn}</div>
+        <div style="font-size:.65rem;color:var(--text3)">80% of ₹${b.price}</div>
+      </div>
+    </div>`;
+  }).join('')}</div>
+  ${done.length>10?`<div style="text-align:center;padding:.75rem;font-size:.75rem;color:var(--text3)">Showing last 10 jobs</div>`:''}`;
+}
+
+/* ── REVIEWS ── */
+function renderReviews(W){
+  const done=DB.all().filter(b=>b.workerRole===W.skill&&b.status==='Completed'&&b.review)
+    .sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const c=document.getElementById('revList');
+  if(!done.length){
+    c.innerHTML=`<div class="mt-empty">No reviews yet. Reviews will appear here after completed jobs.</div>`;
+    return;
+  }
+  c.innerHTML=`<div class="rev-list">${done.slice(0,5).map(b=>`
+    <div class="rev-card">
+      <div class="rev-hdr">
+        <span class="rev-name">Anonymous User · ${b.service}</span>
+        <span class="rev-stars">${'★'.repeat(b.review.rating)}${'☆'.repeat(5-b.review.rating)}</span>
+      </div>
+      <div class="rev-txt">${b.review.comment||'No comment left.'}</div>
+    </div>`).join('')}</div>`;
+}
+
+/* ── DANGER ZONE ── */
+async function signOut(){
+  await sb.auth.signOut();
+  sessionStorage.clear();
+  showToast('👋 Signed out');
+  setTimeout(()=>window.location.href='landing.html',900);
+}
+
+function openDeleteModal(){document.getElementById('deleteModal').classList.add('on');}
+function closeModal(id){document.getElementById(id).classList.remove('on');}
+
+async function deleteData(){
+  await sb.auth.signOut();
+  sessionStorage.clear();
+  localStorage.removeItem('qf_bookings');
+  localStorage.removeItem('qf_worker_stats');
+  closeModal('deleteModal');
+  showToast('🗑 All data deleted');
+  setTimeout(()=>window.location.href='landing.html',900);
+}
+
+/* ── HELPERS ── */
+function getIST(){return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));}
+function fmt12(t){if(!t)return '';const[h,m]=t.split(':').map(Number);return `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`;}
+function fmtDate(d){return new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});}
+
+let _tt;
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('on'),3500);}
+
+/* backdrop close */
+document.getElementById('deleteModal').addEventListener('click',function(e){if(e.target===this)closeModal('deleteModal');});
+
+/* Remove error state on focus */
+['eName','ePhone','eEmail','eSkill','eRadius'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el)el.addEventListener('focus',()=>el.classList.remove('err'));
+});
+
+/* ── AUTH CHECK + RUN ── */
+(async()=>{
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){window.location.href='auth.html?role=worker';return;}
+  const raw=sessionStorage.getItem('qf_user');
+  if(!raw){
+    const {data:p}=await sb.from('users').select('*').eq('id',session.user.id).single();
+    if(!p||p.role!=='worker'){window.location.href='index.html';return;}
+    const {data:wp}=await sb.from('workers').select('*').eq('id',session.user.id).single();
+    sessionStorage.setItem('qf_user',JSON.stringify({...p,...(wp||{})}));
+  }
+  init();
+})();
+</script>
+</body>
+</html>
