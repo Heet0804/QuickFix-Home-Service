@@ -769,8 +769,9 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
   if(!session){window.location.href='auth.html';return;}
   const cached=sessionStorage.getItem('qf_user');
   if(!cached){
-    const {data:p}=await sb.from('users').select('*').eq('id',session.user.id).single();
-    if(p)sessionStorage.setItem('qf_user',JSON.stringify(p));
+    const {data:p}=await sb.from('profiles').select('*').eq('id',session.user.id).single();
+    if(p) sessionStorage.setItem('qf_user',JSON.stringify({...p, email:session.user.email}));
+    else sessionStorage.setItem('qf_user',JSON.stringify({id:session.user.id, email:session.user.email, name:'', role:'user'}));
   }
 })();
 
@@ -781,131 +782,123 @@ async function signOut(){
   window.location.href='auth.html';
 }
 
+/* ── DB: all reads/writes go to Supabase ── */
 const DB = {
-  workers:  ()  => JSON.parse(localStorage.getItem('qf_workers')||'null') || WORKERS,
-  bookings: ()  => JSON.parse(localStorage.getItem('qf_bookings')||'[]'),
-  save:     (b) => {
-    localStorage.setItem('qf_bookings', JSON.stringify(b));
-    /* Sync latest booking to Supabase */
-    const u=JSON.parse(sessionStorage.getItem('qf_user')||'null');
-    if(b.length&&u){
-      const bk=b[0];
-      sb.from('bookings').upsert({
-        id:String(bk.id),user_id:u.id,
-        worker_role:bk.workerRole,worker_emoji:bk.workerEmoji,
-        service:bk.service,date:bk.date,time:bk.time,
-        address:bk.address,notes:bk.notes||'',
-        price:bk.price,base_price:bk.basePrice,
-        payment_method:bk.paymentMethod,status:bk.status,
-        arrival_otp:bk.arrivalOtp,completion_otp:bk.completionOtp,
-        is_emergency:bk.isEmergency||false,is_advance:bk.isAdvance||false,
-        worker_name:bk.workerName||'',worker_phone:bk.workerPhone||'',
-        worker_dist:bk.workerDist||0,rated:bk.rated||false,
-        created_at:bk.createdAt
-      }).then(({error})=>{if(error)console.warn('Supabase sync:',error.message);});
-    }
+  /* Fetch workers from Supabase, optional role filter */
+  workers: async (role=null) => {
+    let q=sb.from('workers').select('*, worker_services(*)');
+    if(role) q=q.eq('skill',role);
+    const {data,error}=await q;
+    if(error){console.error('DB.workers:',error.message);return[];}
+    /* Normalise shape to match what the UI expects */
+    return (data||[]).map(w=>({
+      ...w,
+      role: w.skill,          /* UI uses .role everywhere */
+      exp:  w.experience,
+      desc: w.bio,
+      emoji: w.emoji||'🔧',
+      ea:   w.is_emergency,
+      dist: 0,                /* placeholder until Phase 2 location */
+      reviews: w.reviews_count,
+      svcs: (w.worker_services||[]).map(s=>({n:s.name,p:s.price})),
+      revs: []                /* reviews fetched separately when needed */
+    }));
   },
-  saveReg:  (r) => { const l=JSON.parse(localStorage.getItem('qf_regs')||'[]'); l.push(r); localStorage.setItem('qf_regs',JSON.stringify(l)); }
+
+  /* Fetch all bookings for the logged-in user */
+  bookings: async () => {
+    const {data:{user}}=await sb.auth.getUser();
+    if(!user) return[];
+    const {data,error}=await sb.from('bookings')
+      .select('*')
+      .eq('user_id',user.id)
+      .order('created_at',{ascending:false});
+    if(error){console.error('DB.bookings:',error.message);return[];}
+    /* Normalise DB column names → JS camelCase the UI uses */
+    return (data||[]).map(b=>({
+      ...b,
+      workerName:    b.worker_name,
+      workerPhone:   b.worker_phone,
+      workerRole:    b.worker_skill,
+      workerEmoji:   b.worker_emoji,
+      workerDist:    0,
+      basePrice:     b.base_price,
+      paymentMethod: b.payment_method,
+      arrivalOtp:    b.arrival_otp,
+      completionOtp: b.completion_otp,
+      isEmergency:   b.is_emergency,
+      isAdvance:     b.is_advance,
+      createdAt:     b.created_at
+    }));
+  },
+
+  /* Save a single booking object to Supabase */
+  save: async (bk) => {
+    const {data:{user}}=await sb.auth.getUser();
+    if(!user) return;
+    const {error}=await sb.from('bookings').upsert({
+      id:            String(bk.id),
+      user_id:       user.id,
+      worker_id:     bk.workerId||null,
+      worker_name:   bk.workerName||'',
+      worker_phone:  bk.workerPhone||'',
+      worker_skill:  bk.workerRole||'',
+      worker_emoji:  bk.workerEmoji||'',
+      service:       bk.service,
+      date:          bk.date,
+      time:          bk.time,
+      address:       bk.address,
+      notes:         bk.notes||'',
+      price:         bk.price,
+      base_price:    bk.basePrice,
+      payment_method:bk.paymentMethod,
+      status:        bk.status,
+      arrival_otp:   bk.arrivalOtp,
+      completion_otp:bk.completionOtp,
+      is_emergency:  bk.isEmergency||false,
+      is_advance:    bk.isAdvance||false,
+      rated:         bk.rated||false,
+      created_at:    bk.createdAt
+    });
+    if(error) console.error('DB.save:',error.message);
+  },
+
+  /* Update a single field on a booking */
+  update: async (id, fields) => {
+    const {error}=await sb.from('bookings').update(fields).eq('id',String(id));
+    if(error) console.error('DB.update:',error.message);
+  },
+
+  /* Save a review and mark booking as rated */
+  saveReview: async (bkId, workerId, rating, comment, authorName) => {
+    const {data:{user}}=await sb.auth.getUser();
+    if(!user) return;
+    await sb.from('reviews').insert({
+      booking_id:  String(bkId),
+      user_id:     user.id,
+      worker_id:   workerId||null,
+      rating,
+      comment,
+      author_name: authorName
+    });
+    await sb.from('bookings').update({rated:true}).eq('id',String(bkId));
+  },
+
+  /* Worker registration — saves to profiles table for now */
+  saveReg: async (r) => {
+    const {data:{user}}=await sb.auth.getUser();
+    if(!user) return;
+    const {error}=await sb.from('profiles').upsert({
+      id:    user.id,
+      name:  r.rName||'',
+      phone: r.rPhone||'',
+      role:  'worker'
+    });
+    if(error) console.error('DB.saveReg:',error.message);
+  }
 };
 
 /* ── WORKERS ──────────────────────────────────────────────── */
-const WORKERS = [
-  {id:1,  name:'Arjun Sharma',  phone:'+91 98001 11001', role:'Electrician',  rating:4.9, reviews:124, exp:'8 yrs',  price:149, dist:1.2, ea:true,
-   desc:'Expert in home wiring, switchboard repair & solar installation.', emoji:'⚡',
-   svcs:[{n:'Fan Repair',p:149},{n:'Switchboard Repair',p:179},{n:'Light Fitting',p:129},{n:'Wiring Fix',p:229},{n:'MCB/Fuse',p:149}],
-   revs:[{a:'Rahul M.',s:5,t:'Very professional, fixed our issue within an hour!'},{a:'Priya K.',s:5,t:'Arjun was punctual and did clean work.'}]},
-  {id:2,  name:'Meena Pillai',  phone:'+91 98001 11002', role:'Plumber',       rating:4.8, reviews:98,  exp:'6 yrs',  price:149, dist:0.8, ea:false,
-   desc:'Specialises in pipe fitting, leak repair, tap & bathroom fitting.', emoji:'🔧',
-   svcs:[{n:'Tap Repair',p:129},{n:'Pipe Leak Fix',p:179},{n:'Blocked Drain',p:149},{n:'Toilet Repair',p:199},{n:'Geyser Check',p:179}],
-   revs:[{a:'Sunita R.',s:5,t:'Fixed our leaking pipe quickly.'},{a:'Deepak J.',s:4,t:'Great work, affordable prices.'}]},
-  {id:3,  name:'Ravi Kumar',    phone:'+91 98001 11003', role:'Carpenter',     rating:4.7, reviews:76,  exp:'10 yrs', price:199, dist:2.1, ea:false,
-   desc:'Custom furniture, door fitting, wardrobe making & wood polishing.', emoji:'🪚',
-   svcs:[{n:'Door Hinge Fix',p:149},{n:'Furniture Repair',p:199},{n:'Lock Replacement',p:179},{n:'Wood Polishing',p:249},{n:'Window Fix',p:189}],
-   revs:[{a:'Anita S.',s:5,t:'Built a beautiful wardrobe for us.'},{a:'Mohan T.',s:4,t:'Good work, timely delivery.'}]},
-  {id:4,  name:'Sunita Devi',   phone:'+91 98001 11004', role:'Cleaner',       rating:4.6, reviews:211, exp:'4 yrs',  price:149, dist:0.5, ea:false,
-   desc:'Full home deep cleaning, sofa, kitchen scrubbing & post-construction.', emoji:'🧹',
-   svcs:[{n:'Room Cleaning',p:129},{n:'Kitchen Clean',p:149},{n:'Bathroom Clean',p:129},{n:'Sofa Cleaning',p:199},{n:'Full Home',p:349}],
-   revs:[{a:'Kavya M.',s:5,t:'The house was spotless after Sunita!'},{a:'Raj P.',s:4,t:'Very thorough and efficient.'}]},
-  {id:5,  name:'Vijay Singh',   phone:'+91 98001 11005', role:'Painter',       rating:4.8, reviews:63,  exp:'12 yrs', price:249, dist:3.0, ea:false,
-   desc:'Interior/exterior wall painting, waterproofing & texture specialist.', emoji:'🎨',
-   svcs:[{n:'1 Room Interior',p:249},{n:'Touch-up Paint',p:179},{n:'Wall Putty',p:199},{n:'Waterproofing',p:349},{n:'Full Room Texture',p:449}],
-   revs:[{a:'Leena G.',s:5,t:'Superb finish!'},{a:'Harish N.',s:5,t:'Vijay is truly an artist.'}]},
-  {id:6,  name:'Priya Nair',    phone:'+91 98001 11006', role:'AC Repair',     rating:4.9, reviews:143, exp:'7 yrs',  price:199, dist:1.5, ea:false,
-   desc:'AC servicing, gas refill, compressor repair & installation.', emoji:'❄️',
-   svcs:[{n:'AC Cleaning/Service',p:199},{n:'Not Cooling Check',p:179},{n:'Water Leak Fix',p:179},{n:'Remote/Sensor Issue',p:129},{n:'Filter Clean',p:129}],
-   revs:[{a:'Amitabh D.',s:5,t:'Priya fixed it perfectly.'},{a:'Geeta S.',s:5,t:'Quick response!'}]},
-  {id:7,  name:'Suresh Babu',   phone:'+91 98001 11007', role:'Electrician',   rating:4.5, reviews:55,  exp:'5 yrs',  price:149, dist:4.2, ea:false,
-   desc:'MCB & fuse box repair, safety audits & appliance wiring.', emoji:'⚡',
-   svcs:[{n:'Fan Repair',p:129},{n:'MCB Trip Fix',p:149},{n:'Fuse Replacement',p:129},{n:'Socket Fix',p:139},{n:'Appliance Wiring',p:179}],
-   revs:[{a:'Ritu V.',s:4,t:'Good work at fair price.'},{a:'Prakash L.',s:5,t:'Very professional.'}]},
-  {id:8,  name:'Lakshmi Reddy', phone:'+91 98001 11008', role:'Mason',         rating:4.6, reviews:40,  exp:'15 yrs', price:249, dist:2.8, ea:false,
-   desc:'Tile fixing, plastering, waterproofing & wall crack repair.', emoji:'🧱',
-   svcs:[{n:'Wall Crack Fill',p:179},{n:'Tile Fixing',p:249},{n:'Plastering',p:299},{n:'Waterproofing',p:349},{n:'Floor Grouting',p:199}],
-   revs:[{a:'Sanjay G.',s:5,t:'Excellent tile work.'},{a:'Neha R.',s:4,t:'Good plastering job.'}]},
-  {id:9,  name:'Amit Gupta',    phone:'+91 98001 11009', role:'Pest Control',  rating:4.7, reviews:88,  exp:'6 yrs',  price:199, dist:1.9, ea:false,
-   desc:'Termite, cockroach & rodent control, mosquito fogging.', emoji:'🐜',
-   svcs:[{n:'Cockroach Treatment',p:199},{n:'Ant Control',p:169},{n:'Mosquito Spray',p:169},{n:'Rodent Trap',p:199},{n:'Termite Check',p:249}],
-   revs:[{a:'Divya M.',s:5,t:'No pests since treatment.'},{a:'Rohit S.',s:4,t:'Effective and fair.'}]},
-  {id:10, name:'Kiran Rao',     phone:'+91 98001 11010', role:'Electrician',   rating:4.8, reviews:67,  exp:'9 yrs',  price:149, dist:0.9, ea:true,
-   desc:'24/7 emergency electrical repairs — fans, wiring, fuses & more.', emoji:'⚡',
-   svcs:[{n:'Fan Repair',p:149},{n:'Fuse Replacement',p:129},{n:'MCB Trip Fix',p:149},{n:'Power Outage Check',p:179},{n:'Emergency Wiring',p:229}],
-   revs:[{a:'Neha P.',s:5,t:'Came at 2am, fixed everything. Lifesaver!'},{a:'Suman T.',s:5,t:'Amazing emergency service.'}]},
-  {id:11, name:'Deepak Sharma', phone:'+91 98001 11011', role:'Plumber',       rating:4.7, reviews:62,  exp:'7 yrs',  price:149, dist:1.1, ea:true,
-   desc:'24/7 emergency plumbing — burst pipes, overflows, blocked drains.', emoji:'🔧',
-   svcs:[{n:'Burst Pipe Fix',p:199},{n:'Overflow Stop',p:169},{n:'Emergency Drain',p:169},{n:'Tap Shutoff',p:139},{n:'Toilet Block',p:159}],
-   revs:[{a:'Ramesh K.',s:5,t:'Called at midnight, came in 20 min. Saved us!'},{a:'Ananya T.',s:5,t:'Very fast and professional.'}]},
-  {id:12, name:'Rekha Nair',    phone:'+91 98001 11012', role:'Househelp',     rating:4.7, reviews:89,  exp:'5 yrs',  price:99,  dist:1.3, ea:false,
-   desc:'Full household help — cleaning, cooking, laundry, errands & care services.', emoji:'🏠',
-   svcs:[
-     {n:'Room Cleaning',p:99},{n:'Bathroom Cleaning',p:99},{n:'Kitchen Cleaning',p:129},{n:'Deep Cleaning (Full House)',p:299},{n:'Sofa / Carpet Cleaning',p:199},
-     {n:'Cooking Assistance',p:149},{n:'Full-time Cook (Daily)',p:399},{n:'Meal Prep – Weekly Batch',p:279},{n:'Utensil Washing',p:79},
-     {n:'Clothes Washing',p:99},{n:'Ironing Service',p:89},{n:'Folding & Organizing',p:79},
-     {n:'Dusting & Tidying',p:79},{n:'Daily Chores Support',p:129},{n:'Organizing Rooms',p:99},
-     {n:'Grocery Pickup',p:79},{n:'Market Errands',p:79},{n:'Parcel Drop / Pickup',p:69},
-     {n:'Babysitting',p:199},{n:'Elder Care Assistance',p:249},{n:'Patient Assistance',p:229},
-     {n:'Balcony Cleaning',p:99},{n:'Window Cleaning',p:129},{n:'Post-Party Cleanup',p:349}
-   ],
-   revs:[{a:'Priya S.',s:5,t:'Rekha is reliable and thorough — our home feels brand new!'},{a:'Sunil K.',s:4,t:'Great cooking and very organized.'}]},
-  {id:13, name:'Savita Rao',    phone:'+91 98001 11013', role:'Househelp',     rating:4.8, reviews:112, exp:'7 yrs',  price:99,  dist:0.7, ea:false,
-   desc:'Experienced in cooking, deep cleaning, laundry & baby care.', emoji:'🏠',
-   svcs:[
-     {n:'Room Cleaning',p:99},{n:'Bathroom Cleaning',p:99},{n:'Kitchen Cleaning',p:129},{n:'Deep Cleaning (Full House)',p:299},{n:'Sofa / Carpet Cleaning',p:199},
-     {n:'Cooking Assistance',p:149},{n:'Full-time Cook (Daily)',p:399},{n:'Meal Prep – Weekly Batch',p:279},{n:'Utensil Washing',p:79},
-     {n:'Clothes Washing',p:99},{n:'Ironing Service',p:89},{n:'Folding & Organizing',p:79},
-     {n:'Dusting & Tidying',p:79},{n:'Daily Chores Support',p:129},{n:'Organizing Rooms',p:99},
-     {n:'Grocery Pickup',p:79},{n:'Market Errands',p:79},{n:'Parcel Drop / Pickup',p:69},
-     {n:'Babysitting',p:199},{n:'Elder Care Assistance',p:249},{n:'Patient Assistance',p:229},
-     {n:'Balcony Cleaning',p:99},{n:'Window Cleaning',p:129},{n:'Post-Party Cleanup',p:349}
-   ],
-   revs:[{a:'Meena T.',s:5,t:'Savita cooks amazingly and keeps everything clean.'},{a:'Arpit S.',s:5,t:'Very trustworthy and hard-working.'}]},
-  {id:14, name:'Anjali Sharma',  phone:'+91 98001 11014', role:'Massage & Wellness', rating:4.9, reviews:97, exp:'6 yrs', price:349, dist:1.1, ea:false,
-   desc:'Professional home massage, spa & salon services for relaxation and wellness.', emoji:'💆',
-   svcs:[
-     {n:'Full Body Massage (60 min)',p:599},{n:'Full Body Massage (90 min)',p:799},{n:'Back & Shoulder Massage',p:349},{n:'Head Massage',p:199},{n:'Foot Massage',p:249},
-     {n:'Swedish Massage',p:649},{n:'Deep Tissue Massage',p:699},{n:'Couple Massage (60 min)',p:999},
-     {n:'Home Spa Package',p:999},{n:'Aromatherapy Massage',p:749},{n:'Hot Stone Massage',p:849},
-     {n:'Facial (Basic)',p:399},{n:'Facial (Premium)',p:599},{n:'Cleanup & Glow',p:349},
-     {n:'Waxing – Full Arms',p:199},{n:'Waxing – Full Legs',p:249},{n:'Full Body Wax',p:599},
-     {n:'Threading (Eyebrows)',p:49},{n:'Eyebrow & Upper Lip',p:79},
-     {n:'Manicure',p:299},{n:'Pedicure',p:349},{n:'Manicure + Pedicure',p:549},
-     {n:'Hair Spa',p:499},{n:'Hair Oil Massage',p:249},{n:'Blowdry & Styling',p:299}
-   ],
-   revs:[{a:'Sneha R.',s:5,t:'Anjali was amazing! Best home massage I have had.'},{a:'Pooja M.',s:5,t:'Very professional and relaxing experience.'}]},
-  {id:15, name:'Preethi Nair',   phone:'+91 98001 11015', role:'Massage & Wellness', rating:4.8, reviews:74, exp:'5 yrs', price:349, dist:2.0, ea:false,
-   desc:'Certified spa therapist offering massage, salon and beauty services at home.', emoji:'💆',
-   svcs:[
-     {n:'Full Body Massage (60 min)',p:599},{n:'Full Body Massage (90 min)',p:799},{n:'Back & Shoulder Massage',p:349},{n:'Head Massage',p:199},{n:'Foot Massage',p:249},
-     {n:'Swedish Massage',p:649},{n:'Deep Tissue Massage',p:699},{n:'Couple Massage (60 min)',p:999},
-     {n:'Home Spa Package',p:999},{n:'Aromatherapy Massage',p:749},{n:'Hot Stone Massage',p:849},
-     {n:'Facial (Basic)',p:399},{n:'Facial (Premium)',p:599},{n:'Cleanup & Glow',p:349},
-     {n:'Waxing – Full Arms',p:199},{n:'Waxing – Full Legs',p:249},{n:'Full Body Wax',p:599},
-     {n:'Threading (Eyebrows)',p:49},{n:'Eyebrow & Upper Lip',p:79},
-     {n:'Manicure',p:299},{n:'Pedicure',p:349},{n:'Manicure + Pedicure',p:549},
-     {n:'Hair Spa',p:499},{n:'Hair Oil Massage',p:249},{n:'Blowdry & Styling',p:299}
-   ],
-   revs:[{a:'Kavita S.',s:5,t:'Preethi is so skilled — felt like a 5-star spa at home!'},{a:'Ritu P.',s:4,t:'Great service, very punctual.'}]},
-];
-
 /* ── CATEGORIES ───────────────────────────────────────────── */
 const CATS = [
   {id:'Electrician',  lb:'Electrician',  em:'⚡', items:[{i:'🌀',l:'Fan'},{i:'🔌',l:'Switchboard'},{i:'💡',l:'Lights'},{i:'🔋',l:'Wiring'},{i:'📦',l:'MCB/Fuse'},{i:'📷',l:'CCTV'}]},
@@ -1045,8 +1038,9 @@ function renderCategoryPage(catId){
 
 function openCategory(catId){ renderCategoryPage(catId); goPage('category'); }
 
-function bookCategoryService(serviceName, catId){
-  const pool=[...DB.workers()].filter(w=>w.role===catId).sort((a,b)=>a.dist-b.dist);
+async function bookCategoryService(serviceName, catId){
+  const workers=await DB.workers(catId);
+  const pool=workers.filter(w=>w.is_available).sort((a,b)=>a.dist-b.dist);
   if(!pool.length){ showToast(`⚠️ No ${catId} workers available right now`); return; }
   sst={catId, item:serviceName, issue:''};
   openBooking(pool[0].id);
@@ -1180,10 +1174,10 @@ function renderHomeCats(){
     mwCard+
     (e?`<div style="grid-column:1/-1;text-align:center;font-size:.76rem;color:var(--emerg);font-weight:600;padding:.4rem .875rem;background:var(--emerg-light);border-radius:var(--radius-sm);border:1px solid var(--emerg-border)">🚨 Emergency hours — Only Electrician &amp; Plumber available (9:45 PM – 8:30 AM IST)</div>`:'');
 }
-function renderHomeWorkers(){
+async function renderHomeWorkers(){
   const e=isEmerg();
-  let ws=[...DB.workers()];
-  if(e) ws=ws.filter(w=>EROLES.includes(w.role)&&w.ea);
+  let ws=await DB.workers();
+  if(e) ws=ws.filter(w=>['Electrician','Plumber'].includes(w.role)&&w.ea);
   document.getElementById('homeWorkers').innerHTML=ws.sort((a,b)=>b.rating-a.rating).slice(0,3).map(wCard).join('');
 }
 
@@ -1205,9 +1199,9 @@ function renderHousehelp(){
     </div>`).join('');
 }
 
-function bookHousehelp(serviceName, price){
-  /* Find nearest househelp worker */
-  const pool=[...DB.workers()].filter(w=>w.role==='Househelp').sort((a,b)=>a.dist-b.dist);
+async function bookHousehelp(serviceName, price){\
+  const workers=await DB.workers('Househelp');
+  const pool=workers.filter(w=>w.is_available).sort((a,b)=>a.dist-b.dist);
   if(!pool.length){ showToast('⚠️ No Househelp workers available right now'); return; }
   sst={catId:'Househelp', item:serviceName, issue:''};
   openBooking(pool[0].id);
@@ -1246,7 +1240,7 @@ function renderStep(step){
   if(step===3){
     sst.issue=document.getElementById('issueText')?.value||sst.issue;
     const e=isEmerg();
-    let pool=[...DB.workers()].filter(w=>w.role===sst.catId);
+    let pool=(await DB.workers(sst.catId)).filter(w=>w.is_available);
     if(e) pool=pool.filter(w=>w.ea);
     pool.sort((a,b)=>a.dist-b.dist);
     const noW=pool.length===0;
@@ -1277,9 +1271,9 @@ function renderStep(step){
 
 function pickItem(l){ sst.item=l; renderStep(1); }
 function runSearch(){ sst.issue=document.getElementById('issueText')?.value.trim()||''; renderStep(3); }
-function openBookingFromSmart(){
+async function openBookingFromSmart(){
   const e=isEmerg();
-  let pool=[...DB.workers()].filter(w=>w.role===sst.catId);
+  let pool=(await DB.workers(sst.catId)).filter(w=>w.is_available);
   if(e) pool=pool.filter(w=>w.ea);
   if(!pool.length){ showToast('⚠️ No workers available right now.'); return; }
   openBooking(pool.sort((a,b)=>a.dist-b.dist)[0].id);
@@ -1323,9 +1317,9 @@ function setFilter(type,val,btn){
 }
 function applyFilters(){ filters.search=document.getElementById('svcSearch').value.toLowerCase(); renderServices(); }
 
-function renderServices(){
+async function renderServices(){
   const e=isEmerg();
-  let ws=[...DB.workers()];
+  let ws=await DB.workers();
   if(e) ws=ws.filter(w=>EROLES.includes(w.role)&&w.ea);
   else if(filters.cat!=='all') ws=ws.filter(w=>w.role===filters.cat);
   if(filters.search) ws=ws.filter(w=>w.role.toLowerCase().includes(filters.search)||w.desc.toLowerCase().includes(filters.search));
@@ -1338,8 +1332,8 @@ function renderServices(){
 }
 
 /* ── PROFILE ──────────────────────────────────────────────── */
-function openProfile(id){
-  const w=DB.workers().find(w=>w.id===id); if(!w) return;
+async function openProfile(id){
+  const ws=await DB.workers(); const w=ws.find(w=>w.id===id); if(!w) return;
   curW=w;
   document.getElementById('profBread').textContent=w.role+' Professional';
   document.getElementById('profContent').innerHTML=`
@@ -1367,8 +1361,8 @@ function openProfile(id){
 }
 
 /* ── BOOKING PAGE ─────────────────────────────────────────── */
-function openBooking(id){
-  const w=DB.workers().find(w=>w.id===id); if(!w) return;
+async function openBooking(id){
+  const ws=await DB.workers(); const w=ws.find(w=>w.id===id); if(!w) return;
   curW=w;
   const e=isEmerg();
   document.getElementById('bkBread').textContent=w.role;
@@ -1573,10 +1567,10 @@ function updateAcc(){
 }
 
 /* ── ON ACCEPTED ──────────────────────────────────────────── */
-function onAccepted(){
-  let pool=[...DB.workers()].filter(w=>w.role===pendBk.workerRole);
+async function onAccepted(){
+  let pool=(await DB.workers(pendBk.workerRole)).filter(w=>w.is_available);
   if(pendBk.isEmergency) pool=pool.filter(w=>w.ea);
-  const nearest=pool.sort((a,b)=>a.dist-b.dist)[0]||DB.workers().find(w=>w.id===pendBk.workerId);
+  const nearest=pool.sort((a,b)=>a.dist-b.dist)[0]||(await DB.workers()).find(w=>w.id===pendBk.workerId);
   const arrivalOtp=genOtp(), completionOtp=genOtp(), advance=isAdv(pendBk.date,pendBk.time);
   const bk={
     id:Date.now(),
@@ -1594,7 +1588,7 @@ function onAccepted(){
     rated:false,
     createdAt:new Date().toISOString()
   };
-  const bks=DB.bookings(); bks.unshift(bk); DB.save(bks);
+  const bks=DB.bookings(); bks.unshift(bk); await DB.save(bk);
   const sf=fmt12(bk.time), rf=revealAt(bk.time);
   const ico=document.getElementById('confIco');
   ico.textContent=advance?'📅':'✅';
@@ -1625,8 +1619,8 @@ function onAccepted(){
 }
 
 /* ── MY BOOKINGS ──────────────────────────────────────────── */
-function renderBookings(){
-  const all=DB.bookings();
+async function renderBookings(){
+  const all=await DB.bookings();
   let list=all;
   if(curTab==='upcoming') list=all.filter(b=>['Scheduled','Confirmed','Worker on Way','Arrived'].includes(b.status));
   if(curTab==='completed') list=all.filter(b=>b.status==='Completed');
@@ -1675,14 +1669,13 @@ const cancelBtn=canCancel
   }).join('')}</div>`;
 }
 
-function cancelBk(id){
-  const bks=DB.bookings(), b=bks.find(x=>x.id===id);
-  if(b){b.status='Cancelled';DB.save(bks);sb.from('bookings').update({status:'Cancelled'}).eq('id',String(id)).then(()=>{});}
+async function cancelBk(id){
+  await DB.update(id,{status:'Cancelled'});
   showToast('🗑 Booking cancelled'); renderBookings();
 }
 function clearHistory(){ document.getElementById('clrModal').classList.add('on'); }
 function clrConfirmed(){
-  closeModal('clrModal'); localStorage.removeItem('qf_bookings');
+  closeModal('clrModal');
   curTab='all'; document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('on',i===0));
   showToast('🗑 Booking history cleared'); renderBookings();
 }
@@ -1692,9 +1685,9 @@ function switchTab(tab,btn){
 }
 
 /* ── ARRIVAL TIMER ────────────────────────────────────────── */
-function openArrival(bkId){
-  const bks=DB.bookings(), b=bks.find(x=>x.id===bkId); if(!b) return;
-  b.status='Worker on Way'; DB.save(bks);
+async function openArrival(bkId){
+  const all=await DB.bookings(); const b=all.find(x=>x.id===bkId); if(!b) return;
+  await DB.update(bkId,{status:'Worker on Way'});
   pendBkId=bkId; arrExt=false; arrLeft=900;
   document.getElementById('arrOtpShow').textContent=b.arrivalOtp||'——';
   document.getElementById('arrivalModal').classList.add('on');
@@ -1713,10 +1706,10 @@ function extendTimer(){
   closeModal('notArrivedModal'); arrExt=true; arrLeft=300;
   document.getElementById('arrivalModal').classList.add('on'); startArr(); showToast('⏱ Extended by 5 minutes');
 }
-function autoCancel(){
+async function autoCancel(){
   closeModal('notArrivedModal'); closeModal('arrivalModal'); if(!pendBkId) return;
-  const bks=DB.bookings(), b=bks.find(x=>x.id===pendBkId);
-  if(b) b.status='Cancelled'; DB.save(bks); showToast('❌ Auto-cancelled — worker did not arrive'); renderBookings();
+  await DB.update(pendBkId,{status:'Cancelled'});
+  showToast('❌ Auto-cancelled — worker did not arrive'); renderBookings();
 }
 
 /* ── OTP VERIFICATION ─────────────────────────────────────── */
@@ -1727,34 +1720,35 @@ function triggerOtp(mode,id){
   document.getElementById('otpInput').value='';
   document.getElementById('otpModal').classList.add('on');
 }
-function verifyOtp(){
+async function verifyOtp(){
   const entered=document.getElementById('otpInput').value.trim();
-  const bks=DB.bookings(), b=bks.find(x=>x.id===pendBkId);
+  const all=await DB.bookings(); const b=all.find(x=>x.id===pendBkId);
   if(!b){ showToast('⚠️ Booking not found'); return; }
   if(otpMode==='arrival'){
     if(entered!==b.arrivalOtp){ showToast('❌ Incorrect Arrival OTP'); return; }
     clearInterval(arrInt); closeModal('arrivalModal'); closeModal('otpModal');
-    b.status='Arrived'; DB.save(bks); showToast('✅ Arrival confirmed!'); renderBookings();
+    await DB.update(pendBkId,{status:'Arrived'}); showToast('✅ Arrival confirmed!'); renderBookings();
   } else {
     if(entered!==b.completionOtp){ showToast('❌ Incorrect Completion OTP'); return; }
-    closeModal('otpModal'); b.status='Completed'; DB.save(bks); showToast('🎉 Service marked as Completed!'); renderBookings();
+    closeModal('otpModal'); await DB.update(pendBkId,{status:'Completed'}); showToast('🎉 Service marked as Completed!'); renderBookings();
   }
 }
 
 /* ── REVIEW ───────────────────────────────────────────────── */
-function openReview(bkId){
+async function openReview(bkId){
   revId=bkId; revRat=0;
-  const b=DB.bookings().find(x=>x.id===bkId);
+  const all=await DB.bookings(); const b=all.find(x=>x.id===bkId);
   document.getElementById('reviewDesc').innerHTML=`How was your <strong>${b.workerRole}</strong> service experience?`;
   setRating(0); document.getElementById('reviewComment').value='';
   document.getElementById('reviewModal').classList.add('on');
 }
 function setRating(r){ revRat=r; document.querySelectorAll('#starInput span').forEach((s,i)=>s.classList.toggle('lit',i<r)); }
-function submitReview(){
+async function submitReview(){
   if(!revRat){ showToast('⚠️ Please select a star rating'); return; }
-  const bks=DB.bookings(), b=bks.find(x=>x.id===revId); if(!b) return;
-  b.rated=true; b.review={rating:revRat,comment:document.getElementById('reviewComment').value.trim(),at:new Date().toISOString()};
-  DB.save(bks); closeModal('reviewModal'); showToast('⭐ Thank you for your review!'); renderBookings();
+  const all=await DB.bookings(); const b=all.find(x=>x.id===revId); if(!b) return;
+  const user=JSON.parse(sessionStorage.getItem('qf_user')||'{}');
+  await DB.saveReview(revId, b.workerId||null, revRat, document.getElementById('reviewComment').value.trim(), user.name||'Anonymous');
+  closeModal('reviewModal'); showToast('⭐ Thank you for your review!'); renderBookings();
 }
 
 /* ── AADHAAR UPLOAD ───────────────────────────────────────── */
@@ -1787,7 +1781,7 @@ function submitReg(){
   entry.pan=document.getElementById('rPan').value.trim();
   entry.status='Pending Review'; entry.joinedAt=new Date().toISOString();
   const phone=entry.rPhone;
-  DB.saveReg(entry);
+  await DB.saveReg(entry);
   [...fields,'rPan','rRadius'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById('rEmerg').checked=false;
   aadhaarData=null;
