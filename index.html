@@ -785,6 +785,30 @@ async function signOut(){
 }
 
 /* ── DB: all reads/writes go to Supabase ── */
+function getLocalBookings(){
+  try { const raw=JSON.parse(localStorage.getItem('qf_bookings')||'[]'); return Array.isArray(raw)?raw:[]; }
+  catch { return []; }
+}
+function setLocalBookings(list){
+  localStorage.setItem('qf_bookings', JSON.stringify(Array.isArray(list)?list:[]));
+}
+function normalizeBookings(raw){
+  if(!Array.isArray(raw)) return [];
+  return raw.filter(Boolean).map(b=>({
+    ...b,
+    id: b.id ?? b.booking_id ?? String(Date.now()+Math.random()),
+    status: b.status || 'Confirmed',
+    workerRole: b.workerRole || b.worker_skill || 'Service',
+    workerName: b.workerName || b.worker_name || 'Worker',
+    workerPhone: b.workerPhone || b.worker_phone || '',
+    workerEmoji: b.workerEmoji || b.worker_emoji || '🔧',
+    paymentMethod: b.paymentMethod || b.payment_method || 'cash',
+    isEmergency: Boolean(b.isEmergency ?? b.is_emergency),
+    isAdvance: Boolean(b.isAdvance ?? b.is_advance),
+    rated: Boolean(b.rated)
+  }));
+}
+
 const DB = {
   /* Fetch workers from Supabase, optional role filter */
   workers: async (role=null) => {
@@ -810,14 +834,14 @@ const DB = {
   /* Fetch all bookings for the logged-in user */
   bookings: async () => {
     const {data:{user}}=await sb.auth.getUser();
-    if(!user) return[];
+    if(!user) return normalizeBookings(getLocalBookings());
     const {data,error}=await sb.from('bookings')
       .select('*')
       .eq('user_id',user.id)
       .order('created_at',{ascending:false});
-    if(error){console.error('DB.bookings:',error.message);return[];}
+    if(error){console.error('DB.bookings:',error.message);return [];}
     /* Normalise DB column names → JS camelCase the UI uses */
-    return (data||[]).map(b=>({
+    return normalizeBookings((data||[]).map(b=>({
       ...b,
       workerName:    b.worker_name,
       workerPhone:   b.worker_phone,
@@ -831,13 +855,30 @@ const DB = {
       isEmergency:   b.is_emergency,
       isAdvance:     b.is_advance,
       createdAt:     b.created_at
-    }));
+    })));
+  },
+
+  clearAll: async () => {
+    const {data:{user}}=await sb.auth.getUser();
+    if(user){
+      await sb.from('bookings').delete().eq('user_id', user.id);
+    }
+    setLocalBookings([]);
+    sessionStorage.removeItem('qf_bookings_cache');
+    return true;
   },
 
   /* Save a single booking object to Supabase */
   save: async (bk) => {
     const {data:{user}}=await sb.auth.getUser();
-    if(!user) return;
+    if(!user){
+      const list=getLocalBookings();
+      const next=list.some(x=>String(x.id)===String(bk.id))
+        ?list.map(x=>String(x.id)===String(bk.id)?{...x,...bk,id:String(bk.id)}:x)
+        :[{...bk,id:String(bk.id)}, ...list];
+      setLocalBookings(next);
+      return true;
+    }
     const {error}=await sb.from('bookings').upsert({
       id:            String(bk.id),
       user_id:       user.id,
@@ -862,11 +903,18 @@ const DB = {
       rated:         bk.rated||false,
       created_at:    bk.createdAt
     });
-    if(error) console.error('DB.save:',error.message);
+    if(error){ console.error('DB.save:',error.message); return false; }
+    return true;
   },
 
   /* Update a single field on a booking */
   update: async (id, fields) => {
+    const {data:{user}}=await sb.auth.getUser();
+    if(!user){
+      const list=getLocalBookings().map(x=>String(x.id)===String(id)?{...x,...fields}:x);
+      setLocalBookings(list);
+      return;
+    }
     const {error}=await sb.from('bookings').update(fields).eq('id',String(id));
     if(error) console.error('DB.update:',error.message);
   },
@@ -1570,11 +1618,20 @@ function updateAcc(){
 
 /* ── ON ACCEPTED ──────────────────────────────────────────── */
 async function onAccepted(){
-  let pool=(await DB.workers(pendBk.workerRole)).filter(w=>w.is_available);
-  if(pendBk.isEmergency) pool=pool.filter(w=>w.ea);
-  const nearest=pool.sort((a,b)=>a.dist-b.dist)[0]||(await DB.workers()).find(w=>w.id===pendBk.workerId);
-  const arrivalOtp=genOtp(), completionOtp=genOtp(), advance=isAdv(pendBk.date,pendBk.time);
-  const bk={
+  try {
+    const roleWorkers=await DB.workers(pendBk.workerRole);
+    let pool=(roleWorkers||[]).filter(w=>w.is_available!==false);
+    if(pendBk.isEmergency) pool=pool.filter(w=>w.ea);
+    pool.sort((a,b)=>a.dist-b.dist);
+    const fallbackWorkers=await DB.workers();
+    const nearest=pool[0] || fallbackWorkers.find(w=>w.id===pendBk.workerId) || fallbackWorkers[0];
+    if(!nearest){
+      showToast('⚠️ No worker is currently available for this booking.');
+      return;
+    }
+
+    const arrivalOtp=genOtp(), completionOtp=genOtp(), advance=isAdv(pendBk.date,pendBk.time);
+    const bk={
     id:Date.now(),
     workerId:nearest.id, workerName:nearest.name, workerPhone:nearest.phone,
     workerRole:nearest.role, workerEmoji:nearest.emoji, workerDist:nearest.dist,
@@ -1590,8 +1647,17 @@ async function onAccepted(){
     rated:false,
     createdAt:new Date().toISOString()
   };
-  const bks=DB.bookings(); bks.unshift(bk); await DB.save(bk);
-  const sf=fmt12(bk.time), rf=revealAt(bk.time);
+    const existing=await DB.bookings();
+    const bks=Array.isArray(existing)?[...existing]:[];
+    bks.unshift(bk);
+    sessionStorage.setItem('qf_bookings_cache', JSON.stringify(bks));
+    const saved=await DB.save(bk);
+    if(!saved){
+      showToast('⚠️ Booking could not be saved right now. Please try again.');
+      return;
+    }
+
+    const sf=fmt12(bk.time), rf=revealAt(bk.time);
   const ico=document.getElementById('confIco');
   ico.textContent=advance?'📅':'✅';
   ico.style.background=advance?'#fef3d0':'var(--teal-light)';
@@ -1611,18 +1677,22 @@ async function onAccepted(){
          <div class="mrow"><span class="ml">Distance</span><span class="mv">${nearest.dist} km away</span></div>`}
     <div class="mrow"><span class="ml">Payment</span><span class="mv">${paymentMethod==='gpay'?'📱 GPay (Paid)':'💵 Cash on Arrival'}</span></div>
     <div class="mrow"><span class="ml">Total</span><span class="mv" style="color:var(--brand)">₹${bk.price}</span></div>`;
-  document.getElementById('confOtps').innerHTML=advance
-    ?`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.95rem;text-align:center;margin-bottom:1.1rem"><div style="font-size:.82rem;color:var(--text2)">🔒 OTPs appear in My Bookings at <strong>${rf}</strong></div></div>`
-    :`<div class="cotps">
-        <div class="cotp"><div class="cotplbl">🚗 Arrival OTP<br/><span style="font-size:.58rem;opacity:.75">Give to worker on arrival</span></div><div class="cotpcode">${arrivalOtp}</div></div>
-        <div class="cotp c2"><div class="cotplbl">✅ Completion OTP<br/><span style="font-size:.58rem;opacity:.75">Give after service is done</span></div><div class="cotpcode c2">${completionOtp}</div></div>
-      </div>`;
-  document.getElementById('confirmModal').classList.add('on');
+    document.getElementById('confOtps').innerHTML=advance
+      ?`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.95rem;text-align:center;margin-bottom:1.1rem"><div style="font-size:.82rem;color:var(--text2)">🔒 OTPs appear in My Bookings at <strong>${rf}</strong></div></div>`
+      :`<div class="cotps">
+          <div class="cotp"><div class="cotplbl">🚗 Arrival OTP<br/><span style="font-size:.58rem;opacity:.75">Give to worker on arrival</span></div><div class="cotpcode">${arrivalOtp}</div></div>
+          <div class="cotp c2"><div class="cotplbl">✅ Completion OTP<br/><span style="font-size:.58rem;opacity:.75">Give after service is done</span></div><div class="cotpcode c2">${completionOtp}</div></div>
+        </div>`;
+    document.getElementById('confirmModal').classList.add('on');
+  } catch (err) {
+    console.error('onAccepted failed:', err);
+    showToast('⚠️ Booking confirmation hit an error. Please try again.');
+  }
 }
 
 /* ── MY BOOKINGS ──────────────────────────────────────────── */
 async function renderBookings(){
-  const all=await DB.bookings();
+  const all=normalizeBookings(await DB.bookings());
   let list=all;
   if(curTab==='upcoming') list=all.filter(b=>['Scheduled','Confirmed','Worker on Way','Arrived'].includes(b.status));
   if(curTab==='completed') list=all.filter(b=>b.status==='Completed');
@@ -1676,10 +1746,13 @@ async function cancelBk(id){
   showToast('🗑 Booking cancelled'); renderBookings();
 }
 function clearHistory(){ document.getElementById('clrModal').classList.add('on'); }
-function clrConfirmed(){
+async function clrConfirmed(){
   closeModal('clrModal');
-  curTab='all'; document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('on',i===0));
-  showToast('🗑 Booking history cleared'); renderBookings();
+  await DB.clearAll();
+  curTab='all';
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('on',i===0));
+  showToast('🗑 Booking history cleared');
+  await renderBookings();
 }
 function switchTab(tab,btn){
   curTab=tab; document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
