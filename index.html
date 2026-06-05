@@ -763,15 +763,17 @@ const SUPABASE_URL='https://oycurbgzzgfzilpflwks.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95Y3VyYmd6emdmemlscGZsd2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjkwMDMsImV4cCI6MjA5MzIwNTAwM30.B9KujxSHzhzpKM_IhVvpTqImVPjF4Yrv3RKn6mgtqxg';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
-/* Auth check - redirect if not logged in */
+/* Auth check - keep the main page usable even before sign-in */
 (async()=>{
   const {data:{session}}=await sb.auth.getSession();
-  if(!session){window.location.href='auth.html';return;}
   const cached=sessionStorage.getItem('qf_user');
   if(!cached){
-    const {data:p}=await sb.from('profiles').select('*').eq('id',session.user.id).single();
-    if(p) sessionStorage.setItem('qf_user',JSON.stringify({...p, email:session.user.email}));
-    else sessionStorage.setItem('qf_user',JSON.stringify({id:session.user.id, email:session.user.email, name:'', role:'user'}));
+    if(session?.user){
+      const {data:p}=await sb.from('profiles').select('*').eq('id',session.user.id).single();
+      sessionStorage.setItem('qf_user',JSON.stringify(p ? {...p, email:session.user.email} : {id:session.user.id, email:session.user.email, name:'', role:'user'}));
+    } else {
+      sessionStorage.setItem('qf_user',JSON.stringify({id:'guest', email:'', name:'Guest', role:'user'}));
+    }
   }
 })();
 
@@ -1199,7 +1201,7 @@ function renderHousehelp(){
     </div>`).join('');
 }
 
-async function bookHousehelp(serviceName, price){\
+async function bookHousehelp(serviceName, price){
   const workers=await DB.workers('Househelp');
   const pool=workers.filter(w=>w.is_available).sort((a,b)=>a.dist-b.dist);
   if(!pool.length){ showToast('⚠️ No Househelp workers available right now'); return; }
@@ -1215,7 +1217,7 @@ function openSmart(catId){
   renderStep(1); goPage('smart');
 }
 
-function renderStep(step){
+async function renderStep(step){
   drawStepBar(step);
   const cat=CATS.find(c=>c.id===sst.catId);
   ['ss1','ss2','ss3'].forEach((id,i)=>document.getElementById(id).style.display=(i+1===step)?'':'none');
@@ -1768,7 +1770,7 @@ function handleUpload(input){
 }
 
 /* ── REGISTRATION ─────────────────────────────────────────── */
-function submitReg(){
+async function submitReg(){
   const fields=['rName','rPhone','rEmail','rArea','rCat','rExp','rPrice','rBio','rAadhaar'];
   let ok=true;
   fields.forEach(id=>{ if(!document.getElementById(id).value.trim()){ markErr(id); ok=false; } });
