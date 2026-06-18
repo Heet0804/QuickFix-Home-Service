@@ -152,6 +152,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
         </div>
         <div class="fg"><label class="flabel">Work Radius (km) *</label><input type="number" class="finput" id="swRadius" placeholder="e.g. 10" min="1"/></div>
       </div>
+      <div class="fg"><label class="flabel">Years of Experience *</label><input type="number" class="finput" id="swExp" placeholder="e.g. 3" min="0"/></div>
       <div class="fg"><label class="flabel">Password * <span style="font-size:.68rem;color:var(--text3)">(min 6 characters)</span></label><input type="password" class="finput" id="swPass" placeholder="Create a password"/></div>
       <button class="submit-btn" id="signupWorkerBtn" onclick="doSignup('worker')"><span id="swBtnTxt">Register as Worker →</span></button>
     </div>
@@ -178,7 +179,7 @@ const LEFT_CONTENT={
   worker:{tag:'For Professionals',heading:'Get jobs that<br/><span>match your skill</span>',desc:'Receive job requests filtered by your skill and radius. Go online when ready, offline anytime.',perks:['Jobs matched to your exact skill','Set your own work radius','Toggle availability anytime','Fast payments after each job']}
 };
 
-/* Auto-redirect if already logged in */
+/* ── AUTO-REDIRECT if already logged in ── */
 (async()=>{
   const {data:{session}}=await sb.auth.getSession();
   if(session){
@@ -224,6 +225,7 @@ function updateAuthText(){
   document.getElementById('authSub').textContent=S[curRole][curForm]||'';
 }
 
+/* ── LOGIN ── */
 async function doLogin(){
   hideErr();
   const email=document.getElementById('lEmail').value.trim();
@@ -232,6 +234,7 @@ async function doLogin(){
   if(!pass)markErr('lPass');
   if(!email||!pass){showErr('Please fill in all fields.');return;}
   setBtn('loginBtn','loginBtnTxt',true,'Signing in…');
+
   const {data,error}=await sb.auth.signInWithPassword({email,password:pass});
   if(error){
     setBtn('loginBtn','loginBtnTxt',false,'Sign In →');
@@ -240,58 +243,179 @@ async function doLogin(){
     else showErr(error.message);
     return;
   }
-  const {data:profile}=await sb.from('users').select('*').eq('id',data.user.id).single();
-  if(!profile){setBtn('loginBtn','loginBtnTxt',false,'Sign In →');showErr('Profile not found. Please sign up.');return;}
-  const sess={id:data.user.id,email:profile.email,name:profile.name,phone:profile.phone,role:profile.role};
+
+  const {data:profile,error:pe}=await sb.from('users').select('*').eq('id',data.user.id).single();
+  if(pe||!profile){
+    setBtn('loginBtn','loginBtnTxt',false,'Sign In →');
+    showErr('Profile not found. Please sign up.');
+    return;
+  }
+
+  const sess={
+    id:    data.user.id,
+    email: profile.email||email,
+    name:  profile.name||'',
+    phone: profile.phone||'',
+    role:  profile.role||'user'
+  };
+
   if(profile.role==='worker'){
     const {data:wp}=await sb.from('workers').select('*').eq('id',data.user.id).single();
-    if(wp)Object.assign(sess,{skill:wp.skill,radius:wp.radius,exp:wp.exp,price:wp.price,bio:wp.bio,is_available:wp.is_available});
+    if(wp){
+      Object.assign(sess,{
+        skill:        wp.skill||'',
+        radius:       wp.radius||10,
+        exp:          wp.exp||0,
+        price:        wp.price||'',
+        bio:          wp.bio||'',
+        is_available: wp.is_available||false
+      });
+    }
   }
+
   sessionStorage.setItem('qf_user',JSON.stringify(sess));
   sessionStorage.setItem('qf_role',profile.role);
   showToast('✅ Signed in! Redirecting…');
   setTimeout(()=>redirect(profile.role),800);
 }
 
+/* ── SIGNUP ── */
 async function doSignup(role){
   hideErr();
+
+  /* ── USER SIGNUP ── */
   if(role==='user'){
     const fname=document.getElementById('suFname').value.trim();
+    const lname=document.getElementById('suLname').value.trim();
     const email=document.getElementById('suEmail').value.trim();
     const phone=document.getElementById('suPhone').value.trim();
-    const pass=document.getElementById('suPass').value.trim();
-    if(!fname)markErr('suFname');if(!email)markErr('suEmail');if(!phone)markErr('suPhone');if(!pass)markErr('suPass');
+    const pass =document.getElementById('suPass').value.trim();
+
+    if(!fname)markErr('suFname');
+    if(!email)markErr('suEmail');
+    if(!phone)markErr('suPhone');
+    if(!pass) markErr('suPass');
     if(!fname||!email||!phone||!pass){showErr('Please fill in all required fields.');return;}
     if(pass.length<6){showErr('Password must be at least 6 characters.');return;}
-    const name=fname+' '+(document.getElementById('suLname').value.trim());
+
+    const name=(fname+' '+lname).trim();
     setBtn('signupUserBtn','suBtnTxt',true,'Creating account…');
-    const {data:a,error:ae}=await sb.auth.signUp({email,password:pass,options:{data:{name,role:'user'}}});
-    if(ae){setBtn('signupUserBtn','suBtnTxt',false,'Create Account →');showErr(ae.message.includes('already registered')?'Email already registered. Try signing in.':ae.message);return;}
-    const {error:de}=await sb.from('users').insert({id:a.user.id,email,name,phone,role:'user'});
-    if(de){setBtn('signupUserBtn','suBtnTxt',false,'Create Account →');showErr('Profile save failed: '+de.message);return;}
+
+    const {data:a,error:ae}=await sb.auth.signUp({
+      email,
+      password:pass,
+      options:{data:{name,role:'user'}}
+    });
+    if(ae){
+      setBtn('signupUserBtn','suBtnTxt',false,'Create Account →');
+      showErr(ae.message.includes('already registered')?'Email already registered. Try signing in.':ae.message);
+      return;
+    }
+
+    const {error:de}=await sb.from('users').insert({
+      id:    a.user.id,
+      email: email,
+      name:  name,
+      phone: phone,
+      role:  'user'
+    });
+    if(de){
+      setBtn('signupUserBtn','suBtnTxt',false,'Create Account →');
+      showErr('Profile save failed: '+de.message);
+      return;
+    }
+
     sessionStorage.setItem('qf_user',JSON.stringify({id:a.user.id,email,name,phone,role:'user'}));
     sessionStorage.setItem('qf_role','user');
     setBtn('signupUserBtn','suBtnTxt',false,'Create Account →');
     showToast('🎉 Account created! Redirecting…');
     setTimeout(()=>redirect('user'),800);
+
+  /* ── WORKER SIGNUP ── */
   }else{
-    const name=document.getElementById('swName').value.trim();
-    const email=document.getElementById('swEmail').value.trim();
-    const phone=document.getElementById('swPhone').value.trim();
-    const skill=document.getElementById('swSkill').value;
-    const radius=document.getElementById('swRadius').value;
-    const pass=document.getElementById('swPass').value.trim();
-    if(!name)markErr('swName');if(!email)markErr('swEmail');if(!phone)markErr('swPhone');if(!skill)markErr('swSkill');if(!radius)markErr('swRadius');if(!pass)markErr('swPass');
+    const name  =document.getElementById('swName').value.trim();
+    const email =document.getElementById('swEmail').value.trim();
+    const phone =document.getElementById('swPhone').value.trim();
+    const skill =document.getElementById('swSkill').value.trim();
+    const radius=document.getElementById('swRadius').value.trim();
+    const expVal=document.getElementById('swExp').value.trim();
+    const pass  =document.getElementById('swPass').value.trim();
+
+    if(!name)  markErr('swName');
+    if(!email) markErr('swEmail');
+    if(!phone) markErr('swPhone');
+    if(!skill) markErr('swSkill');
+    if(!radius)markErr('swRadius');
+    if(!pass)  markErr('swPass');
     if(!name||!email||!phone||!skill||!radius||!pass){showErr('Please fill in all required fields.');return;}
     if(pass.length<6){showErr('Password must be at least 6 characters.');return;}
+    if(isNaN(parseInt(radius))||parseInt(radius)<1){markErr('swRadius');showErr('Work radius must be a number greater than 0.');return;}
+
+    const radiusInt=parseInt(radius);
+    const expInt=expVal===''?0:parseInt(expVal)||0;
+
     setBtn('signupWorkerBtn','swBtnTxt',true,'Registering…');
-    const {data:a,error:ae}=await sb.auth.signUp({email,password:pass,options:{data:{name,role:'worker'}}});
-    if(ae){setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');showErr(ae.message.includes('already registered')?'Email already registered. Try signing in.':ae.message);return;}
-    const {error:ue}=await sb.from('users').insert({id:a.user.id,email,name,phone,role:'worker'});
-    if(ue){setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');showErr('User save failed: '+ue.message);return;}
-    const {error:we}=await sb.from('workers').insert({id:a.user.id,skill,radius:parseInt(radius)||10,is_available:false,rating:0,total_jobs:0});
-    if(we){setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');showErr('Worker profile save failed: '+we.message);return;}
-    sessionStorage.setItem('qf_user',JSON.stringify({id:a.user.id,email,name,phone,role:'worker',skill,radius}));
+
+    /* Step 1: Create auth account */
+    const {data:a,error:ae}=await sb.auth.signUp({
+      email,
+      password:pass,
+      options:{data:{name,role:'worker'}}
+    });
+    if(ae){
+      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
+      showErr(ae.message.includes('already registered')?'Email already registered. Try signing in.':ae.message);
+      return;
+    }
+
+    const uid=a.user.id;
+
+    /* Step 2: Insert into users table */
+    const {error:ue}=await sb.from('users').insert({
+      id:    uid,
+      email: email,
+      name:  name,
+      phone: phone,
+      role:  'worker'
+    });
+    if(ue){
+      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
+      showErr('Account created but profile save failed: '+ue.message);
+      await sb.auth.signOut();
+      return;
+    }
+
+    /* Step 3: Insert into workers table — name, phone, skill, radius, exp all explicit */
+    const {error:we}=await sb.from('workers').insert({
+      id:           uid,
+      name:         name,
+      phone:        phone,
+      skill:        skill,
+      radius:       radiusInt,
+      exp:          expInt,
+      is_available: false,
+      rating:       0,
+      total_jobs:   0
+    });
+    if(we){
+      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
+      showErr('Worker profile save failed: '+we.message);
+      await sb.from('users').delete().eq('id',uid);
+      await sb.auth.signOut();
+      return;
+    }
+
+    const sess={
+      id:     uid,
+      email:  email,
+      name:   name,
+      phone:  phone,
+      role:   'worker',
+      skill:  skill,
+      radius: radiusInt,
+      exp:    expInt
+    };
+    sessionStorage.setItem('qf_user',JSON.stringify(sess));
     sessionStorage.setItem('qf_role','worker');
     setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
     showToast('🎉 Registered! Redirecting to your dashboard…');
@@ -299,6 +423,7 @@ async function doSignup(role){
   }
 }
 
+/* ── FORGOT PASSWORD ── */
 async function forgotPassword(e){
   e.preventDefault();
   const email=document.getElementById('lEmail').value.trim();
@@ -308,14 +433,43 @@ async function forgotPassword(e){
   else showToast('📧 Password reset email sent! Check your inbox.');
 }
 
+/* ── HELPERS ── */
 function redirect(role){window.location.href=role==='worker'?'worker-dashboard.html':'index.html';}
-function setBtn(bid,tid,loading,txt){document.getElementById(bid).classList.toggle('loading',loading);document.getElementById(tid).innerHTML=loading?`<span class="spin"></span> ${txt}`:txt;}
-function markErr(id){const el=document.getElementById(id);if(!el)return;el.classList.add('err');el.addEventListener('input',()=>el.classList.remove('err'),{once:true});}
-function showErr(msg){const b=document.getElementById('errBanner');b.textContent='⚠️ '+msg;b.style.display='flex';b.scrollIntoView({behavior:'smooth',block:'nearest'});}
+
+function setBtn(bid,tid,loading,txt){
+  document.getElementById(bid).classList.toggle('loading',loading);
+  document.getElementById(tid).innerHTML=loading?`<span class="spin"></span> ${txt}`:txt;
+}
+
+function markErr(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.classList.add('err');
+  el.addEventListener('input', ()=>el.classList.remove('err'),{once:true});
+  el.addEventListener('change',()=>el.classList.remove('err'),{once:true});
+}
+
+function showErr(msg){
+  const b=document.getElementById('errBanner');
+  b.textContent='⚠️ '+msg;
+  b.style.display='flex';
+  b.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
 function hideErr(){document.getElementById('errBanner').style.display='none';}
+
 let _tt;
-function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('on'),3500);}
-document.querySelectorAll('.finput,.fselect').forEach(el=>{el.addEventListener('input',()=>el.classList.remove('err'));el.addEventListener('change',()=>el.classList.remove('err'));});
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('on');
+  clearTimeout(_tt);
+  _tt=setTimeout(()=>t.classList.remove('on'),3500);
+}
+
+document.querySelectorAll('.finput,.fselect').forEach(el=>{
+  el.addEventListener('input', ()=>el.classList.remove('err'));
+  el.addEventListener('change',()=>el.classList.remove('err'));
+});
 </script>
 </body>
 </html>
