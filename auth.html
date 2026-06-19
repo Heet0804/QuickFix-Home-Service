@@ -143,7 +143,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       <div class="fg"><label class="flabel">Email Address *</label><input type="email" class="finput" id="swEmail" placeholder="you@email.com"/></div>
       <div class="frow">
         <div class="fg"><label class="flabel">Skill / Category *</label>
-          <select class="fselect" id="swSkill">
+          <select class="fselect" id="swSkill" onchange="toggleEmergencyField()">
             <option value="">Select…</option>
             <option>Electrician</option><option>Plumber</option><option>Carpenter</option>
             <option>Painter</option><option>Cleaner</option><option>AC Repair</option>

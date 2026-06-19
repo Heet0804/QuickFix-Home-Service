@@ -344,9 +344,8 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
 
 <div class="ebar" id="emergBar">
   <div class="epulse"></div>
-  <span>🚨 Emergency Hours — Only Electrician &amp; Plumber available</span>
+  <span>🚨 Emergency Hours Active (9:30 PM – 9:30 AM) — Only Electrician and Plumber services are currently available.</span>
   <span class="elt" id="emergTime"></span>
-  <span style="opacity:.75;font-size:.72rem;margin-left:4px">(9:45 PM – 8:30 AM IST)</span>
 </div>
 
 <nav>
@@ -494,7 +493,7 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
         <div class="fg"><label class="flabel">Select Service</label><select class="fselect" id="bkSvc" onchange="updatePrice()"></select></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.95rem">
           <div class="fg"><label class="flabel">Date</label><input type="date" class="finput" id="bkDate" onchange="onDateChange()"/></div>
-          <div class="fg" id="bkTimeGrp"><label class="flabel">Time (8:30 AM – 9:45 PM)</label><select class="fselect" id="bkTime" onchange="onTimeChange()"><option value="">Select time…</option></select></div>
+          <div class="fg" id="bkTimeGrp"><label class="flabel">Time (9:30 AM – 9:30 PM)</label><select class="fselect" id="bkTime" onchange="onTimeChange()"><option value="">Select time…</option></select></div>
         </div>
         <div class="fg"><label class="flabel">Your Address</label><input type="text" class="finput" id="bkAddr" placeholder="Enter your full address…"/></div>
         <div class="fg"><label class="flabel">Notes (Optional)</label><textarea class="finput" id="bkNotes" rows="3" placeholder="Describe the issue…" style="resize:vertical"></textarea></div>
@@ -761,7 +760,21 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
 /* ── SUPABASE ── */
 const SUPABASE_URL='https://oycurbgzzgfzilpflwks.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95Y3VyYmd6emdmemlscGZsd2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjkwMDMsImV4cCI6MjA5MzIwNTAwM30.B9KujxSHzhzpKM_IhVvpTqImVPjF4Yrv3RKn6mgtqxg';
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
+  /* Disable all internal BroadcastChannel / postMessage / auth-state-sync.
+     Without these options, Supabase v2 uses BroadcastChannel internally to
+     sync auth sessions across browser tabs. It calls postMessage() with the
+     raw auth response, which contains non-cloneable Headers objects, causing:
+       DataCloneError: Failed to execute 'postMessage' on 'Window':
+       Headers object could not be cloned.
+     Setting persistSession:false + autoRefreshToken:false eliminates every
+     internal structuredClone / postMessage call in the Supabase client. */
+  auth:{
+    persistSession:false,
+    autoRefreshToken:false,
+    detectSessionInUrl:false
+  }
+});
 
 /* Auth check - keep the main page usable even before sign-in */
 (async()=>{
@@ -812,28 +825,34 @@ function normalizeBookings(raw){
 const DB = {
   /* Fetch workers from Supabase, optional role filter */
   workers: async (role=null) => {
-    let q=sb.from('workers').select('*, worker_services(*)');
-    if(role) q=q.eq('skill',role);
+    /* Fetch workers with case-insensitive skill match.
+       Use ilike for case-insensitive comparison when a role filter is given. */
+    let q=sb.from('workers').select('*, worker_services(*)').eq('is_available',true);
+    if(role) q=q.ilike('skill',role);
     const {data,error}=await q;
     if(error){console.error('DB.workers:',error.message);return[];}
-    /* Normalise shape to match what the UI expects */
+    /* Normalise shape to match what the UI expects.
+       emergency_available column maps to .ea used throughout the UI. */
     return (data||[]).map(w=>({
       ...w,
-      role: w.skill,          /* UI uses .role everywhere */
-      exp:  w.experience,
-      desc: w.bio,
+      role: w.skill,
+      exp:  w.experience||w.exp||'N/A',
+      desc: w.bio||'',
       emoji: w.emoji||'🔧',
-      ea:   w.is_emergency,
-      dist: 0,                /* placeholder until Phase 2 location */
-      reviews: w.reviews_count,
+      ea:   Boolean(w.emergency_available||w.is_emergency),
+      dist: 0,
+      reviews: w.reviews_count||w.total_jobs||0,
       svcs: (w.worker_services||[]).map(s=>({n:s.name,p:s.price})),
-      revs: []                /* reviews fetched separately when needed */
+      revs: []
     }));
   },
 
   /* Fetch all bookings for the logged-in user */
   bookings: async () => {
-    const {data:{user}}=await sb.auth.getUser();
+    /* Use getSession() — avoids DataCloneError from getUser() triggering
+       an internal postMessage with non-cloneable Headers objects. */
+    const {data:{session}}=await sb.auth.getSession();
+    const user=session?session.user:null;
     if(!user) return normalizeBookings(getLocalBookings());
     const {data,error}=await sb.from('bookings')
       .select('*')
@@ -859,7 +878,8 @@ const DB = {
   },
 
   clearAll: async () => {
-    const {data:{user}}=await sb.auth.getUser();
+    const {data:{session}}=await sb.auth.getSession();
+    const user=session?session.user:null;
     if(user){
       await sb.from('bookings').delete().eq('user_id', user.id);
     }
@@ -870,7 +890,8 @@ const DB = {
 
   /* Save a single booking object to Supabase */
   save: async (bk) => {
-    const {data:{user}}=await sb.auth.getUser();
+    const {data:{session}}=await sb.auth.getSession();
+    const user=session?session.user:null;
     if(!user){
       const list=getLocalBookings();
       const next=list.some(x=>String(x.id)===String(bk.id))
@@ -909,7 +930,8 @@ const DB = {
 
   /* Update a single field on a booking */
   update: async (id, fields) => {
-    const {data:{user}}=await sb.auth.getUser();
+    const {data:{session}}=await sb.auth.getSession();
+    const user=session?session.user:null;
     if(!user){
       const list=getLocalBookings().map(x=>String(x.id)===String(id)?{...x,...fields}:x);
       setLocalBookings(list);
@@ -921,7 +943,8 @@ const DB = {
 
   /* Save a review and mark booking as rated */
   saveReview: async (bkId, workerId, rating, comment, authorName) => {
-    const {data:{user}}=await sb.auth.getUser();
+    const {data:{session}}=await sb.auth.getSession();
+    const user=session?session.user:null;
     if(!user) return;
     await sb.from('reviews').insert({
       booking_id:  String(bkId),
@@ -936,7 +959,8 @@ const DB = {
 
   /* Worker registration — saves to profiles table for now */
   saveReg: async (r) => {
-    const {data:{user}}=await sb.auth.getUser();
+    const {data:{session}}=await sb.auth.getSession();
+    const user=session?session.user:null;
     if(!user) return;
     const {error}=await sb.from('profiles').upsert({
       id:    user.id,
@@ -1090,14 +1114,15 @@ function openCategory(catId){ renderCategoryPage(catId); goPage('category'); }
 
 async function bookCategoryService(serviceName, catId){
   const workers=await DB.workers(catId);
-  const pool=workers.filter(w=>w.is_available).sort((a,b)=>a.dist-b.dist);
+  /* DB.workers() already ensures is_available=true via query filter */
+  const pool=workers.sort((a,b)=>a.dist-b.dist);
   if(!pool.length){ showToast(`⚠️ No ${catId} workers available right now`); return; }
   sst={catId, item:serviceName, issue:''};
   openBooking(pool[0].id);
 }
 
 /* ── HOURS ────────────────────────────────────────────────── */
-const WS_H=8, WS_M=30, WE_H=21, WE_M=45;
+const WS_H=9, WS_M=30, WE_H=21, WE_M=30;
 const EROLES = ['Electrician','Plumber'];
 
 function getIST(){ return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'})); }
@@ -1222,7 +1247,7 @@ function renderHomeCats(){
     vis.map(c=>`<div class="catc" onclick="openCategory('${c.id}')"><div class="catic">${c.em}</div><div class="catlbl">${c.lb}</div></div>`).join('')+
     hhCard+
     mwCard+
-    (e?`<div style="grid-column:1/-1;text-align:center;font-size:.76rem;color:var(--emerg);font-weight:600;padding:.4rem .875rem;background:var(--emerg-light);border-radius:var(--radius-sm);border:1px solid var(--emerg-border)">🚨 Emergency hours — Only Electrician &amp; Plumber available (9:45 PM – 8:30 AM IST)</div>`:'');
+    (e?`<div style="grid-column:1/-1;text-align:center;font-size:.76rem;color:var(--emerg);font-weight:600;padding:.4rem .875rem;background:var(--emerg-light);border-radius:var(--radius-sm);border:1px solid var(--emerg-border)">🚨 Emergency hours — Only Electrician &amp; Plumber available (9:30 PM – 9:30 AM)</div>`:'');
 }
 async function renderHomeWorkers(){
   const e=isEmerg();
@@ -1251,7 +1276,8 @@ function renderHousehelp(){
 
 async function bookHousehelp(serviceName, price){
   const workers=await DB.workers('Househelp');
-  const pool=workers.filter(w=>w.is_available).sort((a,b)=>a.dist-b.dist);
+  /* DB.workers() already ensures is_available=true via query filter */
+  const pool=workers.sort((a,b)=>a.dist-b.dist);
   if(!pool.length){ showToast('⚠️ No Househelp workers available right now'); return; }
   sst={catId:'Househelp', item:serviceName, issue:''};
   openBooking(pool[0].id);
@@ -1290,13 +1316,14 @@ async function renderStep(step){
   if(step===3){
     sst.issue=document.getElementById('issueText')?.value||sst.issue;
     const e=isEmerg();
-    let pool=(await DB.workers(sst.catId)).filter(w=>w.is_available);
+    /* DB.workers() already filters is_available=true; ea = emergency_available */
+    let pool=await DB.workers(sst.catId);
     if(e) pool=pool.filter(w=>w.ea);
     pool.sort((a,b)=>a.dist-b.dist);
     const noW=pool.length===0;
     const nearest=pool[0];
     document.getElementById('ss3').innerHTML=
-      (e?`<div class="ebanner"><div class="ebi">🚨</div><div><h3>Emergency Hours (9:45 PM – 8:30 AM IST)</h3><p>Only 24/7 emergency workers shown. Nearest worker auto-assigned.</p></div></div>`:'')+
+      (e?`<div class="ebanner"><div class="ebi">🚨</div><div><h3>Emergency Hours (9:30 PM – 9:30 AM)</h3><p>Only 24/7 emergency workers shown. Nearest worker auto-assigned.</p></div></div>`:'')+
       (noW?`<div class="hnotice emerg"><span class="hi">⚠️</span><div><strong>No workers available right now</strong><br/>Please try again shortly or choose a different category.</div></div>`:'')+
       `<div class="ibox" style="margin-bottom:1rem">
         <div style="font-size:.79rem;color:var(--text2);margin-bottom:.4rem">Your request:</div>
@@ -1323,7 +1350,7 @@ function pickItem(l){ sst.item=l; renderStep(1); }
 function runSearch(){ sst.issue=document.getElementById('issueText')?.value.trim()||''; renderStep(3); }
 async function openBookingFromSmart(){
   const e=isEmerg();
-  let pool=(await DB.workers(sst.catId)).filter(w=>w.is_available);
+  let pool=await DB.workers(sst.catId);
   if(e) pool=pool.filter(w=>w.ea);
   if(!pool.length){ showToast('⚠️ No workers available right now.'); return; }
   openBooking(pool.sort((a,b)=>a.dist-b.dist)[0].id);
@@ -1376,7 +1403,7 @@ async function renderServices(){
   if(filters.sort==='rating') ws.sort((a,b)=>b.rating-a.rating);
   if(filters.sort==='price-asc') ws.sort((a,b)=>a.price-b.price);
   if(filters.sort==='price-desc') ws.sort((a,b)=>b.price-a.price);
-  const note=e?`<div style="grid-column:1/-1;font-size:.78rem;color:var(--emerg);font-weight:600;background:var(--emerg-light);border:1px solid var(--emerg-border);border-radius:var(--radius-sm);padding:.5rem .875rem;margin-bottom:.875rem">🚨 Emergency Hours — Only Electrician &amp; Plumber (24/7) workers shown (9:45 PM – 8:30 AM IST)</div>`:'';
+  const note=e?`<div style="grid-column:1/-1;font-size:.78rem;color:var(--emerg);font-weight:600;background:var(--emerg-light);border:1px solid var(--emerg-border);border-radius:var(--radius-sm);padding:.5rem .875rem;margin-bottom:.875rem">🚨 Emergency Hours (9:30 PM – 9:30 AM) — Only Electrician &amp; Plumber (24/7) workers shown</div>`:'';
   document.getElementById('svcCount').textContent=`Showing ${ws.length} professional${ws.length!==1?'s':''}`;
   document.getElementById('svcGrid').innerHTML=note+(ws.length===0?`<div class="empty" style="grid-column:1/-1"><div class="emptyico">🔍</div><h3>No results</h3><p>Try different filters.</p></div>`:ws.map(wCard).join(''));
 }
@@ -1454,7 +1481,7 @@ async function openBooking(id){
   document.getElementById('bkDate').max=maxStr;
   document.getElementById('bkDate').value='';
   document.getElementById('bkAddr').value='';
-  document.getElementById('bkNotice').innerHTML=e?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Emergency Hours Active (9:45 PM – 8:30 AM IST)</strong><br/>Worker dispatched immediately. Time set to now automatically.</div></div>`:'';
+  document.getElementById('bkNotice').innerHTML=e?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Emergency Hours Active (9:30 PM – 9:30 AM)</strong><br/>Worker dispatched immediately. Time set to now automatically.</div></div>`:'';
   setBkBtn(e); updatePrice(); goPage('booking');
 }
 
@@ -1486,8 +1513,8 @@ function onTimeChange(){
   const t=document.getElementById('bkTime').value, el=document.getElementById('bkNotice');
   if(!t){el.innerHTML='';return;}
   el.innerHTML=!inWork(t)
-    ?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Outside working hours (8:30 AM – 9:45 PM)</strong><br/>Request goes to 24/7 emergency workers only.</div></div>`
-    :`<div class="hnotice normal"><span class="hi">🕙</span><div>Working hours: <strong>8:30 AM – 9:45 PM</strong>. Slot is within working hours.</div></div>`;
+    ?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Outside working hours (9:30 AM – 9:30 PM)</strong><br/>Request goes to 24/7 emergency workers only.</div></div>`
+    :`<div class="hnotice normal"><span class="hi">🕙</span><div>Working hours: <strong>9:30 AM – 9:30 PM</strong>. Slot is within working hours.</div></div>`;
 }
 
 function updatePrice(){
@@ -1619,8 +1646,10 @@ function updateAcc(){
 /* ── ON ACCEPTED ──────────────────────────────────────────── */
 async function onAccepted(){
   try {
+    /* DB.workers() already filters is_available=true and uses ilike for
+       case-insensitive skill matching. ea maps to emergency_available column. */
     const roleWorkers=await DB.workers(pendBk.workerRole);
-    let pool=(roleWorkers||[]).filter(w=>w.is_available!==false);
+    let pool=(roleWorkers||[]);
     if(pendBk.isEmergency) pool=pool.filter(w=>w.ea);
     pool.sort((a,b)=>a.dist-b.dist);
     const fallbackWorkers=await DB.workers();
