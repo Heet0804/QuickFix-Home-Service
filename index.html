@@ -497,6 +497,7 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
           <div class="fg" id="bkTimeGrp"><label class="flabel">Time (8:30 AM – 9:45 PM)</label><select class="fselect" id="bkTime" onchange="onTimeChange()"><option value="">Select time…</option></select></div>
         </div>
         <div class="fg"><label class="flabel">Your Address</label><input type="text" class="finput" id="bkAddr" placeholder="Enter your full address…"/></div>
+        <div class="fg"><label class="flabel">Service Area</label><select class="fselect" id="bkArea" onchange="onAreaChange()"><option value="">Select your area…</option></select><div id="bkAreaNote" style="font-size:.74rem;color:var(--text3);margin-top:.35rem"></div></div>
         <div class="fg"><label class="flabel">Notes (Optional)</label><textarea class="finput" id="bkNotes" rows="3" placeholder="Describe the issue…" style="resize:vertical"></textarea></div>
       </div>
       <div>
@@ -727,6 +728,7 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
     <div class="mico" style="background:#fef3d0">⭐</div>
     <h2>Rate Your Experience</h2>
     <p id="reviewDesc" style="font-size:.875rem;color:var(--text2);margin-bottom:.75rem;line-height:1.6"></p>
+    <p style="font-size:.74rem;color:var(--text3);margin-bottom:.6rem">A star rating is required to continue — comment is optional.</p>
     <div class="starinput" id="starInput">
       <span onclick="setRating(1)">★</span><span onclick="setRating(2)">★</span><span onclick="setRating(3)">★</span><span onclick="setRating(4)">★</span><span onclick="setRating(5)">★</span>
     </div>
@@ -734,8 +736,7 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
       <textarea class="finput" id="reviewComment" rows="3" placeholder="Tell us about your experience… (Optional)" style="resize:vertical"></textarea>
     </div>
     <div style="display:flex;gap:.65rem;justify-content:center">
-      <button class="btn bo" onclick="closeModal('reviewModal')">Skip</button>
-      <button class="btn bp" onclick="submitReview()">Submit ⭐</button>
+      <button class="btn bp" onclick="submitReview()">Submit Rating ⭐</button>
     </div>
   </div>
 </div>
@@ -824,6 +825,30 @@ function normalizeBookings(raw){
 }
 
 const DB = {
+  /* Fetch all service areas (id, name, lat, lng) for the Area dropdown */
+  areas: async () => {
+    const {data,error}=await sb.from('areas').select('*').order('name',{ascending:true});
+    if(error){console.error('DB.areas:',error.message);return[];}
+    return data||[];
+  },
+
+  /* Fetch a single worker row by id — used by the performance/scoring system
+     to read current accepted_jobs/completed_jobs/etc before recomputing. */
+  getWorker: async (id) => {
+    if(id==null) return null;
+    const {data,error}=await sb.from('workers').select('*').eq('id',id).single();
+    if(error){ console.error('DB.getWorker:',error.message); return null; }
+    return data;
+  },
+
+  /* Patch arbitrary columns on a worker row (job counters, scores, rating). */
+  updateWorker: async (id, fields) => {
+    if(id==null) return false;
+    const {error}=await sb.from('workers').update(fields).eq('id',id);
+    if(error){ console.error('DB.updateWorker:',error.message); return false; }
+    return true;
+  },
+
   /* Fetch workers from Supabase, optional role filter */
   workers: async (role=null) => {
     /* workers table only — no worker_services table exists in this schema.
@@ -912,6 +937,7 @@ const DB = {
       worker_phone:  bk.workerPhone||'',
       worker_skill:  bk.workerRole||'',
       worker_emoji:  bk.workerEmoji||'',
+      worker_dist:   bk.workerDist!=null ? bk.workerDist : null,
       service:       bk.service,
       date:          bk.date,
       time:          bk.time,
@@ -1128,6 +1154,208 @@ async function bookCategoryService(serviceName, catId){
 /* ── HOURS ────────────────────────────────────────────────── */
 const WS_H=8, WS_M=30, WE_H=21, WE_M=45;
 const EROLES = ['Electrician','Plumber'];
+
+/* ── AREA-BASED ASSIGNMENT ────────────────────────────────────
+   areas(id,name,lat,lng) + workers(area,lat,lng,radius).
+   No external geocoding API — coordinates come straight from the
+   areas table, selected via the booking-form Area dropdown. */
+const MAX_ASSIGN_KM = 10;
+let AREAS_CACHE = null;   /* populated once on first booking-form open */
+
+/* Haversine formula — great-circle distance in km between two lat/lng points */
+function haversineKm(lat1, lng1, lat2, lng2){
+  if([lat1,lng1,lat2,lng2].some(v=>v===null||v===undefined||Number.isNaN(Number(v)))) return Infinity;
+  const toRad=d=>d*Math.PI/180;
+  const R=6371; /* Earth radius in km */
+  const dLat=toRad(lat2-lat1), dLng=toRad(lng2-lng1);
+  const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+/* Load areas table once and cache for the session (re-fetches if empty) */
+async function loadAreas(){
+  if(AREAS_CACHE && AREAS_CACHE.length) return AREAS_CACHE;
+  AREAS_CACHE = await DB.areas();
+  return AREAS_CACHE;
+}
+
+/* Given a role + selected area, return workers eligible by:
+     1. skill match (case-insensitive, already done in DB.workers)
+     2. is_available = true (already done in DB.workers)
+     3. Haversine distance from area coords to worker coords <= worker.radius
+     4. Haversine distance <= MAX_ASSIGN_KM (hard cap)
+   Sorted nearest-first. Each worker gets a `.kmDist` (actual computed km). */
+async function getEligibleWorkersForArea(role, area, opts={}){
+  const pool=await DB.workers(role);
+  const filtered=pool.filter(w=>opts.emergencyOnly ? w.ea : true);
+  if(!area || area.lat==null || area.lng==null){
+    /* No area selected / area missing coords — cannot validate distance,
+       so no worker is eligible. Server-side validation must not silently
+       fall back to "any worker". */
+    return [];
+  }
+  return filtered
+    .map(w=>{
+      const wLat=w.lat, wLng=w.lng;
+      const km=haversineKm(area.lat, area.lng, wLat, wLng);
+      const workerRadius=Number(w.radius)||0;
+      return {...w, kmDist:km, withinOwnRadius: km<=workerRadius, withinMaxAssign: km<=MAX_ASSIGN_KM};
+    })
+    .filter(w=>w.withinOwnRadius && w.withinMaxAssign)
+    .sort((a,b)=>{
+      /* ── ASSIGNMENT PRIORITY ──────────────────────────────
+         1. Distance priority — nearer worker wins within a small band.
+         2. Worker score priority — among comparably-near workers,
+            prefer the higher worker_score so poor performers
+            gradually receive fewer bookings. */
+      const distDiff=a.kmDist-b.kmDist;
+      if(Math.abs(distDiff)>0.5) return distDiff; /* clearly nearer wins outright */
+      const scoreA=Number(a.worker_score)||0, scoreB=Number(b.worker_score)||0;
+      if(scoreA!==scoreB) return scoreB-scoreA;    /* tie-break: higher score first */
+      return distDiff;                             /* final tie-break: raw distance */
+    });
+}
+
+/* ════════════════════════════════════════════════════════════
+   PASS 2 — WORKER PERFORMANCE SYSTEM
+   Reads/writes: workers.accepted_jobs, completed_jobs, cancelled_jobs,
+   no_show_count, reliability_score, completion_rate, activity_score,
+   worker_score, rating, total_jobs.
+   All math lives here so every call site (accept/cancel/no-show/
+   complete/review) updates the same way. ════════════════════════ */
+const WorkerStats = {
+  /* completion_rate = completed_jobs / accepted_jobs (0 if no accepted jobs) */
+  completionRate(w){
+    const accepted=Number(w.accepted_jobs)||0, completed=Number(w.completed_jobs)||0;
+    return accepted>0 ? completed/accepted : 0;
+  },
+
+  /* reliability_score (0-100): starts at 100, penalised for cancellations,
+     no-shows, and abnormal/suspicious booking behaviour. Penalties scale
+     with how often the bad behaviour recurs (repeated offenses cost more
+     than a single one), and the score never drops below 0. */
+  reliabilityScore(w){
+    const cancelled=Number(w.cancelled_jobs)||0;
+    const noShows=Number(w.no_show_count)||0;
+    const accepted=Number(w.accepted_jobs)||0;
+    let score=100;
+
+    /* Cancellation penalty: 6 pts each, +2 extra per cancellation once more
+       than 2 have occurred (repeated cancellations cost progressively more). */
+    score -= cancelled*6;
+    if(cancelled>2) score -= (cancelled-2)*2;
+
+    /* No-show penalty: heavier than a plain cancellation (10 pts each),
+       +4 extra per no-show beyond the first (repeated no-shows compound). */
+    score -= noShows*10;
+    if(noShows>1) score -= (noShows-1)*4;
+
+    /* Abnormal booking behaviour: cancellation/no-show rate relative to
+       accepted jobs. If more than 30% of accepted jobs were cancelled or
+       no-showed, treat it as a suspicious pattern and apply an extra
+       proportional penalty (anti-bypass: catches workers who accept
+       to block other workers, then bail before completion). */
+    if(accepted>0){
+      const badRate=(cancelled+noShows)/accepted;
+      if(badRate>0.3) score -= Math.round((badRate-0.3)*100);
+    }
+
+    return Math.max(0, Math.min(100, Math.round(score)));
+  },
+
+  /* activity_score (0-100): rewards accepted/completed volume and recent
+     activity. Uses log-style diminishing returns so a handful of very
+     active workers can't permanently dominate every assignment. */
+  activityScore(w){
+    const accepted=Number(w.accepted_jobs)||0;
+    const completed=Number(w.completed_jobs)||0;
+    const raw = Math.log10(accepted+1)*30 + Math.log10(completed+1)*40;
+    return Math.max(0, Math.min(100, Math.round(raw)));
+  },
+
+  /* worker_score = 50% customer rating + 20% completion rate
+                   + 20% reliability score + 10% activity score
+     rating is stored 0-5 → normalised to 0-100 for the blend, then the
+     blended result is what gets stored in workers.worker_score (0-100). */
+  workerScore(w){
+    const ratingPct = (Number(w.rating)||0)/5*100;
+    const completionPct = this.completionRate(w)*100;
+    const reliabilityPct = this.reliabilityScore(w);
+    const activityPct = this.activityScore(w);
+    const score = ratingPct*0.5 + completionPct*0.2 + reliabilityPct*0.2 + activityPct*0.1;
+    return Math.max(0, Math.min(100, Math.round(score*10)/10));
+  },
+
+  /* Recompute completion_rate/reliability_score/activity_score/worker_score
+     from a worker row's current counters and persist them all at once. */
+  async recalc(workerId){
+    const w=await DB.getWorker(workerId);
+    if(!w) return null;
+    const completion_rate=Number(this.completionRate(w).toFixed(3));
+    const reliability_score=this.reliabilityScore(w);
+    const activity_score=this.activityScore(w);
+    const merged={...w, completion_rate, reliability_score, activity_score};
+    const worker_score=this.workerScore(merged);
+    await DB.updateWorker(workerId, {completion_rate, reliability_score, activity_score, worker_score});
+    return {completion_rate, reliability_score, activity_score, worker_score};
+  },
+
+  /* ── LIFECYCLE HOOKS ─────────────────────────────────────── */
+
+  /* Called the moment a worker is assigned a booking (onAccepted). */
+  async onJobAccepted(workerId){
+    const w=await DB.getWorker(workerId);
+    if(!w) return;
+    const accepted_jobs=(Number(w.accepted_jobs)||0)+1;
+    await DB.updateWorker(workerId,{accepted_jobs});
+    await this.recalc(workerId);
+  },
+
+  /* Called when a booking reaches Completed status via Completion OTP. */
+  async onJobCompleted(workerId){
+    const w=await DB.getWorker(workerId);
+    if(!w) return;
+    const completed_jobs=(Number(w.completed_jobs)||0)+1;
+    await DB.updateWorker(workerId,{completed_jobs});
+    await this.recalc(workerId);
+  },
+
+  /* Called when an accepted booking is cancelled before completion —
+     covers both user-initiated cancellation of an already-accepted job
+     and worker-side cancellation/anti-bypass cases (accept-then-abandon
+     without ever reaching the completion OTP). */
+  async onJobCancelled(workerId){
+    const w=await DB.getWorker(workerId);
+    if(!w) return;
+    const cancelled_jobs=(Number(w.cancelled_jobs)||0)+1;
+    await DB.updateWorker(workerId,{cancelled_jobs});
+    await this.recalc(workerId);
+  },
+
+  /* Called when a worker does not arrive within the arrival window
+     (auto-cancel after the 15-min + 5-min-extension timer expires). */
+  async onNoShow(workerId){
+    const w=await DB.getWorker(workerId);
+    if(!w) return;
+    const no_show_count=(Number(w.no_show_count)||0)+1;
+    await DB.updateWorker(workerId,{no_show_count});
+    await this.recalc(workerId);
+  },
+
+  /* Called after a review is submitted — updates workers.rating (running
+     average across total_jobs+1) and workers.total_jobs, then recalcs
+     the blended worker_score since rating feeds 50% of it. */
+  async onReviewSubmitted(workerId, ratingValue){
+    const w=await DB.getWorker(workerId);
+    if(!w) return;
+    const prevTotal=Number(w.total_jobs)||0;
+    const prevRating=Number(w.rating)||0;
+    const newTotal=prevTotal+1;
+    const newRating=Number((((prevRating*prevTotal)+ratingValue)/newTotal).toFixed(2));
+    await DB.updateWorker(workerId,{rating:newRating, total_jobs:newTotal});
+    await this.recalc(workerId);
+  }
+};
 
 function getIST(){ return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'})); }
 function istDateStr(){
@@ -1486,6 +1714,8 @@ async function openBooking(id){
   document.getElementById('bkDate').max=maxStr;
   document.getElementById('bkDate').value='';
   document.getElementById('bkAddr').value='';
+  await populateAreaDropdown();
+  document.getElementById('bkAreaNote').textContent='';
   document.getElementById('bkNotice').innerHTML=e?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Emergency Hours Active (9:45 PM – 8:30 AM IST)</strong><br/>Worker dispatched immediately. Time set to now automatically.</div></div>`:'';
   setBkBtn(e); updatePrice(); goPage('booking');
 }
@@ -1494,6 +1724,42 @@ function setBkBtn(e){
   const b=document.getElementById('bkBtn');
   b.textContent=e?'🚨 Request Emergency Worker & Pay':'📡 Book & Pay';
   b.className=`btn ${e?'be':'bp'} bfull blg`;
+}
+
+/* ── AREA DROPDOWN (area-based assignment) ───────────────────
+   Populates from the areas table — no external geocoding API.
+   Selected area's lat/lng drive Haversine-based worker matching. */
+async function populateAreaDropdown(){
+  const sel=document.getElementById('bkArea');
+  const areas=await loadAreas();
+  if(!areas.length){
+    sel.innerHTML='<option value="">No service areas configured</option>';
+    return;
+  }
+  sel.innerHTML='<option value="">Select your area…</option>'+
+    areas.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
+  sel.value='';
+}
+
+async function onAreaChange(){
+  const sel=document.getElementById('bkArea');
+  const note=document.getElementById('bkAreaNote');
+  const areaId=sel.value;
+  if(!areaId){ note.textContent=''; return; }
+  const areas=await loadAreas();
+  const area=areas.find(a=>String(a.id)===String(areaId));
+  if(!area || area.lat==null || area.lng==null){
+    note.innerHTML='<span style="color:var(--danger)">⚠️ This area has no coordinates configured — booking cannot be matched.</span>';
+    return;
+  }
+  if(!curW || !curW.role){ note.textContent=''; return; }
+  const e=isEmerg();
+  const eligible=await getEligibleWorkersForArea(curW.role, area, {emergencyOnly:e});
+  if(!eligible.length){
+    note.innerHTML=`<span style="color:var(--danger)">⚠️ No ${curW.role} workers available within ${MAX_ASSIGN_KM} km of ${area.name} right now.</span>`;
+  } else {
+    note.innerHTML=`<span style="color:var(--teal)">✔ ${eligible.length} worker${eligible.length>1?'s':''} available near ${area.name} (nearest ${eligible[0].kmDist.toFixed(1)} km)</span>`;
+  }
 }
 
 function buildSlots(){
@@ -1532,9 +1798,10 @@ function updatePrice(){
 }
 
 /* ── INITIATE BOOKING ─────────────────────────────────────── */
-function initiateBooking(){
+async function initiateBooking(){
   const date=document.getElementById('bkDate').value;
   const addr=document.getElementById('bkAddr').value.trim();
+  const areaId=document.getElementById('bkArea').value;
   const sel=document.getElementById('bkSvc');
   const svcName=sel.options[sel.selectedIndex]?.dataset.sname||'';
   const base=parseInt(sel.value)||0;
@@ -1547,13 +1814,31 @@ function initiateBooking(){
   if(!date){markErr('bkDate');ok=false;}
   if(!time&&!e){markErr('bkTime');ok=false;}
   if(!addr){markErr('bkAddr');ok=false;}
+  if(!areaId){markErr('bkArea');ok=false;}
   if(!ok){showToast('⚠️ Please fill in all required fields');return;}
+
+  /* Area-based assignment validation — block booking if no eligible
+     worker exists within radius/MAX_ASSIGN_KM before a booking is even
+     created. This is enforced again server-side in onAccepted(). */
+  const areas=await loadAreas();
+  const area=areas.find(a=>String(a.id)===String(areaId));
+  if(!area || area.lat==null || area.lng==null){
+    showToast('⚠️ Selected area has no coordinates — cannot validate assignment.');
+    return;
+  }
+  const eligible=await getEligibleWorkersForArea(curW.role, area, {emergencyOnly:e});
+  if(!eligible.length){
+    showToast(`⚠️ No ${curW.role} workers available within ${MAX_ASSIGN_KM} km of ${area.name} right now.`);
+    return;
+  }
+
   pendBk={
     workerId:curW.id, workerRole:curW.role, workerEmoji:curW.emoji,
     service:svcName, date, time, address:addr,
     price:total, basePrice:base,
     notes:document.getElementById('bkNotes').value.trim(),
-    isEmergency:e||!inWork(time)
+    isEmergency:e||!inWork(time),
+    areaId, areaName:area.name, areaLat:area.lat, areaLng:area.lng
   };
   paymentMethod=null;
   ['pGpay','pCash'].forEach(id=>document.getElementById(id).classList.remove('sel'));
@@ -1651,15 +1936,27 @@ function updateAcc(){
 /* ── ON ACCEPTED ──────────────────────────────────────────── */
 async function onAccepted(){
   try {
-    const roleWorkers=await DB.workers(pendBk.workerRole);
-    /* DB.workers() already filters is_available=true server-side */
-    let pool=(roleWorkers||[]);
-    if(pendBk.isEmergency) pool=pool.filter(w=>w.ea);
-    pool.sort((a,b)=>a.dist-b.dist);
-    const fallbackWorkers=await DB.workers();
-    const nearest=pool[0] || fallbackWorkers.find(w=>w.id===pendBk.workerId) || fallbackWorkers[0];
+    /* ── SERVER-SIDE BOOKING VALIDATION ──────────────────────
+       Do not trust the UI-time eligibility check alone — availability
+       can change between form submission and worker acceptance.
+       Re-validate: skill match (case-insensitive), is_available=true,
+       and Haversine distance from the booked area <= worker.radius
+       and <= MAX_ASSIGN_KM, picking the nearest eligible worker. */
+    const areas=await loadAreas();
+    const area=areas.find(a=>String(a.id)===String(pendBk.areaId))
+      || (pendBk.areaLat!=null && pendBk.areaLng!=null ? {lat:pendBk.areaLat,lng:pendBk.areaLng,name:pendBk.areaName} : null);
+
+    let nearest=null;
+    if(area && area.lat!=null && area.lng!=null){
+      const eligible=await getEligibleWorkersForArea(pendBk.workerRole, area, {emergencyOnly:pendBk.isEmergency});
+      nearest = eligible[0] || null;
+    }
+
     if(!nearest){
-      showToast('⚠️ No worker is currently available for this booking.');
+      /* Hard validation failure — no eligible worker within radius/MAX_ASSIGN_KM.
+         Reject the booking instead of silently assigning an out-of-range worker. */
+      closeModal('acceptModal');
+      showToast(`⚠️ Booking rejected: no ${pendBk.workerRole} worker available within ${MAX_ASSIGN_KM} km of ${pendBk.areaName||'your area'}.`);
       return;
     }
 
@@ -1667,7 +1964,7 @@ async function onAccepted(){
     const bk={
     id:Date.now(),
     workerId:nearest.id, workerName:nearest.name, workerPhone:nearest.phone,
-    workerRole:nearest.role, workerEmoji:nearest.emoji, workerDist:nearest.dist,
+    workerRole:nearest.role, workerEmoji:nearest.emoji, workerDist:Number(nearest.kmDist.toFixed(2)),
     service:pendBk.service, date:pendBk.date, time:pendBk.time,
     address:pendBk.address, price:pendBk.price, basePrice:pendBk.basePrice,
     notes:pendBk.notes,
@@ -1689,6 +1986,12 @@ async function onAccepted(){
       showToast('⚠️ Booking could not be saved right now. Please try again.');
       return;
     }
+
+    /* Worker performance: this booking counts as an accepted job —
+       bump accepted_jobs and recompute completion/reliability/activity/
+       worker_score immediately so the next assignment decision uses
+       fresh numbers. */
+    await WorkerStats.onJobAccepted(nearest.id);
 
     const sf=fmt12(bk.time), rf=revealAt(bk.time);
   const ico=document.getElementById('confIco');
@@ -1775,7 +2078,16 @@ const cancelBtn=canCancel
 }
 
 async function cancelBk(id){
+  /* Anti-bypass / reliability tracking: if this booking had already been
+     accepted by a worker (booking exists with a workerId and wasn't
+     already completed), count it as a cancelled job against that worker
+     before flipping the booking status. */
+  const all=await DB.bookings();
+  const b=all.find(x=>x.id===id);
   await DB.update(id,{status:'Cancelled'});
+  if(b && b.workerId && b.status!=='Completed'){
+    await WorkerStats.onJobCancelled(b.workerId);
+  }
   showToast('🗑 Booking cancelled'); renderBookings();
 }
 function clearHistory(){ document.getElementById('clrModal').classList.add('on'); }
@@ -1816,7 +2128,15 @@ function extendTimer(){
 }
 async function autoCancel(){
   closeModal('notArrivedModal'); closeModal('arrivalModal'); if(!pendBkId) return;
+  /* Worker did not arrive within the timer window — this is a no-show,
+     not a generic cancellation. Track it separately since no_show_count
+     carries a heavier reliability penalty than cancelled_jobs. */
+  const all=await DB.bookings();
+  const b=all.find(x=>x.id===pendBkId);
   await DB.update(pendBkId,{status:'Cancelled'});
+  if(b && b.workerId){
+    await WorkerStats.onNoShow(b.workerId);
+  }
   showToast('❌ Auto-cancelled — worker did not arrive'); renderBookings();
 }
 
@@ -1838,7 +2158,15 @@ async function verifyOtp(){
     await DB.update(pendBkId,{status:'Arrived'}); showToast('✅ Arrival confirmed!'); renderBookings();
   } else {
     if(entered!==b.completionOtp){ showToast('❌ Incorrect Completion OTP'); return; }
-    closeModal('otpModal'); await DB.update(pendBkId,{status:'Completed'}); showToast('🎉 Service marked as Completed!'); renderBookings();
+    closeModal('otpModal'); await DB.update(pendBkId,{status:'Completed'}); showToast('🎉 Service marked as Completed!');
+    /* Worker performance: this job reached completion — bump completed_jobs
+       and recompute scores immediately. */
+    if(b.workerId) await WorkerStats.onJobCompleted(b.workerId);
+    renderBookings();
+    /* MANDATORY rating modal — opens automatically right after Completion
+       OTP success. Star rating is required before the modal can be closed
+       (see openReview/submitReview for the enforcement). */
+    openReview(pendBkId);
   }
 }
 
@@ -1856,6 +2184,9 @@ async function submitReview(){
   const all=await DB.bookings(); const b=all.find(x=>x.id===revId); if(!b) return;
   const user=JSON.parse(sessionStorage.getItem('qf_user')||'{}');
   await DB.saveReview(revId, b.workerId||null, revRat, document.getElementById('reviewComment').value.trim(), user.name||'Anonymous');
+  /* Update workers.rating (running average) + workers.total_jobs, then
+     recompute the blended worker_score since rating is 50% of it. */
+  if(b.workerId) await WorkerStats.onReviewSubmitted(b.workerId, revRat);
   closeModal('reviewModal'); showToast('⭐ Thank you for your review!'); renderBookings();
 }
 
