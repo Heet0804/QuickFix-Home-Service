@@ -181,7 +181,23 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 <script>
 const SUPABASE_URL='https://oycurbgzzgfzilpflwks.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95Y3VyYmd6emdmemlscGZsd2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjkwMDMsImV4cCI6MjA5MzIwNTAwM30.B9KujxSHzhzpKM_IhVvpTqImVPjF4Yrv3RKn6mgtqxg';
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+/* persistSession:false matches index.html's Supabase client config.
+   Without this, Supabase writes the session to its own localStorage key
+   independently of qf_user/qf_role/sessionStorage. signOut() on index.html
+   clears qf_user/qf_role/qf_bookings, but if this page's client still
+   persists/restores a Supabase-internal session, getSession() here can
+   read a session that index.html's logout never actually touched —
+   which is what causes auth.html to immediately bounce back to index.html
+   right after a "successful" sign-out. Disabling persistence removes that
+   stale session source entirely, so getSession() only ever reflects the
+   in-memory state of the current page load. */
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
+  auth:{
+    persistSession:false,
+    autoRefreshToken:false,
+    detectSessionInUrl:false
+  }
+});
 
 let curRole='user',curForm='login';
 let areasData=[];
@@ -191,12 +207,45 @@ const LEFT_CONTENT={
   worker:{tag:'For Professionals',heading:'Get jobs that<br/><span>match your skill</span>',desc:'Receive job requests filtered by your skill and radius. Go online when ready, offline anytime.',perks:['Jobs matched to your exact skill','Set your own work radius','Toggle availability anytime','Fast payments after each job']}
 };
 
-/* ── AUTO-REDIRECT if already logged in ── */
+/* ── AUTO-REDIRECT if already logged in ──────────────────────
+   Fixed version of the original loop:
+   - Old bug: signOut() (in index.html) cleared qf_user/qf_role but the
+     Supabase client here still persisted/restored its own session via
+     localStorage, so getSession() kept returning a session right after
+     logout — causing auth.html to immediately redirect back to index.html.
+   - Fix: the Supabase client above now has persistSession:false, so
+     getSession() can only ever reflect a session created earlier in THIS
+     exact page load (e.g. right after doLogin()/doSignup() on this same
+     page) — never a session restored from storage on a fresh navigation.
+     That alone breaks the loop. As a second, independent check, we also
+     require sessionStorage.qf_user to exist before considering the user
+     "logged in" — index.html's signOut() removes qf_user, so even in an
+     edge case the two signals always agree after logout.
+   - Result: a freshly-loaded auth.html (the normal post-logout case) has
+     no persisted Supabase session AND no qf_user → NO_SESSION → stays on
+     auth.html. A page that still has a live session from this same load
+     AND a matching qf_user → redirects, exactly as intended. */
+console.log('AUTH PAGE LOADED');
 (async()=>{
   const {data:{session}}=await sb.auth.getSession();
-  if(session){
-    const {data:p}=await sb.from('users').select('role').eq('id',session.user.id).single();
-    if(p)redirect(p.role);
+  const cachedUser=sessionStorage.getItem('qf_user');
+
+  if(session && cachedUser){
+    console.log('SESSION FOUND');
+    const {data:p,error:pe}=await sb
+      .from('users')
+      .select('role')
+      .eq('id',session.user.id)
+      .single();
+
+    if(p && !pe){
+      console.log('REDIRECTING TO INDEX');
+      redirect(p.role);
+    } else {
+      console.log('NO SESSION FOUND');
+    }
+  } else {
+    console.log('NO SESSION FOUND');
   }
 })();
 
@@ -486,7 +535,7 @@ async function forgotPassword(e){
 }
 
 /* ── HELPERS ── */
-function redirect(role){window.location.href=role==='worker'?'worker-dashboard.html':'index.html';}
+function redirect(role){window.location.replace(role==='worker'?'worker-dashboard.html':'index.html');}
 
 function setBtn(bid,tid,loading,txt){
   document.getElementById(bid).classList.toggle('loading',loading);

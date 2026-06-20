@@ -792,12 +792,32 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
   }
 })();
 
-/* Sign out */
+/* Sign out
+   - Explicitly attached to window so onclick="signOut()" resolves even if
+     this script is ever loaded with defer/async/module semantics, or if a
+     bundler/minifier wraps top-level declarations in a closure later.
+   - Supabase sign-out wrapped in try/catch so a network error never blocks
+     local cleanup and redirect.
+   - Clears BOTH sessionStorage and the qf_bookings key in localStorage so
+     no cached user/session/booking data survives the logout.
+   - Uses location.replace() (not .href) so 'index.html' is dropped from
+     browser history — pressing Back after logout cannot re-show a
+     bfcache'd authenticated page or restore the previous session. */
 async function signOut(){
-  await sb.auth.signOut();
-  sessionStorage.clear();
-  window.location.href='auth.html';
+  try{
+    await sb.auth.signOut();
+  }catch(err){
+    console.error('signOut: Supabase sign-out failed (continuing local cleanup):', err);
+  }
+  try{
+    sessionStorage.clear();
+    localStorage.removeItem('qf_bookings');
+  }catch(err){
+    console.error('signOut: storage cleanup failed:', err);
+  }
+  window.location.replace('auth.html');
 }
+window.signOut = signOut;
 
 /* ── DB: all reads/writes go to Supabase ── */
 function getLocalBookings(){
@@ -871,9 +891,15 @@ const DB = {
       ea:   Boolean(w.emergency_available),
       dist: w.radius || 0,
       reviews: w.total_jobs || 0,
+      /* Service prices come from the fixed CAT_SECTIONS catalog (the same
+         source the Services page displays), NOT from workers.price.
+         workers.price is a single per-worker "starting from" figure used
+         elsewhere (worker card / profile), but it has no relationship to
+         individual per-service prices and can be null — using it here was
+         the cause of "₹null" showing in the booking dropdown. */
       svcs: getCategorySections(w.skill)
               .flatMap(sec=>sec.items)
-              .map(it=>({n:it.n, p:w.price})),
+              .map(it=>({n:it.n, p:it.p})),
       revs: []                       /* reviews fetched separately when needed */
     }));
   },
