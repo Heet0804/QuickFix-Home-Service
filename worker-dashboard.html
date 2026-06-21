@@ -62,15 +62,22 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 .avail-status.on{background:var(--online-light);color:var(--online)}
 .avail-status.off{background:var(--offline-light);color:var(--offline)}
 
+/* ── EMERGENCY TOGGLE ── */
+.emerg-toggle{position:relative;width:50px;height:27px;cursor:pointer;flex-shrink:0}
+.emerg-toggle input{opacity:0;width:0;height:0;position:absolute}
+.emerg-track{position:absolute;inset:0;border-radius:50px;background:var(--offline-light);border:2px solid #d1d5db;transition:all .3s ease}
+.emerg-toggle input:checked~.emerg-track{background:#fde0e0;border-color:var(--danger)}
+.emerg-knob{position:absolute;top:3px;left:3px;width:17px;height:17px;border-radius:50%;background:#9ca3af;transition:all .3s cubic-bezier(.34,1.56,.64,1);box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.emerg-toggle input:checked~.emerg-track .emerg-knob{background:var(--danger);transform:translateX(23px)}
+
 /* ── CLOCK ── */
 .clock{display:flex;align-items:center;gap:6px;font-size:.75rem;font-weight:600;color:var(--text2);background:var(--surface3);border:1px solid var(--border);border-radius:50px;padding:5px 13px;white-space:nowrap;flex-shrink:0}
 .clock .cdot{width:6px;height:6px;border-radius:50%;background:var(--teal);flex-shrink:0}
 .clock .ctm{font-family:'Sora',sans-serif;font-size:.8rem;color:var(--text);font-weight:700}
 
-.nav-profile{display:flex;align-items:center;gap:7px;cursor:pointer;padding:5px 10px;border-radius:var(--radius-sm);transition:var(--tr)}
-.nav-profile:hover{background:var(--surface2)}
+.nav-profile{display:flex;align-items:center;gap:7px;padding:5px 10px;border-radius:var(--radius-sm)}
 .nav-av{width:34px;height:34px;border-radius:50%;background:var(--brand-light);border:2px solid var(--brand-mid);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
-.nav-name{font-size:.82rem;font-weight:600;color:var(--text);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-name{font-size:.82rem;font-weight:600;color:var(--text);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nav-role{font-size:.67rem;color:var(--text3)}
 .nav-logout{background:none;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:5px 12px;font-size:.78rem;font-weight:600;color:var(--text2);cursor:pointer;transition:var(--tr)}
 .nav-logout:hover{border-color:var(--danger);color:var(--danger)}
@@ -101,6 +108,15 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 .pc-stat strong{display:block;font-family:'Sora',sans-serif;font-size:1.1rem;font-weight:800;color:var(--text)}
 .pc-stat span{font-size:.68rem;color:var(--text3)}
 
+/* ── PERFORMANCE GRID ── */
+.perf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem;margin-bottom:1.5rem}
+.perf-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.9rem 1rem;box-shadow:var(--sh0)}
+.perf-card strong{display:block;font-family:'Sora',sans-serif;font-size:1.3rem;font-weight:800;color:var(--text)}
+.perf-card span{font-size:.7rem;color:var(--text3);font-weight:600}
+.perf-card.good strong{color:var(--teal)}
+.perf-card.warn strong{color:var(--amber)}
+.perf-card.bad strong{color:var(--danger)}
+
 /* ── OFFLINE BANNER ── */
 .offline-banner{
   background:#f3f4f6;border:2px dashed #d1d5db;border-radius:var(--radius);
@@ -122,10 +138,6 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem}
 .sec-title{font-size:.95rem;font-weight:700;color:var(--text)}
 .sec-sub{font-size:.75rem;color:var(--text3);margin-top:1px}
-.filter-row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
-.fbtn{background:var(--surface);border:1.5px solid var(--border);border-radius:50px;padding:5px 13px;font-size:.75rem;font-weight:600;color:var(--text2);cursor:pointer;transition:var(--tr)}
-.fbtn:hover{border-color:var(--brand);color:var(--brand);background:var(--brand-light)}
-.fbtn.on{background:var(--brand);border-color:var(--brand);color:#fff}
 
 /* ── JOB CARD ── */
 .job-grid{display:flex;flex-direction:column;gap:.875rem}
@@ -141,137 +153,109 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 .job-card.urgent::before{opacity:1;background:linear-gradient(90deg,#d97706,#fbbf24)}
 .job-card.accepted{border-color:var(--teal);background:var(--teal-light)}
 .job-card.accepted::before{opacity:1;background:linear-gradient(90deg,var(--teal),#16a34a)}
-.job-card.completed-card{border-color:var(--border);opacity:.8}
-.job-card.expired{border-color:var(--border);opacity:.55;pointer-events:none}
+.job-card.completed-card{border-color:var(--border);opacity:.85}
+.job-card.cancelled-card{border-color:var(--border);opacity:.65}
 
 .job-top{display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;margin-bottom:.875rem}
 .job-left{display:flex;align-items:flex-start;gap:.875rem;flex:1;min-width:0}
 .job-ico{width:46px;height:46px;border-radius:11px;background:var(--brand-light);display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0}
 .job-ico.urg{background:#fef3c7}
-.job-ico.acc{background:var(--teal-light)}
-.job-meta{flex:1;min-width:0}
-.job-service{font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:3px}
-.job-sub{font-size:.75rem;color:var(--text2);display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
-.job-dot{width:3px;height:3px;background:var(--text3);border-radius:50%;flex-shrink:0}
-.job-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
-.job-price{font-family:'Sora',sans-serif;font-size:1.1rem;font-weight:800;color:var(--brand)}
-.job-price span{font-size:.68rem;color:var(--text3);font-weight:400}
+.job-name{font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:2px}
+.job-meta{font-size:.76rem;color:var(--text2);display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.job-addr{font-size:.78rem;color:var(--text2);margin-top:.5rem;display:flex;gap:5px;align-items:flex-start}
+.job-notes{font-size:.76rem;color:var(--text3);margin-top:.35rem;font-style:italic}
+.job-price{font-family:'Sora',sans-serif;font-weight:800;font-size:1.05rem;color:var(--brand);white-space:nowrap}
+.job-earn{font-size:.68rem;color:var(--teal);font-weight:700;text-align:right;margin-top:1px}
+.badge{display:inline-flex;align-items:center;gap:3px;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:50px}
+.bdg-emerg{background:var(--danger-light);color:var(--danger)}
+.bdg-status{background:var(--surface3);color:var(--text2)}
+.bdg-pending{background:#fef3c7;color:#92400e}
+.bdg-accepted{background:var(--teal-light);color:var(--teal-dark)}
+.bdg-arrived{background:#dbeafe;color:#1d4ed8}
+.bdg-completed{background:var(--online-light);color:var(--online)}
+.bdg-rejected,.bdg-cancelled{background:var(--danger-light);color:var(--danger)}
 
-/* ── COUNTDOWN ── */
-.countdown{display:flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;padding:3px 9px;border-radius:50px;background:#fef3c7;color:#92400e;border:1px solid #fbbf24}
-.countdown.urgent{background:#fee2e2;color:#7f1d1d;border-color:#fca5a5;animation:cpulse 1s infinite}
-@keyframes cpulse{0%,100%{opacity:1}50%{opacity:.65}}
-.countdown.done{background:#f3f4f6;color:#6b7280;border-color:#d1d5db}
+.job-acts{display:flex;gap:.6rem;margin-top:1rem;flex-wrap:wrap}
+.jbtn{border:none;border-radius:var(--radius-sm);padding:.6rem 1.1rem;font-size:.8rem;font-weight:700;cursor:pointer;transition:var(--tr);display:inline-flex;align-items:center;gap:6px}
+.jbtn-accept{background:var(--teal);color:#fff}
+.jbtn-accept:hover{background:var(--teal-dark)}
+.jbtn-reject{background:var(--surface);color:var(--danger);border:1.5px solid var(--danger-light)}
+.jbtn-reject:hover{background:var(--danger-light)}
+.jbtn-arrive{background:var(--brand);color:#fff}
+.jbtn-arrive:hover{background:var(--brand-dark)}
+.jbtn-complete{background:#1d4ed8;color:#fff}
+.jbtn-complete:hover{background:#1e3a8a}
+.jbtn-call{background:var(--surface);color:var(--text2);border:1.5px solid var(--border)}
+.jbtn-call:hover{border-color:var(--brand);color:var(--brand)}
 
-.job-desc{font-size:.8rem;color:var(--text2);line-height:1.6;padding:.65rem .875rem;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border2);margin-bottom:.875rem}
-.job-desc.empty{font-style:italic;color:var(--text3)}
-
-.job-details{display:flex;gap:.65rem;flex-wrap:wrap;margin-bottom:1rem}
-.jd-pill{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border2);border-radius:50px;padding:4px 11px;font-size:.72rem;font-weight:600;color:var(--text2)}
-
-.job-actions{display:flex;gap:.65rem;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:5px;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:600;transition:var(--tr);font-family:'DM Sans',sans-serif;white-space:nowrap}
-.btn-accept{background:var(--teal);color:#fff;padding:9px 20px;font-size:.845rem;box-shadow:0 2px 8px rgba(45,122,95,.3)}
-.btn-accept:hover{background:var(--teal-dark);transform:translateY(-1px)}
-.btn-reject{background:var(--surface);border:1.5px solid var(--border);color:var(--text2);padding:9px 16px;font-size:.845rem}
-.btn-reject:hover{border-color:var(--danger);color:var(--danger);background:var(--danger-light)}
-.btn-complete{background:var(--brand);color:#fff;padding:9px 18px;font-size:.845rem;box-shadow:0 2px 8px rgba(181,101,29,.3)}
-.btn-complete:hover{background:var(--brand-dark);transform:translateY(-1px)}
-.btn-call{background:var(--surface);border:1.5px solid var(--teal);color:var(--teal);padding:9px 15px;font-size:.845rem}
-.btn-call:hover{background:var(--teal-light)}
-
-/* ── ACCEPTED EXTRA INFO ── */
-.accepted-info{background:var(--teal-light);border:1.5px solid var(--teal);border-radius:var(--radius-sm);padding:.75rem .95rem;margin-bottom:.875rem;font-size:.8rem;color:var(--teal-dark)}
-.accepted-info strong{font-weight:700}
-.otp-row{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.6rem}
-.otp-box{background:var(--surface);border:1.5px dashed var(--teal);border-radius:var(--radius-sm);padding:.55rem;text-align:center}
-.otp-lbl{font-size:.62rem;color:var(--text2);margin-bottom:2px}
-.otp-code{font-family:'Sora',sans-serif;font-size:1rem;font-weight:800;color:var(--teal);letter-spacing:4px}
+.otp-chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface3);border:1px dashed var(--border);border-radius:var(--radius-sm);padding:.45rem .75rem;font-size:.78rem;font-weight:700;color:var(--text2);font-family:'Sora',sans-serif;letter-spacing:1px}
 
 /* ── EMPTY STATE ── */
-.empty{text-align:center;padding:3rem 1rem;color:var(--text2)}
-.empty-ico{font-size:3rem;margin-bottom:.875rem;opacity:.35}
-.empty h3{font-size:1rem;font-weight:700;color:var(--text);margin-bottom:.4rem}
-.empty p{font-size:.82rem;color:var(--text3);line-height:1.6}
-
-/* ── EARNINGS STRIP ── */
-.earnings-strip{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
-  gap:.875rem;margin-bottom:1.5rem;
-}
-.earn-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1rem;box-shadow:var(--sh0)}
-.earn-ico{font-size:1.35rem;margin-bottom:.4rem}
-.earn-val{font-family:'Sora',sans-serif;font-size:1.3rem;font-weight:800;color:var(--text);letter-spacing:-.02em}
-.earn-lbl{font-size:.7rem;color:var(--text3);margin-top:2px}
-
-/* ── BADGES ── */
-.bdg{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:50px;font-size:.67rem;font-weight:700}
-.bgn{background:var(--teal-light);color:var(--teal-dark)}
-.bga{background:#fef3c7;color:#92400e}
-.bgr{background:var(--danger-light);color:var(--danger)}
-.bgg{background:#f3f4f6;color:#6b7280}
-.bgb{background:#eff6ff;color:#1d4ed8}
-.bgbr{background:var(--brand-light);color:var(--brand-dark)}
-
-/* ── TOAST ── */
-.toast{position:fixed;bottom:1.4rem;right:1.4rem;background:var(--text);color:#fff;padding:.75rem 1.1rem;border-radius:var(--radius-sm);font-size:.845rem;font-weight:500;z-index:600;display:flex;align-items:center;gap:7px;box-shadow:0 6px 24px rgba(0,0,0,.22);transform:translateY(90px);opacity:0;transition:.3s cubic-bezier(.4,0,.2,1);max-width:300px}
-.toast.on{transform:translateY(0);opacity:1}
+.empty{text-align:center;padding:3.5rem 1.5rem;background:var(--surface);border:1.5px dashed var(--border);border-radius:var(--radius)}
+.empty-ico{font-size:2.5rem;margin-bottom:.75rem}
+.empty h3{font-size:.95rem;font-weight:700;color:var(--text2);margin-bottom:.3rem}
+.empty p{font-size:.8rem;color:var(--text3)}
 
 /* ── MODAL ── */
-.overlay{display:none;position:fixed;inset:0;background:rgba(30,18,5,.5);backdrop-filter:blur(5px);z-index:500;align-items:center;justify-content:center;padding:1rem}
-.overlay.on{display:flex;animation:fi .22s ease}
-@keyframes fi{from{opacity:0}to{opacity:1}}
-.modal{background:var(--surface);border-radius:18px;padding:2rem 1.75rem;max-width:400px;width:100%;text-align:center;box-shadow:0 20px 56px rgba(30,18,5,.22);animation:pi .28s cubic-bezier(.34,1.56,.64,1)}
-@keyframes pi{from{opacity:0;transform:scale(.84)}to{opacity:1;transform:scale(1)}}
-.modal-ico{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.75rem;margin:0 auto 1rem}
-.modal h2{font-size:1.2rem;font-weight:800;margin-bottom:.4rem}
-.modal p{font-size:.845rem;color:var(--text2);margin-bottom:1.25rem;line-height:1.6}
-.modal-btns{display:flex;gap:.65rem;justify-content:center;flex-wrap:wrap}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(20,12,4,.5);z-index:500;align-items:center;justify-content:center;padding:1rem}
+.modal-bg.on{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius);padding:1.75rem;max-width:380px;width:100%;box-shadow:var(--sh2)}
+.modal h3{font-size:1.05rem;font-weight:800;margin-bottom:.5rem}
+.modal p{font-size:.85rem;color:var(--text2);line-height:1.55;margin-bottom:1.1rem}
+.modal-otp-input{width:100%;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:.85rem;font-size:1.3rem;letter-spacing:6px;text-align:center;font-family:'Sora',sans-serif;font-weight:800;outline:none;margin-bottom:1.1rem}
+.modal-otp-input:focus{border-color:var(--brand)}
+.modal-acts{display:flex;gap:.6rem}
+.modal-acts button{flex:1;border:none;border-radius:var(--radius-sm);padding:.75rem;font-size:.85rem;font-weight:700;cursor:pointer;transition:var(--tr)}
+.mbtn-primary{background:var(--brand);color:#fff}
+.mbtn-primary:hover{background:var(--brand-dark)}
+.mbtn-secondary{background:var(--surface3);color:var(--text2)}
+.mbtn-secondary:hover{background:var(--border2)}
 
-/* ── RESPONSIVE ── */
-@media(max-width:640px){
-  .wrap{padding:1.25rem .875rem 4rem}
-  .profile-card{flex-direction:column;align-items:flex-start}
-  .pc-stats{width:100%;justify-content:space-between}
-  .pc-stat{flex:1;min-width:70px}
-  .otp-row{grid-template-columns:1fr}
-  .earnings-strip{grid-template-columns:1fr 1fr}
-  .job-top{flex-direction:column;gap:.5rem}
-  .job-right{flex-direction:row;align-items:center}
-  nav{padding:0 1rem}
+/* ── TOAST ── */
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--text);color:#fff;padding:.75rem 1.1rem;border-radius:var(--radius-sm);font-size:.845rem;font-weight:500;z-index:600;display:flex;align-items:center;gap:7px;box-shadow:0 6px 24px rgba(0,0,0,.22);transform:translateY(90px);opacity:0;transition:.3s cubic-bezier(.4,0,.2,1);max-width:320px}
+.toast.on{transform:translateY(0);opacity:1}
+
+@media(max-width:680px){
   .nav-name,.nav-role{display:none}
+  .pc-stats{width:100%;justify-content:space-between}
+  .pc-stat{flex:1;padding:.55rem .4rem}
+  .job-price{text-align:right}
 }
 </style>
 </head>
 <body>
 
-<!-- NAV -->
 <nav>
   <div class="navi">
-    <a class="logo" href="landing.html">
+    <a class="logo" href="#">
       <div class="lmark">Q</div>
-      <span class="ltxt">Quick<span>Fix</span></span>
+      <span class="ltxt">Quick<span>Fix</span> <small style="font-size:.6rem;color:var(--text3);font-weight:600">WORKER</small></span>
     </a>
     <div class="nav-right">
-      <!-- Availability Toggle -->
       <div class="avail-wrap">
-        <span class="avail-lbl" id="availLbl">Offline</span>
+        <span class="avail-lbl">🚨 Emergency</span>
+        <label class="emerg-toggle">
+          <input type="checkbox" id="emergToggle" onchange="toggleEmergency()"/>
+          <div class="emerg-track"><div class="emerg-knob"></div></div>
+        </label>
+      </div>
+      <div class="avail-wrap">
+        <span class="avail-lbl">Status</span>
         <label class="avail-toggle">
-          <input type="checkbox" id="availCheck" onchange="toggleAvail()"/>
+          <input type="checkbox" id="availToggle" onchange="toggleAvailability()"/>
           <div class="avail-track"><div class="avail-knob"></div></div>
         </label>
-        <span class="avail-status off" id="availStatus">● Offline</span>
+        <span class="avail-status off" id="availStatusTxt">Offline</span>
       </div>
-      <div class="clock" id="istClock"><div class="cdot"></div><span class="ctm" id="istTime">--:-- --</span><span style="color:var(--text3);font-size:.68rem">IST</span></div>
-      <div class="nav-profile" onclick="goProfile()">
-        <div class="nav-av" id="navAv">👷</div>
+      <div class="clock"><span class="cdot"></span><span class="ctm" id="istTime">--:--:--</span></div>
+      <div class="nav-profile">
+        <div class="nav-av">🔧</div>
         <div>
-          <div class="nav-name" id="navName">Worker</div>
-          <div class="nav-role" id="navRole">Loading…</div>
+          <div class="nav-name" id="navName">—</div>
+          <div class="nav-role" id="navRole">Worker</div>
         </div>
       </div>
-      <a class="btn bo" href="landing.html" style="text-decoration:none;padding:7px 13px;font-size:.78rem;margin-right:.5rem">🏠 Home</a>
-      <button class="nav-logout" onclick="doSignOut()">Sign Out</button>
+      <button class="nav-logout" onclick="logout()">Logout</button>
     </div>
   </div>
 </nav>
@@ -280,606 +264,580 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 
   <!-- WORKER PROFILE CARD -->
   <div class="profile-card">
-    <div class="pc-av" id="pcAv">👷</div>
+    <div class="pc-av">🔧</div>
     <div class="pc-info">
-      <div class="pc-name" id="pcName">Worker Name</div>
-      <div class="pc-meta" style="margin-top:4px;margin-bottom:6px">
-        <span class="pc-skill" id="pcSkill">⚡ Skill</span>
-        <span class="pc-radius" id="pcRadius">📍 — km radius</span>
-        <span class="bdg bgn" id="pcVerified" style="display:none">✔ Verified</span>
+      <div class="pc-name" id="pcName">—</div>
+      <div class="pc-meta">
+        <span class="pc-skill" id="pcSkill">—</span>
+        <span class="pc-radius" id="pcRadius">—</span>
+        <span class="pc-radius" id="pcArea">—</span>
       </div>
-      <div style="font-size:.75rem;color:var(--text3)" id="pcContact"></div>
     </div>
     <div class="pc-stats">
-      <div class="pc-stat"><strong id="stJobs">0</strong><span>Jobs Done</span></div>
-      <div class="pc-stat"><strong id="stEarned">₹0</strong><span>Earned Today</span></div>
-      <div class="pc-stat"><strong id="stRating">—</strong><span>Rating</span></div>
-      <div class="pc-stat"><strong id="stActive">0</strong><span>Active Jobs</span></div>
+      <div class="pc-stat"><strong id="statRating">—</strong><span>⭐ Rating</span></div>
+      <div class="pc-stat"><strong id="statTotalJobs">—</strong><span>Total Jobs</span></div>
+      <div class="pc-stat"><strong id="statEarnings">—</strong><span>Earnings</span></div>
     </div>
   </div>
 
-  <!-- EARNINGS STRIP -->
-  <div class="earnings-strip" id="earningsStrip"></div>
+  <!-- PERFORMANCE GRID -->
+  <div class="perf-grid">
+    <div class="perf-card"><strong id="pAccepted">—</strong><span>Accepted Jobs</span></div>
+    <div class="perf-card good"><strong id="pCompleted">—</strong><span>Completed Jobs</span></div>
+    <div class="perf-card bad"><strong id="pCancelled">—</strong><span>Cancelled Jobs</span></div>
+    <div class="perf-card bad"><strong id="pNoShow">—</strong><span>No-Show Count</span></div>
+    <div class="perf-card" id="pReliabilityCard"><strong id="pReliability">—</strong><span>Reliability Score</span></div>
+    <div class="perf-card" id="pCompletionCard"><strong id="pCompletion">—</strong><span>Completion Rate</span></div>
+    <div class="perf-card" id="pActivityCard"><strong id="pActivity">—</strong><span>Activity Score</span></div>
+    <div class="perf-card" id="pWorkerScoreCard"><strong id="pWorkerScore">—</strong><span>Worker Score</span></div>
+  </div>
 
   <!-- OFFLINE BANNER -->
   <div class="offline-banner" id="offlineBanner">
-    <div class="obi">😴</div>
-    <h3>You're Offline</h3>
-    <p>Toggle the switch in the top bar to go Online and start receiving job requests.</p>
+    <div class="obi">💤</div>
+    <h3>You're currently Offline</h3>
+    <p>Go online to start receiving job requests in your area.</p>
   </div>
 
   <!-- TABS -->
-  <div class="tabs" id="mainTabs">
-    <button class="tab on" onclick="switchTab('available',this)">
-      Available Jobs <span class="tab-count" id="cntAvail">0</span>
-    </button>
-    <button class="tab" onclick="switchTab('active',this)">
-      Active <span class="tab-count" id="cntActive">0</span>
-    </button>
-    <button class="tab" onclick="switchTab('completed',this)">
-      Completed <span class="tab-count" id="cntDone">0</span>
-    </button>
+  <div class="tabs">
+    <button class="tab on" data-tab="pending" onclick="switchTab('pending',this)">🔔 Pending <span class="tab-count" id="cntPending">0</span></button>
+    <button class="tab" data-tab="accepted" onclick="switchTab('accepted',this)">🚗 Accepted <span class="tab-count" id="cntAccepted">0</span></button>
+    <button class="tab" data-tab="arrived" onclick="switchTab('arrived',this)">📍 Arrived <span class="tab-count" id="cntArrived">0</span></button>
+    <button class="tab" data-tab="completed" onclick="switchTab('completed',this)">✅ Completed <span class="tab-count" id="cntCompleted">0</span></button>
+    <button class="tab" data-tab="cancelled" onclick="switchTab('cancelled',this)">❌ Cancelled <span class="tab-count" id="cntCancelled">0</span></button>
   </div>
 
-  <!-- FILTER ROW -->
-  <div class="sec-hdr" id="filterRow">
+  <div class="sec-hdr">
     <div>
-      <div class="sec-title" id="secTitle">Available Jobs Near You</div>
-      <div class="sec-sub" id="secSub">Filtered by your skill and radius</div>
-    </div>
-    <div class="filter-row">
-      <button class="fbtn on" onclick="setSort('newest',this)">Newest</button>
-      <button class="fbtn" onclick="setSort('price',this)">💰 Highest Pay</button>
-      <button class="fbtn" onclick="setSort('distance',this)">📍 Nearest</button>
+      <div class="sec-title" id="secTitle">Pending Requests</div>
+      <div class="sec-sub" id="secSub">New job requests waiting for your response</div>
     </div>
   </div>
 
-  <!-- JOB LIST -->
-  <div class="job-grid" id="jobGrid"></div>
+  <div class="job-grid" id="jobGrid">
+    <div class="empty"><div class="empty-ico">⏳</div><h3>Loading…</h3><p>Fetching your bookings.</p></div>
+  </div>
 
 </div>
 
-<!-- CONFIRM ACCEPT MODAL -->
-<div class="overlay" id="acceptModal">
+<!-- ACCEPT CONFIRM MODAL -->
+<div class="modal-bg" id="acceptModal">
   <div class="modal">
-    <div class="modal-ico" style="background:var(--teal-light)">✅</div>
-    <h2>Accept This Job?</h2>
-    <p id="acceptModalDesc">Confirm to accept this job. The user will be notified immediately.</p>
-    <div class="modal-btns">
-      <button class="btn btn-reject" onclick="closeModal('acceptModal')">Cancel</button>
-      <button class="btn btn-accept" onclick="confirmAccept()">✅ Accept Job</button>
+    <h3>Accept this job?</h3>
+    <p id="acceptModalDesc"></p>
+    <div class="modal-acts">
+      <button class="mbtn-secondary" onclick="closeModal('acceptModal')">Cancel</button>
+      <button class="mbtn-primary" onclick="confirmAccept()">Accept Job</button>
+    </div>
+  </div>
+</div>
+
+<!-- REJECT CONFIRM MODAL -->
+<div class="modal-bg" id="rejectModal">
+  <div class="modal">
+    <h3>Reject this job?</h3>
+    <p>This booking will be marked as rejected. The customer will need to be reassigned.</p>
+    <div class="modal-acts">
+      <button class="mbtn-secondary" onclick="closeModal('rejectModal')">Cancel</button>
+      <button class="mbtn-primary" style="background:var(--danger)" onclick="confirmReject()">Reject Job</button>
     </div>
   </div>
 </div>
 
 <!-- ARRIVAL OTP MODAL -->
-<div class="overlay" id="arrivalOtpModal">
+<div class="modal-bg" id="arrivalOtpModal">
   <div class="modal">
-    <div class="modal-ico" style="background:var(--brand-light)">📍</div>
-    <h2>Verify Arrival OTP</h2>
-    <p>Ask the user for the <strong>Arrival OTP</strong> to confirm you've reached the location.</p>
-    <input type="text" id="arrivalOtpInput" placeholder="Enter 6-digit OTP" maxlength="6" style="width:100%;padding:.75rem;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:1.2rem;text-align:center;letter-spacing:3px;font-weight:700;margin:.75rem 0;outline:none;font-family:'Sora',sans-serif" onkeydown="if(event.key==='Enter')verifyArrivalOtp()"/>
-    <div class="modal-btns">
-      <button class="btn btn-reject" onclick="closeModal('arrivalOtpModal')">Cancel</button>
-      <button class="btn btn-accept" onclick="verifyArrivalOtp()">✅ Verify OTP</button>
+    <h3>🚗 Verify Arrival OTP</h3>
+    <p>Ask the customer for the 6-digit Arrival OTP and enter it below.</p>
+    <input type="text" class="modal-otp-input" id="arrivalOtpInput" maxlength="6" placeholder="······" inputmode="numeric"/>
+    <div class="modal-acts">
+      <button class="mbtn-secondary" onclick="closeModal('arrivalOtpModal')">Cancel</button>
+      <button class="mbtn-primary" onclick="submitArrivalOtp()">Verify</button>
     </div>
   </div>
 </div>
 
 <!-- COMPLETION OTP MODAL -->
-<div class="overlay" id="completionOtpModal">
+<div class="modal-bg" id="completionOtpModal">
   <div class="modal">
-    <div class="modal-ico" style="background:var(--teal-light)">✅</div>
-    <h2>Verify Completion OTP</h2>
-    <p>Ask the user for the <strong>Completion OTP</strong> to confirm work completion.</p>
-    <input type="text" id="completionOtpInput" placeholder="Enter 6-digit OTP" maxlength="6" style="width:100%;padding:.75rem;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:1.2rem;text-align:center;letter-spacing:3px;font-weight:700;margin:.75rem 0;outline:none;font-family:'Sora',sans-serif" onkeydown="if(event.key==='Enter')verifyCompletionOtp()"/>
-    <div class="modal-btns">
-      <button class="btn btn-reject" onclick="closeModal('completionOtpModal')">Cancel</button>
-      <button class="btn btn-complete" onclick="verifyCompletionOtp()">✅ Verify & Complete</button>
+    <h3>✅ Verify Completion OTP</h3>
+    <p>Ask the customer for the 6-digit Completion OTP and enter it below.</p>
+    <input type="text" class="modal-otp-input" id="completionOtpInput" maxlength="6" placeholder="······" inputmode="numeric"/>
+    <div class="modal-acts">
+      <button class="mbtn-secondary" onclick="closeModal('completionOtpModal')">Cancel</button>
+      <button class="mbtn-primary" onclick="submitCompletionOtp()">Verify</button>
     </div>
   </div>
 </div>
 
-<!-- TOAST -->
 <div class="toast" id="toast"></div>
 
 <script>
-/* ── SUPABASE ── */
+/* ════════════════════════════════════════════════════════════
+   SUPABASE CLIENT
+   persistSession:false to match auth.html / index.html exactly.
+   Identity for this page comes from sessionStorage.qf_user (set
+   by auth.html on login/signup), NOT from a live Supabase session
+   — a fresh navigation to this page has no in-memory session to
+   restore, by design (see auth.html's comment on this).
+   ════════════════════════════════════════════════════════════ */
 const SUPABASE_URL='https://oycurbgzzgfzilpflwks.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95Y3VyYmd6emdmemlscGZsd2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjkwMDMsImV4cCI6MjA5MzIwNTAwM30.B9KujxSHzhzpKM_IhVvpTqImVPjF4Yrv3RKn6mgtqxg';
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
+  auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}
+});
 
-/* ── REAL SIGN OUT ── */
-async function doSignOut(){
-  await sb.auth.signOut();
-  sessionStorage.clear();
-  window.location.href='landing.html';
-}
+let W=null;            /* current worker record (merged users + workers row) */
+let bookings=[];        /* raw bookings rows for this worker, snake_case as-is from Supabase */
+let curTab='pending';
+let pendAcceptId=null;
+let pendRejectId=null;
+let pendOtpId=null;
 
-/* ═══════════════════════════════════════════════
-   WORKER DASHBOARD — DATA + LOGIC
-   Reads bookings from localStorage (same key as
-   index.html: 'qf_bookings')
-   Worker session from sessionStorage: 'qf_user'
-═══════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════
+   BOOT — verify identity via sessionStorage.qf_user
+   (mirrors the pattern documented in auth.html: a Supabase
+   client with persistSession:false will not have a restored
+   session on a fresh page load, so we do not gate on
+   sb.auth.getSession() here — qf_user is the source of truth
+   for "am I logged in", written by auth.html at login/signup).
+   ════════════════════════════════════════════════════════════ */
+(async()=>{
+  const raw=sessionStorage.getItem('qf_user');
+  const role=sessionStorage.getItem('qf_role');
+  if(!raw||role!=='worker'){
+    window.location.href='auth.html?role=worker';
+    return;
+  }
+  let cached;
+  try{ cached=JSON.parse(raw); }catch(e){ window.location.href='auth.html?role=worker'; return; }
+  if(!cached||!cached.id){ window.location.href='auth.html?role=worker'; return; }
 
-/* ── SESSION ── */
-let W = null; /* current worker session */
-let isOnline = false;
-let curTab = 'available';
-let curSort = 'newest';
-let pendAcceptId = null;
-let pendCompleteId = null;
+  /* Always refetch the live workers row from Supabase — sessionStorage
+     can be stale (e.g. another tab/device updated availability/stats). */
+  const {data:wp,error:we}=await sb.from('workers').select('*').eq('id',cached.id).single();
+  if(we||!wp){
+    console.error('Failed to load worker record:',we?.message);
+    showToast('⚠️ Could not load your worker profile. Please sign in again.');
+    setTimeout(()=>{ window.location.href='auth.html?role=worker'; },1500);
+    return;
+  }
+  W={...cached,...wp};
+  sessionStorage.setItem('qf_user',JSON.stringify(W));
 
-/* ── EMOJI MAP ── */
-const SKILL_EMOJI = {
-  'Electrician':'⚡','Plumber':'🔧','Carpenter':'🪚','Painter':'🎨',
-  'Cleaner':'🧹','AC Repair':'❄️','Mason':'🧱','Pest Control':'🐜','Househelp':'🏠'
-};
-
-/* ── INIT — W is already set by boot() before this runs ── */
-function init(){
-  isOnline = sessionStorage.getItem('qf_worker_online') === 'true';
   renderProfile();
-  applyOnlineState(false);
-  renderEarnings();
-  renderJobs();
-  setInterval(()=>{
-    renderEarnings();
-    renderJobs();
-    tickCountdowns();
-  }, 5000);
-}
+  await loadBookings();
+  switchTab('pending', document.querySelector('.tab[data-tab="pending"]'));
 
-/* ── PROFILE ── */
+  tickClock();
+  setInterval(tickClock,1000);
+  setInterval(loadBookings,15000); /* light polling so new Pending requests show up without manual refresh */
+})();
+
+/* ════════════════════════════════════════════════════════════
+   PROFILE + STATS RENDER
+   All fields come straight from the workers table row (W).
+   ════════════════════════════════════════════════════════════ */
 function renderProfile(){
-  const emoji = SKILL_EMOJI[W.skill] || '👷';
-  const name = W.name || 'Worker';
-  const skill = W.skill || 'General';
-  const radius = W.radius || '10';
+  document.getElementById('navName').textContent=W.name||'—';
+  document.getElementById('pcName').textContent=W.name||'—';
+  document.getElementById('pcSkill').textContent=W.skill||'—';
+  document.getElementById('pcRadius').textContent=(W.radius!=null?`📍 ${W.radius} km radius`:'');
+  document.getElementById('pcArea').textContent=W.area?`🏙️ ${W.area}`:'';
 
-  document.getElementById('navAv').textContent = emoji;
-  document.getElementById('navName').textContent = name.split(' ')[0];
-  document.getElementById('navRole').textContent = skill;
-  document.getElementById('pcAv').textContent = emoji;
-  document.getElementById('pcName').textContent = name;
-  document.getElementById('pcSkill').textContent = emoji + ' ' + skill;
-  document.getElementById('pcRadius').textContent = '📍 ' + radius + ' km radius';
-  document.getElementById('pcVerified').style.display = '';
-  if(W.phone) document.getElementById('pcContact').textContent = '📞 ' + W.phone + (W.email ? '  ·  ✉️ ' + W.email : '');
+  document.getElementById('statRating').textContent=W.rating!=null?Number(W.rating).toFixed(1):'0.0';
+  document.getElementById('statTotalJobs').textContent=W.total_jobs??0;
 
-  /* Stats from bookings */
-  const bks = getMyBookings();
-  const done = bks.filter(b=>b.wStatus==='completed');
-  const active = bks.filter(b=>b.wStatus==='active');
-  document.getElementById('stJobs').textContent = done.length;
-  document.getElementById('stActive').textContent = active.length;
-  document.getElementById('stRating').textContent = done.length >= 3 ? '4.8★' : '—';
-  const todayEarned = done
-    .filter(b=>b.acceptedAt && new Date(b.acceptedAt).toDateString()===new Date().toDateString())
-    .reduce((s,b)=>s+(b.workerEarning||0),0);
-  document.getElementById('stEarned').textContent = '₹'+todayEarned;
+  /* Earnings: no earnings/wallet column exists on workers per the schema
+     in scope, and bookings.worker_earning is only ever set by THIS page
+     when a job is marked Completed (see markCompleted). We sum it from
+     the worker's own completed bookings rather than inventing a column. */
+  const earned=bookings
+    .filter(b=>b.status==='Completed')
+    .reduce((sum,b)=>sum+(Number(b.worker_earning)||0),0);
+  document.getElementById('statEarnings').textContent='₹'+earned.toLocaleString('en-IN');
+
+  document.getElementById('pAccepted').textContent=W.accepted_jobs??0;
+  document.getElementById('pCompleted').textContent=W.completed_jobs??0;
+  document.getElementById('pCancelled').textContent=W.cancelled_jobs??0;
+  document.getElementById('pNoShow').textContent=W.no_show_count??0;
+
+  const rel=W.reliability_score!=null?Number(W.reliability_score):null;
+  const comp=W.completion_rate!=null?Number(W.completion_rate):null;
+  const act=W.activity_score!=null?Number(W.activity_score):null;
+  const wsc=W.worker_score!=null?Number(W.worker_score):null;
+
+  document.getElementById('pReliability').textContent=rel!=null?rel.toFixed(0):'—';
+  document.getElementById('pCompletion').textContent=comp!=null?(comp*100).toFixed(0)+'%':'—';
+  document.getElementById('pActivity').textContent=act!=null?act.toFixed(0):'—';
+  document.getElementById('pWorkerScore').textContent=wsc!=null?wsc.toFixed(0):'—';
+
+  tagScoreCard('pReliabilityCard',rel);
+  tagScoreCard('pCompletionCard',comp!=null?comp*100:null);
+  tagScoreCard('pActivityCard',act);
+  tagScoreCard('pWorkerScoreCard',wsc);
+
+  const isAvailable=Boolean(W.is_available);
+  document.getElementById('availToggle').checked=isAvailable;
+  const statusTxt=document.getElementById('availStatusTxt');
+  statusTxt.textContent=isAvailable?'Online':'Offline';
+  statusTxt.classList.toggle('on',isAvailable);
+  statusTxt.classList.toggle('off',!isAvailable);
+  document.getElementById('offlineBanner').classList.toggle('show',!isAvailable);
+
+  document.getElementById('emergToggle').checked=Boolean(W.emergency_available);
+}
+function tagScoreCard(id,val){
+  const el=document.getElementById(id);
+  el.classList.remove('good','warn','bad');
+  if(val==null)return;
+  if(val>=75)el.classList.add('good');
+  else if(val>=50)el.classList.add('warn');
+  else el.classList.add('bad');
 }
 
-/* ── EARNINGS ── */
-function renderEarnings(){
-  const bks = getMyBookings();
-  const done = bks.filter(b=>b.wStatus==='completed');
-  const totalEarned = done.reduce((s,b)=>s+(b.workerEarning||0),0);
-  const todayEarned = done
-    .filter(b=>b.acceptedAt && new Date(b.acceptedAt).toDateString()===new Date().toDateString())
-    .reduce((s,b)=>s+(b.workerEarning||0),0);
-  const weekEarned = done
-    .filter(b=>{
-      if(!b.acceptedAt) return false;
-      const d=new Date(b.acceptedAt), now=new Date();
-      return (now-d)/(1000*60*60*24) <= 7;
-    }).reduce((s,b)=>s+(b.workerEarning||0),0);
-
-  document.getElementById('earningsStrip').innerHTML=`
-    <div class="earn-card"><div class="earn-ico">💰</div><div class="earn-val">₹${todayEarned}</div><div class="earn-lbl">Today's Earnings</div></div>
-    <div class="earn-card"><div class="earn-ico">📅</div><div class="earn-val">₹${weekEarned}</div><div class="earn-lbl">This Week</div></div>
-    <div class="earn-card"><div class="earn-ico">🏆</div><div class="earn-val">₹${totalEarned}</div><div class="earn-lbl">Total Earned</div></div>
-    <div class="earn-card"><div class="earn-ico">✅</div><div class="earn-val">${done.length}</div><div class="earn-lbl">Jobs Completed</div></div>`;
-}
-
-/* ── GET BOOKINGS ──
-   Returns bookings from localStorage that match this worker's skill.
-   For demo: any booking with matching workerRole = worker's skill.
-   Also includes "open" bookings not yet accepted by anyone.
-── */
-function getAllBookings(){
-  return JSON.parse(localStorage.getItem('qf_bookings')||'[]');
-}
-function getMyBookings(){
-  /* Bookings where worker explicitly accepted (stored in workerAcceptedBy) */
-  return getAllBookings().filter(b=>b.workerAcceptedBy===W.email);
-}
-function getAvailableBookings(){
-  const all = getAllBookings();
-  const skill = W.skill||'';
-  return all.filter(b=>{
-    /* Must match skill */
-    if(b.workerRole !== skill) return false;
-    /* Must not be already accepted by someone else */
-    if(b.workerAcceptedBy && b.workerAcceptedBy !== W.email) return false;
-    /* Must not be cancelled or completed */
-    if(['Cancelled','Completed'].includes(b.status)) return false;
-    /* Must not be already accepted by ME (those go in active tab) */
-    if(b.workerAcceptedBy === W.email && b.wStatus === 'active') return false;
-    return true;
-  });
-}
-
-/* ── AVAILABILITY TOGGLE ── */
-function toggleAvail(){
-  isOnline = document.getElementById('availCheck').checked;
-  sessionStorage.setItem('qf_worker_online', isOnline);
-  applyOnlineState(true);
+/* ════════════════════════════════════════════════════════════
+   LOAD BOOKINGS — only this worker's rows, ordered newest first.
+   ════════════════════════════════════════════════════════════ */
+async function loadBookings(){
+  if(!W||!W.id)return;
+  const {data,error}=await sb.from('bookings')
+    .select('*')
+    .eq('worker_id',W.id)
+    .order('created_at',{ascending:false});
+  if(error){
+    console.error('loadBookings:',error.message);
+    showToast('⚠️ Could not load bookings: '+error.message);
+    return;
+  }
+  bookings=data||[];
+  updateTabCounts();
   renderJobs();
 }
-function applyOnlineState(animate){
-  const chk = document.getElementById('availCheck');
-  chk.checked = isOnline;
-  const lbl = document.getElementById('availLbl');
-  const status = document.getElementById('availStatus');
-  const banner = document.getElementById('offlineBanner');
-  if(isOnline){
-    lbl.textContent = 'Online';
-    status.textContent = '● Online';
-    status.className = 'avail-status on';
-    banner.classList.remove('show');
-    if(animate) showToast('🟢 You are now Online — receiving job requests');
-  } else {
-    lbl.textContent = 'Offline';
-    status.textContent = '● Offline';
-    status.className = 'avail-status off';
-    banner.classList.add('show');
-    if(animate) showToast('⚫ You are now Offline');
-  }
+
+function bookingsByTab(tab){
+  if(tab==='pending')   return bookings.filter(b=>b.status==='Pending');
+  if(tab==='accepted')  return bookings.filter(b=>b.status==='Accepted');
+  if(tab==='arrived')   return bookings.filter(b=>b.status==='Arrived');
+  if(tab==='completed') return bookings.filter(b=>b.status==='Completed');
+  if(tab==='cancelled') return bookings.filter(b=>b.status==='Rejected'||b.status==='Cancelled');
+  return [];
 }
 
-/* ── TABS ── */
-function switchTab(tab, btn){
-  curTab = tab;
+function updateTabCounts(){
+  document.getElementById('cntPending').textContent=bookingsByTab('pending').length;
+  document.getElementById('cntAccepted').textContent=bookingsByTab('accepted').length;
+  document.getElementById('cntArrived').textContent=bookingsByTab('arrived').length;
+  document.getElementById('cntCompleted').textContent=bookingsByTab('completed').length;
+  document.getElementById('cntCancelled').textContent=bookingsByTab('cancelled').length;
+}
+
+/* ════════════════════════════════════════════════════════════
+   TABS
+   ════════════════════════════════════════════════════════════ */
+const TAB_META={
+  pending:  {title:'Pending Requests',   sub:'New job requests waiting for your response'},
+  accepted: {title:'Accepted Jobs',       sub:'Jobs you have accepted — head to the customer location'},
+  arrived:  {title:'Arrived',             sub:'Verify the Arrival OTP, complete the job, then verify Completion OTP'},
+  completed:{title:'Completed Jobs',      sub:'Jobs you have finished'},
+  cancelled:{title:'Cancelled / Rejected',sub:'Jobs that did not go ahead'}
+};
+function switchTab(tab,btn){
+  curTab=tab;
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
-  const titles={
-    available:{t:'Available Jobs Near You',s:'Filtered by your skill · '+( W.radius||10)+' km radius'},
-    active:{t:'Your Active Jobs',s:'Jobs you have accepted — complete them using OTP'},
-    completed:{t:'Completed Jobs',s:'Your job history'}
-  };
-  document.getElementById('secTitle').textContent = titles[tab].t;
-  document.getElementById('secSub').textContent = titles[tab].s;
-  document.getElementById('filterRow').querySelector('.filter-row').style.display = tab==='available'?'':'none';
+  if(btn)btn.classList.add('on');
+  document.getElementById('secTitle').textContent=TAB_META[tab].title;
+  document.getElementById('secSub').textContent=TAB_META[tab].sub;
   renderJobs();
 }
 
-/* ── SORT ── */
-function setSort(sort, btn){
-  curSort = sort;
-  document.querySelectorAll('.filter-row .fbtn').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
-  renderJobs();
-}
-
-/* ── RENDER JOBS ── */
+/* ════════════════════════════════════════════════════════════
+   RENDER JOB CARDS
+   ════════════════════════════════════════════════════════════ */
 function renderJobs(){
-  updateCounts();
-  const grid = document.getElementById('jobGrid');
+  const list=bookingsByTab(curTab);
+  const grid=document.getElementById('jobGrid');
 
-  if(curTab === 'available'){
-    if(!isOnline){grid.innerHTML='';return;}
-    let jobs = getAvailableBookings();
-    /* Sort */
-    if(curSort==='price') jobs.sort((a,b)=>b.price-a.price);
-    else if(curSort==='distance') jobs.sort((a,b)=>(a.dist||5)-(b.dist||5));
-    else jobs.sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
-    if(!jobs.length){
-      grid.innerHTML=emptyState('📭','No jobs available right now','New job requests matching your skill will appear here. Make sure you\'re Online.');
-      return;
-    }
-    grid.innerHTML = jobs.map(b=>availableJobCard(b)).join('');
-
-  } else if(curTab === 'active'){
-    const jobs = getMyBookings().filter(b=>b.wStatus==='active');
-    if(!jobs.length){
-      grid.innerHTML=emptyState('🔧','No active jobs','Accept a job from the Available tab to see it here.');
-      return;
-    }
-    grid.innerHTML = jobs.map(b=>activeJobCard(b)).join('');
-
-  } else {
-    const jobs = getMyBookings().filter(b=>b.wStatus==='completed');
-    if(!jobs.length){
-      grid.innerHTML=emptyState('🏆','No completed jobs yet','Completed jobs will show your earnings here.');
-      return;
-    }
-    grid.innerHTML = jobs.map(b=>completedJobCard(b)).join('');
-  }
-}
-
-/* ── UPDATE TAB COUNTS ── */
-function updateCounts(){
-  const avail = isOnline ? getAvailableBookings().length : 0;
-  const active = getMyBookings().filter(b=>b.wStatus==='active').length;
-  const done = getMyBookings().filter(b=>b.wStatus==='completed').length;
-  document.getElementById('cntAvail').textContent = avail;
-  document.getElementById('cntActive').textContent = active;
-  document.getElementById('cntDone').textContent = done;
-  /* Update profile stats */
-  document.getElementById('stActive').textContent = active;
-  document.getElementById('stJobs').textContent = done;
-}
-
-/* ── COUNTDOWN HELPER ── */
-function timeLeft(createdAt){
-  if(!createdAt) return {secs:0,expired:true};
-  const elapsed = (Date.now()-new Date(createdAt).getTime())/1000;
-  const left = Math.max(0, 120-elapsed); /* 2 min window */
-  return {secs:Math.floor(left), expired:left<=0};
-}
-function fmtCountdown(secs){
-  const m=Math.floor(secs/60), s=secs%60;
-  return m+':'+(s<10?'0':'')+s;
-}
-function fmt12(hhmm){
-  if(!hhmm) return '';
-  const[h,m]=hhmm.split(':').map(Number);
-  return `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`;
-}
-function fmtDate(d){
-  return new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
-}
-
-/* ── AVAILABLE JOB CARD ── */
-function availableJobCard(b){
-  const tl = timeLeft(b.createdAt);
-  const isUrgent = tl.secs < 30 && !tl.expired;
-  const emoji = SKILL_EMOJI[b.workerRole]||'🔧';
-  const earning = Math.round(b.price * 0.80); /* worker gets 80% */
-
-  if(tl.expired){
-    return `<div class="job-card expired">
-      <div class="job-top">
-        <div class="job-left">
-          <div class="job-ico">${emoji}</div>
-          <div class="job-meta">
-            <div class="job-service">${b.service}</div>
-            <div class="job-sub"><span>${b.workerRole}</span><span class="job-dot"></span><span>${fmtDate(b.date)} · ${fmt12(b.time)}</span></div>
-          </div>
-        </div>
-        <div class="job-right">
-          <div class="job-price">₹${earning} <span>your cut</span></div>
-          <span class="countdown done">⌛ Expired</span>
-        </div>
-      </div>
-    </div>`;
+  if(!list.length){
+    const emptyMsgs={
+      pending:  ['🔔','No pending requests','New job requests will show up here as soon as they come in.'],
+      accepted: ['🚗','No accepted jobs','Accept a pending request to see it here.'],
+      arrived:  ['📍','No active arrivals','Jobs you have marked as arrived will show up here.'],
+      completed:['✅','No completed jobs yet','Finished jobs will appear here.'],
+      cancelled:['❌','No cancelled or rejected jobs','Rejected or cancelled bookings will show up here.']
+    };
+    const [ico,h,p]=emptyMsgs[curTab];
+    grid.innerHTML=`<div class="empty"><div class="empty-ico">${ico}</div><h3>${h}</h3><p>${p}</p></div>`;
+    return;
   }
 
-  return `<div class="job-card${isUrgent?' urgent':''}" id="jcard-${b.id}">
+  grid.innerHTML=list.map(b=>renderJobCard(b)).join('');
+}
+
+function statusBadge(status){
+  const map={
+    Pending:  ['bdg-pending','🔔 Pending'],
+    Accepted: ['bdg-accepted','🚗 Accepted'],
+    Arrived:  ['bdg-arrived','📍 Arrived'],
+    Completed:['bdg-completed','✅ Completed'],
+    Rejected: ['bdg-rejected','❌ Rejected'],
+    Cancelled:['bdg-cancelled','❌ Cancelled']
+  };
+  const [cls,label]=map[status]||['bdg-status',status||'—'];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function renderJobCard(b){
+  const cardCls = b.status==='Accepted' ? 'accepted'
+                : b.status==='Completed' ? 'completed-card'
+                : (b.status==='Rejected'||b.status==='Cancelled') ? 'cancelled-card'
+                : (b.is_emergency ? 'urgent' : '');
+  const earning = b.worker_earning!=null ? Number(b.worker_earning) : Math.round((Number(b.price)||0)*0.80);
+
+  let actions='';
+  if(b.status==='Pending'){
+    actions=`
+      <div class="job-acts">
+        <button class="jbtn jbtn-accept" onclick="promptAccept('${b.id}')">✅ Accept</button>
+        <button class="jbtn jbtn-reject" onclick="promptReject('${b.id}')">✖ Reject</button>
+      </div>`;
+  } else if(b.status==='Accepted'){
+    actions=`
+      <div class="job-acts">
+        <button class="jbtn jbtn-arrive" onclick="markArrived('${b.id}')">📍 Mark Arrived</button>
+        ${b.worker_phone?`<button class="jbtn jbtn-call" onclick="callUser('${b.worker_phone}')">📞 Call</button>`:''}
+      </div>`;
+  } else if(b.status==='Arrived'){
+    actions=`
+      <div class="job-acts">
+        <button class="jbtn jbtn-arrive" onclick="openOtpModal('arrival','${b.id}')">🚗 Verify Arrival OTP</button>
+        <button class="jbtn jbtn-complete" onclick="openOtpModal('completion','${b.id}')">✅ Verify Completion OTP</button>
+      </div>`;
+  }
+
+  const otpRow = (b.status==='Accepted'||b.status==='Arrived') ? `
+      <div style="display:flex;gap:.6rem;margin-top:.75rem;flex-wrap:wrap">
+        ${b.arrival_OTP?`<span class="otp-chip">🚗 ${b.arrival_OTP}</span>`:''}
+        ${b.completion_OTP?`<span class="otp-chip">✅ ${b.completion_OTP}</span>`:''}
+      </div>` : '';
+
+  return `<div class="job-card ${cardCls}" id="jcard-${b.id}">
     <div class="job-top">
       <div class="job-left">
-        <div class="job-ico${isUrgent?' urg':''}">${emoji}</div>
-        <div class="job-meta">
-          <div class="job-service">${b.service}
-            ${b.isEmergency?'&nbsp;<span class="bdg bga">🚨 Emergency</span>':''}
-            ${b.isAdvance?'&nbsp;<span class="bdg bgb">📅 Advance</span>':''}
-          </div>
-          <div class="job-sub">
-            <span>${b.workerRole}</span>
-            <span class="job-dot"></span>
-            <span>${fmtDate(b.date)}</span>
-            <span class="job-dot"></span>
-            <span>${fmt12(b.time)}</span>
-            <span class="job-dot"></span>
-            <span>📍 ~${(Math.random()*3+0.5).toFixed(1)} km</span>
-          </div>
+        <div class="job-ico ${b.is_emergency?'urg':''}">${b.is_emergency?'🚨':'🔧'}</div>
+        <div style="min-width:0">
+          <div class="job-name">${b.service_name||'Service'} ${b.is_emergency?'<span class="badge bdg-emerg">🚨 Emergency</span>':''}</div>
+          <div class="job-meta">${statusBadge(b.status)}</div>
+          ${b.address?`<div class="job-addr">📍 ${b.address}</div>`:''}
+          ${b.notes?`<div class="job-notes">"${b.notes}"</div>`:''}
+          ${otpRow}
         </div>
       </div>
-      <div class="job-right">
-        <div class="job-price">₹${earning} <span>your cut</span></div>
-        <span class="countdown${isUrgent?' urgent':''}" id="cd-${b.id}">⏱ ${fmtCountdown(tl.secs)}</span>
+      <div>
+        <div class="job-price">₹${b.price??0}</div>
+        <div class="job-earn">You earn ₹${earning}</div>
       </div>
     </div>
-    ${b.notes?`<div class="job-desc">"${b.notes}"</div>`:`<div class="job-desc empty">No additional notes from user.</div>`}
-    <div class="job-details">
-      <span class="jd-pill">📍 ${b.address}</span>
-      <span class="jd-pill">💳 ${b.paymentMethod==='gpay'?'GPay (Paid)':'Cash on Arrival'}</span>
-      <span class="jd-pill">₹${b.price} total booking</span>
-    </div>
-    <div class="job-actions">
-      <button class="btn btn-accept" onclick="promptAccept(${b.id})">✅ Accept Job</button>
-      <button class="btn btn-reject" onclick="rejectJob(${b.id})">✕ Skip</button>
-    </div>
+    ${actions}
   </div>`;
 }
 
-/* ── ACTIVE JOB CARD ── */
-function activeJobCard(b){
-  const emoji = SKILL_EMOJI[b.workerRole]||'🔧';
-  const earning = Math.round(b.price * 0.80);
-  const hasReached = b.wStatus === 'reached' || b.arrivalOtpVerified;
-  return `<div class="job-card accepted">
-    <div class="job-top">
-      <div class="job-left">
-        <div class="job-ico acc">${emoji}</div>
-        <div class="job-meta">
-          <div class="job-service">${b.service} <span class="bdg bgn">✅ Accepted</span>${hasReached?` <span class="bdg bgt">📍 Reached</span>`:''}</div>
-          <div class="job-sub">
-            <span>${fmtDate(b.date)}</span>
-            <span class="job-dot"></span>
-            <span>${fmt12(b.time)}</span>
-          </div>
-        </div>
-      </div>
-      <div class="job-right">
-        <div class="job-price">₹${earning} <span>your cut</span></div>
-      </div>
-    </div>
-    <div class="accepted-info">
-      <strong>📍 Address:</strong> ${b.address}<br/>
-      <strong>💳 Payment:</strong> ${b.paymentMethod==='gpay'?'GPay — Already Paid ✅':'Cash on Arrival 💵'}<br/>
-      ${b.notes?`<strong>📝 Notes:</strong> ${b.notes}<br/>`:''}
-    </div>
-    <div class="job-actions">
-      ${hasReached?`<button class="btn btn-complete" onclick="promptComplete(${b.id})">✅ Job Completed</button>`:`<button class="btn btn-accept" onclick="promptReached(${b.id})">📍 Reached at Location</button>`}
-      ${b.userPhone?`<button class="btn btn-call" onclick="callUser('${b.userPhone}')">📞 Call User</button>`:''}
-    </div>
-  </div>`;
-}
-
-/* ── COMPLETED JOB CARD ── */
-function completedJobCard(b){
-  const emoji = SKILL_EMOJI[b.workerRole]||'🔧';
-  const earning = Math.round(b.price * 0.80);
-  return `<div class="job-card completed-card">
-    <div class="job-top">
-      <div class="job-left">
-        <div class="job-ico">${emoji}</div>
-        <div class="job-meta">
-          <div class="job-service">${b.service} <span class="bdg bgn">✅ Done</span></div>
-          <div class="job-sub">
-            <span>${fmtDate(b.date)}</span>
-            <span class="job-dot"></span>
-            <span>${fmt12(b.time)}</span>
-          </div>
-        </div>
-      </div>
-      <div class="job-right">
-        <div class="job-price" style="color:var(--teal)">+₹${earning}</div>
-      </div>
-    </div>
-    <div class="job-details">
-      <span class="jd-pill">📍 ${b.address}</span>
-      <span class="jd-pill">💳 ${b.paymentMethod==='gpay'?'GPay':'Cash'}</span>
-      ${b.completedAt?`<span class="jd-pill">🕐 Completed ${new Date(b.completedAt).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</span>`:''}
-    </div>
-  </div>`;
-}
-
-/* ── EMPTY STATE ── */
-function emptyState(ico, h, p){
-  return `<div class="empty"><div class="empty-ico">${ico}</div><h3>${h}</h3><p>${p}</p></div>`;
-}
-
-/* ── REACHED & OTP VERIFICATION ── */
-let pendReachedId = null;
-
-function promptReached(id){
-  pendReachedId = id;
-  document.getElementById('arrivalOtpInput').value = '';
-  document.getElementById('arrivalOtpInput').focus();
-  document.getElementById('arrivalOtpModal').classList.add('on');
-}
-
-function verifyArrivalOtp(){
-  if(!pendReachedId) return;
-  const otpInput = document.getElementById('arrivalOtpInput').value.trim();
-  if(otpInput.length !== 6 || isNaN(otpInput)){
-    showToast('❌ Please enter a valid 6-digit OTP');
-    return;
-  }
-  const bks = getAllBookings();
-  const idx = bks.findIndex(x=>x.id===pendReachedId);
-  if(idx===-1) return;
-  
-  /* Verify OTP matches the arrival OTP stored in the booking */
-  if(otpInput !== bks[idx].arrivalOtp){
-    showToast('❌ Incorrect OTP! Try again.');
-    document.getElementById('arrivalOtpInput').value = '';
-    document.getElementById('arrivalOtpInput').focus();
-    return;
-  }
-  
-  /* OTP verified - mark as reached */
-  bks[idx].wStatus = 'reached';
-  bks[idx].arrivalOtpVerified = true;
-  bks[idx].arrivedAt = new Date().toISOString();
-  localStorage.setItem('qf_bookings', JSON.stringify(bks));
-  closeModal('arrivalOtpModal');
-  showToast('✅ Arrival verified! Now complete the work and click "Job Completed".');
-  renderJobs();
-}
-
-function promptComplete(id){
-  pendCompleteId = id;
-  document.getElementById('completionOtpInput').value = '';
-  document.getElementById('completionOtpInput').focus();
-  document.getElementById('completionOtpModal').classList.add('on');
-}
-
-function verifyCompletionOtp(){
-  if(!pendCompleteId) return;
-  const otpInput = document.getElementById('completionOtpInput').value.trim();
-  if(otpInput.length !== 6 || isNaN(otpInput)){
-    showToast('❌ Please enter a valid 6-digit OTP');
-    return;
-  }
-  const bks = getAllBookings();
-  const idx = bks.findIndex(x=>x.id===pendCompleteId);
-  if(idx===-1) return;
-  
-  /* Verify OTP matches the completion OTP stored in the booking */
-  if(otpInput !== bks[idx].completionOtp){
-    showToast('❌ Incorrect OTP! Try again.');
-    document.getElementById('completionOtpInput').value = '';
-    document.getElementById('completionOtpInput').focus();
-    return;
-  }
-  
-  /* OTP verified - mark as completed */
-  bks[idx].wStatus = 'completed';
-  bks[idx].completionOtpVerified = true;
-  bks[idx].status = 'Completed';
-  bks[idx].completedAt = new Date().toISOString();
-  localStorage.setItem('qf_bookings', JSON.stringify(bks));
-  closeModal('completionOtpModal');
-  showToast('🏁 Job completed! Earnings credited to your account.');
-  renderEarnings();
-  renderProfile();
-  renderJobs();
-  switchTab('completed', document.querySelectorAll('.tab')[2]);
-}
+/* ════════════════════════════════════════════════════════════
+   ACCEPT
+   ════════════════════════════════════════════════════════════ */
 function promptAccept(id){
-  pendAcceptId = id;
-  const b = getAllBookings().find(x=>x.id===id);
-  if(!b) return;
-  const earning = Math.round(b.price*0.80);
-  document.getElementById('acceptModalDesc').innerHTML =
-    `<strong>${b.service}</strong> · ${fmtDate(b.date)} at ${fmt12(b.time)}<br/>
-     📍 ${b.address}<br/>
-     💰 You earn <strong style="color:var(--teal)">₹${earning}</strong> for this job.`;
+  pendAcceptId=id;
+  const b=bookings.find(x=>String(x.id)===String(id));
+  if(!b)return;
+  const earning=Math.round((Number(b.price)||0)*0.80);
+  document.getElementById('acceptModalDesc').innerHTML=
+    `<strong>${b.service_name||'Service'}</strong>${b.address?`<br/>📍 ${b.address}`:''}<br/>💰 You earn <strong style="color:var(--teal)">₹${earning}</strong> for this job.`;
   document.getElementById('acceptModal').classList.add('on');
 }
-
-function confirmAccept(){
+async function confirmAccept(){
   closeModal('acceptModal');
-  if(!pendAcceptId) return;
-  const bks = getAllBookings();
-  const idx = bks.findIndex(x=>x.id===pendAcceptId);
-  if(idx===-1) return;
-  bks[idx].workerAcceptedBy = W.email;
-  bks[idx].wStatus = 'active';
-  bks[idx].acceptedAt = new Date().toISOString();
-  bks[idx].workerEarning = Math.round(bks[idx].price*0.80);
-  bks[idx].status = 'Worker on Way';
-  localStorage.setItem('qf_bookings', JSON.stringify(bks));
-  showToast('✅ Job accepted! Head to the Active tab and click "Reached at Location".');
-  renderEarnings();
+  if(!pendAcceptId)return;
+  const id=pendAcceptId; pendAcceptId=null;
+  const b=bookings.find(x=>String(x.id)===String(id));
+  if(!b)return;
+  const earning=Math.round((Number(b.price)||0)*0.80);
+
+  const {error}=await sb.from('bookings').update({
+    status:'Accepted',
+    w_status:'Accepted',
+    worker_earning:earning,
+    accepted_at:new Date().toISOString()
+  }).eq('id',id);
+  if(error){
+    console.error('confirmAccept:',error.message);
+    showToast('⚠️ Could not accept job: '+error.message);
+    return;
+  }
+
+  await bumpWorkerCounter('accepted_jobs');
+  showToast('✅ Job accepted! Head to the Accepted tab.');
+  await loadBookings();
+  switchTab('accepted',document.querySelector('.tab[data-tab="accepted"]'));
+}
+
+/* ════════════════════════════════════════════════════════════
+   REJECT
+   ════════════════════════════════════════════════════════════ */
+function promptReject(id){
+  pendRejectId=id;
+  document.getElementById('rejectModal').classList.add('on');
+}
+async function confirmReject(){
+  closeModal('rejectModal');
+  if(!pendRejectId)return;
+  const id=pendRejectId; pendRejectId=null;
+
+  const {error}=await sb.from('bookings').update({
+    status:'Rejected',
+    w_status:'Rejected'
+  }).eq('id',id);
+  if(error){
+    console.error('confirmReject:',error.message);
+    showToast('⚠️ Could not reject job: '+error.message);
+    return;
+  }
+
+  showToast('Job rejected.');
+  await loadBookings();
+}
+
+/* ════════════════════════════════════════════════════════════
+   MARK ARRIVED (worker physically reaches location —
+   precedes Arrival OTP verification)
+   ════════════════════════════════════════════════════════════ */
+async function markArrived(id){
+  /* Per the booking lifecycle, "Arrived" status is only confirmed once the
+     Arrival OTP is verified — see openOtpModal/submitArrivalOtp. This
+     button simply opens that verification step. */
+  openOtpModal('arrival',id);
+}
+
+/* ════════════════════════════════════════════════════════════
+   OTP VERIFICATION
+   ════════════════════════════════════════════════════════════ */
+function openOtpModal(mode,id){
+  pendOtpId=id;
+  if(mode==='arrival'){
+    document.getElementById('arrivalOtpInput').value='';
+    document.getElementById('arrivalOtpModal').classList.add('on');
+  }else{
+    document.getElementById('completionOtpInput').value='';
+    document.getElementById('completionOtpModal').classList.add('on');
+  }
+}
+
+async function submitArrivalOtp(){
+  const entered=document.getElementById('arrivalOtpInput').value.trim();
+  const b=bookings.find(x=>String(x.id)===String(pendOtpId));
+  if(!b){showToast('⚠️ Booking not found');return;}
+  if(!entered||entered!==String(b.arrival_OTP||'')){
+    showToast('❌ Incorrect Arrival OTP');
+    return;
+  }
+  const {error}=await sb.from('bookings').update({
+    status:'Arrived',
+    w_status:'Arrived'
+  }).eq('id',b.id);
+  if(error){
+    console.error('submitArrivalOtp:',error.message);
+    showToast('⚠️ Could not verify arrival: '+error.message);
+    return;
+  }
+  closeModal('arrivalOtpModal');
+  showToast('✅ Arrival confirmed!');
+  await loadBookings();
+  switchTab('arrived',document.querySelector('.tab[data-tab="arrived"]'));
+}
+
+async function submitCompletionOtp(){
+  const entered=document.getElementById('completionOtpInput').value.trim();
+  const b=bookings.find(x=>String(x.id)===String(pendOtpId));
+  if(!b){showToast('⚠️ Booking not found');return;}
+  if(!entered||entered!==String(b.completion_OTP||'')){
+    showToast('❌ Incorrect Completion OTP');
+    return;
+  }
+  const {error}=await sb.from('bookings').update({
+    status:'Completed',
+    w_status:'Completed',
+    completed_at:new Date().toISOString()
+  }).eq('id',b.id);
+  if(error){
+    console.error('submitCompletionOtp:',error.message);
+    showToast('⚠️ Could not verify completion: '+error.message);
+    return;
+  }
+  closeModal('completionOtpModal');
+  await bumpWorkerCounter('completed_jobs');
+  showToast('🏁 Job completed! Earnings credited.');
+  await loadBookings();
+  switchTab('completed',document.querySelector('.tab[data-tab="completed"]'));
+}
+
+/* ════════════════════════════════════════════════════════════
+   WORKER COUNTER HELPERS
+   Increments a counter column on the live workers row (read-then-write,
+   since Supabase JS has no atomic increment without an RPC, and the
+   task scope disallows inventing new functions/columns server-side).
+   ════════════════════════════════════════════════════════════ */
+async function bumpWorkerCounter(column){
+  const {data:fresh,error:fe}=await sb.from('workers').select('*').eq('id',W.id).single();
+  if(fe||!fresh){console.error('bumpWorkerCounter fetch:',fe?.message);return;}
+  const current=Number(fresh[column])||0;
+  const updates={[column]:current+1};
+  const {error:ue}=await sb.from('workers').update(updates).eq('id',W.id);
+  if(ue){console.error('bumpWorkerCounter update:',ue.message);return;}
+  W={...W,...fresh,...updates};
+  sessionStorage.setItem('qf_user',JSON.stringify(W));
   renderProfile();
-  renderJobs();
-  switchTab('active', document.querySelectorAll('.tab')[1]);
 }
 
-function rejectJob(id){
-  /* Just hide the card locally — don't delete from DB so other workers can see it */
-  const card = document.getElementById('jcard-'+id);
-  if(card){card.style.opacity='0';card.style.transform='translateX(30px)';card.style.transition='all .3s ease';setTimeout(()=>card.remove(),320);}
-  showToast('Skipped — job stays available for other workers');
+/* ════════════════════════════════════════════════════════════
+   AVAILABILITY / EMERGENCY TOGGLES
+   ════════════════════════════════════════════════════════════ */
+async function toggleAvailability(){
+  const checked=document.getElementById('availToggle').checked;
+  const {error}=await sb.from('workers').update({is_available:checked}).eq('id',W.id);
+  if(error){
+    console.error('toggleAvailability:',error.message);
+    showToast('⚠️ Could not update status: '+error.message);
+    document.getElementById('availToggle').checked=!checked; /* revert UI on failure */
+    return;
+  }
+  W.is_available=checked;
+  sessionStorage.setItem('qf_user',JSON.stringify(W));
+  renderProfile();
+  showToast(checked?'🟢 You are now Online':'⚪ You are now Offline');
 }
 
-/* ── CLOCK ── */
+async function toggleEmergency(){
+  const checked=document.getElementById('emergToggle').checked;
+  const {error}=await sb.from('workers').update({emergency_available:checked}).eq('id',W.id);
+  if(error){
+    console.error('toggleEmergency:',error.message);
+    showToast('⚠️ Could not update emergency availability: '+error.message);
+    document.getElementById('emergToggle').checked=!checked;
+    return;
+  }
+  W.emergency_available=checked;
+  sessionStorage.setItem('qf_user',JSON.stringify(W));
+  showToast(checked?'🚨 Emergency availability ON':'Emergency availability OFF');
+}
+
+/* ════════════════════════════════════════════════════════════
+   MISC
+   ════════════════════════════════════════════════════════════ */
+function callUser(phone){
+  showToast('📞 Calling '+phone+'…');
+}
+function closeModal(id){ document.getElementById(id).classList.remove('on'); }
+
 function getIST(){ return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'})); }
 function tickClock(){
   const d=getIST(), h=d.getHours(), m=d.getMinutes(), s=d.getSeconds();
@@ -887,86 +845,27 @@ function tickClock(){
   document.getElementById('istTime').textContent=str;
 }
 
-/* ── COUNTDOWN TICK ── */
-function tickCountdowns(){
-  if(curTab!=='available') return;
-  const jobs = getAvailableBookings();
-  jobs.forEach(b=>{
-    const el = document.getElementById('cd-'+b.id);
-    if(!el) return;
-    const tl = timeLeft(b.createdAt);
-    if(tl.expired){renderJobs();return;}
-    el.textContent = '⏱ '+fmtCountdown(tl.secs);
-    el.className = 'countdown'+(tl.secs<30?' urgent':'');
-  });
-}
-
-/* ── DEMO: seed some bookings if localStorage is empty ── */
-function seedDemoBookings(){
-  const existing = getAllBookings();
-  /* Only seed if there are no bookings matching worker's skill */
-  const skill = W.skill||'Electrician';
-  const hasMatching = existing.some(b=>b.workerRole===skill && !b.workerAcceptedBy);
-  if(hasMatching) return;
-
-  const demos = [
-    {id:Date.now()+1, workerRole:skill, service:'Fan Repair', date:new Date().toISOString().split('T')[0], time:'14:30', address:'Flat 4B, Shivaji Nagar, Pune', price:169, basePrice:149, paymentMethod:'gpay', notes:'Fan making grinding noise, not spinning properly.', isEmergency:false, isAdvance:true, status:'Confirmed', arrivalOtp:'482910', completionOtp:'739201', createdAt:new Date().toISOString()},
-    {id:Date.now()+2, workerRole:skill, service:'Switchboard Repair', date:new Date().toISOString().split('T')[0], time:'16:00', address:'House 12, MG Road, Pune', price:199, basePrice:179, paymentMethod:'cash', notes:'One plug not working, sparks when I plug something in.', isEmergency:false, isAdvance:true, status:'Confirmed', arrivalOtp:'128374', completionOtp:'938472', createdAt:new Date(Date.now()-30000).toISOString()},
-    {id:Date.now()+3, workerRole:skill, service:'MCB/Fuse', date:new Date().toISOString().split('T')[0], time:'11:00', address:'Office 7, Baner, Pune', price:169, basePrice:149, paymentMethod:'gpay', notes:'', isEmergency:true, isAdvance:false, status:'Confirmed', arrivalOtp:'002918', completionOtp:'847362', createdAt:new Date(Date.now()-90000).toISOString()},
-  ];
-
-  const all = [...existing, ...demos];
-  localStorage.setItem('qf_bookings', JSON.stringify(all));
-}
-
-function callUser(phone){
-  showToast('📞 Calling '+phone+'… (mock)');
-}
-function goProfile(){
-  window.location.href='worker-profile.html';
-}
-async function logout(){
-  await sb.auth.signOut();
-  sessionStorage.clear();
-  window.location.href = 'landing.html';
-}
-function closeModal(id){ document.getElementById(id).classList.remove('on'); }
 let _tt;
 function showToast(msg){
-  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');
-  clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('on'),3500);
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('on');
+  clearTimeout(_tt);
+  _tt=setTimeout(()=>t.classList.remove('on'),3500);
+}
+
+async function logout(){
+  await sb.auth.signOut();
+  sessionStorage.removeItem('qf_user');
+  sessionStorage.removeItem('qf_role');
+  sessionStorage.removeItem('qf_bookings_cache');
+  window.location.href='auth.html';
 }
 
 /* ── BACKDROP CLOSE ── */
-['acceptModal','arrivalOtpModal','completionOtpModal'].forEach(id=>{
-  document.getElementById(id).addEventListener('click',function(e){if(e.target===this)closeModal(id);});
+['acceptModal','rejectModal','arrivalOtpModal','completionOtpModal'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',function(e){ if(e.target===this) closeModal(id); });
 });
-
-/* ── START ── */
-setInterval(tickCountdowns, 1000);
-setInterval(tickClock, 1000); tickClock();
-
-/* Boot: verify session → set global W → then init */
-(async()=>{
-  const {data:{session}}=await sb.auth.getSession();
-  if(!session){window.location.href='auth.html?role=worker';return;}
-
-  const raw=sessionStorage.getItem('qf_user');
-  if(raw){
-    W=JSON.parse(raw);
-    if(W.role!=='worker'){window.location.href='index.html';return;}
-  }else{
-    const {data:profile}=await sb.from('users').select('*').eq('id',session.user.id).single();
-    if(!profile||profile.role!=='worker'){window.location.href='index.html';return;}
-    const {data:wp}=await sb.from('workers').select('*').eq('id',session.user.id).single();
-    W={...profile,...(wp||{})};
-    sessionStorage.setItem('qf_user',JSON.stringify(W));
-  }
-
-  /* W is now fully set — safe to run */
-  init();
-  seedDemoBookings();
-})();
 </script>
 </body>
 </html>

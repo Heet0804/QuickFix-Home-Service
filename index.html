@@ -763,33 +763,35 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
 const SUPABASE_URL='https://oycurbgzzgfzilpflwks.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95Y3VyYmd6emdmemlscGZsd2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjkwMDMsImV4cCI6MjA5MzIwNTAwM30.B9KujxSHzhzpKM_IhVvpTqImVPjF4Yrv3RKn6mgtqxg';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
-  /* Root-cause fix for: DataCloneError: Failed to execute 'postMessage' on
-     'Window': Headers object could not be cloned.
-     Supabase v2's default auth config (persistSession + autoRefreshToken)
-     opens an internal BroadcastChannel to sync session state across tabs.
-     That channel calls postMessage() with the raw auth response, which
-     contains a non-cloneable Headers object. Disabling session persistence
-     and auto-refresh removes every internal BroadcastChannel/postMessage
-     call the client makes, eliminating the error at its source. */
   auth:{
-    persistSession:false,
-    autoRefreshToken:false,
+    persistSession:true,
+    autoRefreshToken:true,
     detectSessionInUrl:false
   }
 });
 
-/* Auth check - keep the main page usable even before sign-in */
+/* Auth gate — index.html is for authenticated users only.
+   getSession() is the single source of truth for whether this page is
+   allowed to render. If a real session exists, qf_user/qf_role are
+   populated from the actual authenticated user (queried from the `users`
+   table — the real schema table, not the nonexistent `profiles`).
+   If no session exists, there is no silent Guest fallback: the user is
+   redirected to auth.html immediately, before any booking/worker UI runs,
+   so an unauthenticated visitor can never reach a state where DB.save()
+   falls through to the localStorage fallback path. */
 (async()=>{
   const {data:{session}}=await sb.auth.getSession();
-  const cached=sessionStorage.getItem('qf_user');
-  if(!cached){
-    if(session?.user){
-      const {data:p}=await sb.from('profiles').select('*').eq('id',session.user.id).single();
-      sessionStorage.setItem('qf_user',JSON.stringify(p ? {...p, email:session.user.email} : {id:session.user.id, email:session.user.email, name:'', role:'user'}));
-    } else {
-      sessionStorage.setItem('qf_user',JSON.stringify({id:'guest', email:'', name:'Guest', role:'user'}));
-    }
+  if(!session?.user){
+    sessionStorage.clear();
+    window.location.replace('auth.html');
+    return;
   }
+  const {data:u,error}=await sb.from('users').select('*').eq('id',session.user.id).single();
+  const profile = u && !error
+    ? {id:u.id, email:session.user.email, name:u.name||'', phone:u.phone||'', role:u.role||'user'}
+    : {id:session.user.id, email:session.user.email, name:'', phone:'', role:'user'};
+  sessionStorage.setItem('qf_user', JSON.stringify(profile));
+  sessionStorage.setItem('qf_role', profile.role);
 })();
 
 /* Sign out
@@ -833,7 +835,7 @@ function normalizeBookings(raw){
     ...b,
     id: b.id ?? b.booking_id ?? String(Date.now()+Math.random()),
     status: b.status || 'Confirmed',
-    workerRole: b.workerRole || b.worker_skill || 'Service',
+    workerRole: b.workerRole || b.worker_role || 'Service',
     workerName: b.workerName || b.worker_name || 'Worker',
     workerPhone: b.workerPhone || b.worker_phone || '',
     workerEmoji: b.workerEmoji || b.worker_emoji || '🔧',
@@ -919,7 +921,7 @@ const DB = {
       ...b,
       workerName:    b.worker_name,
       workerPhone:   b.worker_phone,
-      workerRole:    b.worker_skill,
+      workerRole:    b.worker_role,
       workerEmoji:   b.worker_emoji,
       workerDist:    0,
       basePrice:     b.base_price,
@@ -961,7 +963,7 @@ const DB = {
       worker_id:     bk.workerId||null,
       worker_name:   bk.workerName||'',
       worker_phone:  bk.workerPhone||'',
-      worker_skill:  bk.workerRole||'',
+      worker_role:  bk.workerRole||'',
       worker_emoji:  bk.workerEmoji||'',
       worker_dist:   bk.workerDist!=null ? bk.workerDist : null,
       service:       bk.service,
