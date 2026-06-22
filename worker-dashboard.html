@@ -476,7 +476,8 @@ function renderProfile(){
   const wsc=W.worker_score!=null?Number(W.worker_score):null;
 
   document.getElementById('pReliability').textContent=rel!=null?rel.toFixed(0):'—';
-  document.getElementById('pCompletion').textContent=comp!=null?(comp*100).toFixed(0)+'%':'—';
+  document.getElementById('pCompletion').textContent=
+  comp!=null?comp.toFixed(0)+'%':'—';
   document.getElementById('pActivity').textContent=act!=null?act.toFixed(0):'—';
   document.getElementById('pWorkerScore').textContent=wsc!=null?wsc.toFixed(0):'—';
 
@@ -737,52 +738,89 @@ function openOtpModal(mode,id){
   }
 }
 
-async function submitArrivalOtp(){
-  const entered=document.getElementById('arrivalOtpInput').value.trim();
-  const b=bookings.find(x=>String(x.id)===String(pendOtpId));
-  if(!b){showToast('⚠️ Booking not found');return;}
-  if(!entered||entered!==String(b.arrival_OTP||'')){
-    showToast('❌ Incorrect Arrival OTP');
+async function submitArrivalOtp() {
+  const entered = document.getElementById('arrivalOtpInput').value.trim();
+
+  if (!entered) {
+    showToast('⚠️ Please enter OTP');
     return;
   }
-  const {error}=await sb.from('bookings').update({
-    status:'Arrived',
-    w_status:'Arrived'
-  }).eq('id',b.id);
-  if(error){
-    console.error('submitArrivalOtp:',error.message);
-    showToast('⚠️ Could not verify arrival: '+error.message);
+
+  const b = bookings.find(x => String(x.id) === String(pendOtpId));
+  if (!b) {
+    showToast('⚠️ Booking not found');
     return;
   }
+
+  const { error } = await sb
+    .from('bookings')
+    .update({
+      status: 'Arrived',
+      w_status: 'Arrived'
+    })
+    .eq('id', b.id)
+    .eq('arrival_otp', entered);
+
+  if (error) {
+    console.error('submitArrivalOtp:', error.message);
+    showToast('⚠️ Could not verify arrival: ' + error.message);
+    return;
+  }
+
   closeModal('arrivalOtpModal');
   showToast('✅ Arrival confirmed!');
+
   await loadBookings();
-  switchTab('arrived',document.querySelector('.tab[data-tab="arrived"]'));
+  switchTab('arrived', document.querySelector('.tab[data-tab="arrived"]'));
 }
 
 async function submitCompletionOtp(){
-  const entered=document.getElementById('completionOtpInput').value.trim();
-  const b=bookings.find(x=>String(x.id)===String(pendOtpId));
-  if(!b){showToast('⚠️ Booking not found');return;}
-  if(!entered||entered!==String(b.completion_OTP||'')){
+  const input = document.getElementById('completionOtpInput');
+  const entered = input.value.trim();
+
+  if (!entered) {
+    showToast('⚠️ Enter OTP');
+    return;
+  }
+
+  if (!pendOtpId) {
+    showToast('⚠️ No booking selected');
+    return;
+  }
+
+  const b = bookings.find(x => String(x.id) === String(pendOtpId));
+  if (!b) {
+    showToast('⚠️ Booking not found');
+    return;
+  }
+
+  const expectedOtp = String(b.completion_otp ?? '').trim();
+
+  if (entered !== expectedOtp) {
     showToast('❌ Incorrect Completion OTP');
     return;
   }
-  const {error}=await sb.from('bookings').update({
-    status:'Completed',
-    w_status:'Completed',
-    completed_at:new Date().toISOString()
-  }).eq('id',b.id);
-  if(error){
-    console.error('submitCompletionOtp:',error.message);
-    showToast('⚠️ Could not verify completion: '+error.message);
+
+  const { error } = await sb.from('bookings').update({
+    status: 'Completed',
+    w_status: 'Completed',
+    completed_at: new Date().toISOString()
+  }).eq('id', b.id);
+
+  if (error) {
+    console.error('submitCompletionOtp:', error.message);
+    showToast('⚠️ Could not verify completion: ' + error.message);
     return;
   }
+
   closeModal('completionOtpModal');
+  input.value = '';
+
   await bumpWorkerCounter('completed_jobs');
   showToast('🏁 Job completed! Earnings credited.');
+
   await loadBookings();
-  switchTab('completed',document.querySelector('.tab[data-tab="completed"]'));
+  switchTab('completed', document.querySelector('.tab[data-tab="completed"]'));
 }
 
 /* ════════════════════════════════════════════════════════════
