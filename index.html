@@ -357,7 +357,7 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
       <button class="nl on" onclick="goPage('home')" data-pg="home">Home</button>
       <button class="nl" onclick="goPage('services')" data-pg="services">Services</button>
       <button class="nl" onclick="goPage('bookings')" data-pg="bookings">My Bookings</button>
-      <button class="nl" onclick="goPage('profile')" data-pg="profile">👤 Profile</button>
+      <button class="nl" onclick="openAccount()" data-pg="account">👤 Profile</button>
       <button class="nl" onclick="goPage('register')" data-pg="register">Join as Worker</button>
       <button class="nl" onclick="openCategory('Massage & Wellness')">💆 Massage</button>
       <button class="nl ncta" onclick="goPage('services')">Book Now</button>
@@ -478,6 +478,32 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
   <div class="wrap">
     <div class="bc"><a onclick="goPage('services')">Services</a> / <span id="profBread">Profile</span></div>
     <div id="profContent"></div>
+  </div>
+</div>
+
+<!-- MY ACCOUNT -->
+<div class="page" id="page-account">
+  <div class="wrap">
+    <div class="bc"><a onclick="goPage('home')">Home</a> / <span>My Account</span></div>
+    <div class="pghdr"><h2>👤 My Account</h2><p>Your details, booking history, and password.</p></div>
+
+    <div class="csec">
+      <div class="cst">📋 Account Details</div>
+      <div id="acctDetails" style="font-size:.875rem;color:var(--text2);line-height:2">Loading…</div>
+    </div>
+
+    <div class="csec">
+      <div class="cst">📖 Booking History</div>
+      <div id="acctBookings"><div class="empty"><div class="emptyico">⏳</div><h3>Loading…</h3></div></div>
+    </div>
+
+    <div class="csec">
+      <div class="cst">🔒 Change Password</div>
+      <div id="acctPwMsg"></div>
+      <div class="fg"><label class="flabel">New Password</label><input type="password" class="finput" id="acctNewPw" placeholder="At least 6 characters"/></div>
+      <div class="fg"><label class="flabel">Confirm Password</label><input type="password" class="finput" id="acctConfirmPw" placeholder="Re-enter new password"/></div>
+      <button class="btn bp" onclick="changeAccountPassword()">Update Password</button>
+    </div>
   </div>
 </div>
 
@@ -1490,6 +1516,7 @@ function goPage(id){
   if(id==='services') renderServices();
   if(id==='home'){ renderHomeCats(); renderHomeWorkers(); }
   if(id==='bookings') renderBookings();
+  if(id==='account') renderAccount();
   if(id==='househelp') renderHousehelp();
 }
 function toggleMenu(){ document.getElementById('navLinks').classList.toggle('open'); }
@@ -1696,6 +1723,76 @@ async function openProfile(id){
     <div class="csec"><div class="cst">🛠 Services &amp; Pricing</div><ul class="svlist">${w.svcs.map(s=>`<li class="svitem"><span class="svnm">${s.n}</span><span class="svpr">₹${s.p}</span></li>`).join('')}</ul></div>
     <div class="csec"><div class="cst">💬 Reviews (${w.revs.length})</div><div class="revlist">${w.revs.map(r=>`<div class="revcard"><div class="revhdr"><span class="revauth">${r.a}</span><span>${stars(r.s)}</span></div><p class="revtxt">${r.t}</p></div>`).join('')}</div></div>`;
   goPage('profile');
+}
+
+/* ── MY ACCOUNT (the logged-in user's own profile) ───────────
+   Separate from openProfile()/#page-profile above, which shows a
+   WORKER's public profile to a customer browsing services. This is
+   the customer's own account: name/email/phone/saved address,
+   booking history, and password change. */
+async function openAccount(){
+  goPage('account');
+}
+
+async function renderAccount(){
+  const det=document.getElementById('acctDetails');
+  det.textContent='Loading…';
+
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session?.user){ det.textContent='Could not load account details.'; return; }
+
+  const {data:u,error}=await sb.from('users').select('*').eq('id',session.user.id).single();
+  if(error||!u){
+    det.textContent='Could not load account details.';
+  } else {
+    det.innerHTML=`
+      <div><strong>Name:</strong> ${u.name||'—'}</div>
+      <div><strong>Email:</strong> ${u.email||session.user.email||'—'}</div>
+      <div><strong>Phone:</strong> ${u.phone||'—'}</div>
+      <div><strong>Saved Address:</strong> ${u.saved_address||'—'}</div>`;
+  }
+
+  const bc=document.getElementById('acctBookings');
+  const all=await DB.bookings();
+  if(!all.length){
+    bc.innerHTML=`<div class="empty"><div class="emptyico">📋</div><h3>No bookings yet</h3><p>Your bookings will appear here.</p></div>`;
+    return;
+  }
+  const sorted=[...all].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+  bc.innerHTML=`<div class="bklist">${sorted.map(b=>`
+    <div class="bkitem">
+      <div class="bkico">${b.workerEmoji||'🔧'}</div>
+      <div class="bkdet">
+        <div class="bktit">${b.service||'Service'}</div>
+        <div class="bkmeta"><span>${fmtDate(b.date)}</span><span>${fmt12(b.time)}</span></div>
+      </div>
+      <div class="bkst"><span class="bdg bgg">${b.status||'—'}</span></div>
+    </div>`).join('')}</div>`;
+}
+
+async function changeAccountPassword(){
+  const pw=document.getElementById('acctNewPw').value;
+  const cpw=document.getElementById('acctConfirmPw').value;
+  const msg=document.getElementById('acctPwMsg');
+  msg.textContent='';
+
+  if(!pw||pw.length<6){
+    msg.innerHTML=`<p style="color:var(--danger);font-size:.82rem;margin-bottom:.75rem">Password must be at least 6 characters.</p>`;
+    return;
+  }
+  if(pw!==cpw){
+    msg.innerHTML=`<p style="color:var(--danger);font-size:.82rem;margin-bottom:.75rem">Passwords do not match.</p>`;
+    return;
+  }
+
+  const {error}=await sb.auth.updateUser({password:pw});
+  if(error){
+    msg.innerHTML=`<p style="color:var(--danger);font-size:.82rem;margin-bottom:.75rem">${error.message}</p>`;
+    return;
+  }
+  msg.innerHTML=`<p style="color:var(--teal);font-size:.82rem;margin-bottom:.75rem">✅ Password updated successfully.</p>`;
+  document.getElementById('acctNewPw').value='';
+  document.getElementById('acctConfirmPw').value='';
 }
 
 /* ── BOOKING PAGE ─────────────────────────────────────────── */

@@ -376,16 +376,21 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 <script>
 /* ════════════════════════════════════════════════════════════
    SUPABASE CLIENT
-   persistSession:false to match auth.html / index.html exactly.
-   Identity for this page comes from sessionStorage.qf_user (set
-   by auth.html on login/signup), NOT from a live Supabase session
-   — a fresh navigation to this page has no in-memory session to
-   restore, by design (see auth.html's comment on this).
+   persistSession:true / autoRefreshToken:true — MUST match
+   auth.html and index.html exactly. Both use the same URL/KEY,
+   so the SDK's default storage key is identical on all pages.
+   auth.html writes the session to localStorage on login; this
+   page reads it back, so sb.auth.getSession() returns a valid
+   session and auth.uid() is non-null. Without this, RLS policies
+   (workers_own_update etc.) see auth.uid()=null and silently
+   return data:[] on every write — availability toggles, booking
+   status updates, and worker stat increments all appear to
+   succeed but write nothing to the database.
    ════════════════════════════════════════════════════════════ */
 const SUPABASE_URL='https://oycurbgzzgfzilpflwks.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95Y3VyYmd6emdmemlscGZsd2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjkwMDMsImV4cCI6MjA5MzIwNTAwM30.B9KujxSHzhzpKM_IhVvpTqImVPjF4Yrv3RKn6mgtqxg';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
-  auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}
+  auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}
 });
 
 let W=null;            /* current worker record (merged users + workers row) */
@@ -396,12 +401,14 @@ let pendRejectId=null;
 let pendOtpId=null;
 
 /* ════════════════════════════════════════════════════════════
-   BOOT — verify identity via sessionStorage.qf_user
-   (mirrors the pattern documented in auth.html: a Supabase
-   client with persistSession:false will not have a restored
-   session on a fresh page load, so we do not gate on
-   sb.auth.getSession() here — qf_user is the source of truth
-   for "am I logged in", written by auth.html at login/signup).
+   BOOT — dual-signal authentication
+   1. sessionStorage.qf_user / qf_role: fast identity check and
+      worker-profile cache written by auth.html at login. Ensures
+      only role==='worker' sessions can reach this page.
+   2. Supabase session (restored from localStorage via
+      persistSession:true above): provides a non-null auth.uid()
+      so RLS policies (workers_own_update etc.) allow writes.
+   Both signals must agree. If either is missing, redirect.
    ════════════════════════════════════════════════════════════ */
 (async()=>{
   const raw=sessionStorage.getItem('qf_user');
@@ -517,7 +524,10 @@ async function loadBookings(){
 }
 
 function bookingsByTab(tab){
-  if(tab==='pending')   return bookings.filter(b=>b.status==='Pending');
+  if(tab==='pending')
+  return bookings.filter(
+    b => ['Pending','Confirmed','Scheduled'].includes(b.status)
+  );
   if(tab==='accepted')  return bookings.filter(b=>b.status==='Accepted');
   if(tab==='arrived')   return bookings.filter(b=>b.status==='Arrived');
   if(tab==='completed') return bookings.filter(b=>b.status==='Completed');
@@ -596,7 +606,7 @@ function renderJobCard(b){
   const earning = b.worker_earning!=null ? Number(b.worker_earning) : Math.round((Number(b.price)||0)*0.80);
 
   let actions='';
-  if(b.status==='Pending'){
+  if(['Pending','Confirmed'].includes(b.status)){
     actions=`
       <div class="job-acts">
         <button class="jbtn jbtn-accept" onclick="promptAccept('${b.id}')">✅ Accept</button>
@@ -616,18 +626,14 @@ function renderJobCard(b){
       </div>`;
   }
 
-  const otpRow = (b.status==='Accepted'||b.status==='Arrived') ? `
-      <div style="display:flex;gap:.6rem;margin-top:.75rem;flex-wrap:wrap">
-        ${b.arrival_OTP?`<span class="otp-chip">🚗 ${b.arrival_OTP}</span>`:''}
-        ${b.completion_OTP?`<span class="otp-chip">✅ ${b.completion_OTP}</span>`:''}
-      </div>` : '';
+  const otpRow = '';
 
   return `<div class="job-card ${cardCls}" id="jcard-${b.id}">
     <div class="job-top">
       <div class="job-left">
         <div class="job-ico ${b.is_emergency?'urg':''}">${b.is_emergency?'🚨':'🔧'}</div>
         <div style="min-width:0">
-          <div class="job-name">${b.service_name||'Service'} ${b.is_emergency?'<span class="badge bdg-emerg">🚨 Emergency</span>':''}</div>
+          <div class="job-name">${b.service||'Service'} ${b.is_emergency?'<span class="badge bdg-emerg">🚨 Emergency</span>':''}</div>
           <div class="job-meta">${statusBadge(b.status)}</div>
           ${b.address?`<div class="job-addr">📍 ${b.address}</div>`:''}
           ${b.notes?`<div class="job-notes">"${b.notes}"</div>`:''}
@@ -664,11 +670,10 @@ async function confirmAccept(){
   const earning=Math.round((Number(b.price)||0)*0.80);
 
   const {error}=await sb.from('bookings').update({
-    status:'Accepted',
-    w_status:'Accepted',
-    worker_earning:earning,
-    accepted_at:new Date().toISOString()
-  }).eq('id',id);
+  status:'Accepted',
+  w_status:'Accepted',
+  worker_earning:earning
+}).eq('id',id);
   if(error){
     console.error('confirmAccept:',error.message);
     showToast('⚠️ Could not accept job: '+error.message);

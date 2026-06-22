@@ -84,6 +84,15 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
   .role-toggle,.auth-box{max-width:100%}
   .frow{grid-template-columns:1fr}
 }
+
+.file-upload-label{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1.5px dashed var(--border);border-radius:var(--radius-sm);padding:1.1rem .95rem;background:#fdfaf7;cursor:pointer;transition:all .2s ease;position:relative;overflow:hidden}
+.file-upload-label:hover{border-color:var(--brand);background:var(--brand-light)}
+.file-upload-label.has-file{border-color:#2d7a5f;background:#f0faf6}
+.file-upload-label input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.file-upload-icon{font-size:1.5rem;line-height:1}
+.file-upload-main{font-size:.82rem;font-weight:600;color:var(--text2)}
+.file-upload-sub{font-size:.71rem;color:var(--text3)}
+.file-upload-name{font-size:.78rem;font-weight:600;color:#2d7a5f;word-break:break-all;text-align:center}
 </style>
 </head>
 <body>
@@ -162,6 +171,16 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;background:#fdfaf7;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:.7rem .95rem">
           <input type="checkbox" id="swEmerg" style="width:16px;height:16px;flex-shrink:0;accent-color:var(--brand)"/>
           <span style="font-size:.82rem;font-weight:600;color:var(--text2)">Available During Emergency Hours (9:30 PM - 9:30 AM)</span>
+        </label>
+      </div>
+      <div class="fg" id="swDocGrp">
+        <label class="flabel">Government ID Proof (Aadhaar / PAN) *</label>
+        <label class="file-upload-label" id="swDocLabel" for="swDocFile">
+          <span class="file-upload-icon">📄</span>
+          <span class="file-upload-main">Click to upload or drag &amp; drop</span>
+          <span class="file-upload-sub">Accepted: JPG, JPEG, PNG, PDF · Max 5MB</span>
+          <span class="file-upload-name" id="swDocName" style="display:none"></span>
+          <input type="file" id="swDocFile" accept=".jpg,.jpeg,.png,.pdf" onchange="handleDocUpload(this)"/>
         </label>
       </div>
       <div class="fg"><label class="flabel">Password * <span style="font-size:.68rem;color:var(--text3)">(min 6 characters)</span></label><input type="password" class="finput" id="swPass" placeholder="Create a password"/></div>
@@ -360,6 +379,40 @@ async function doLogin(){
   setTimeout(()=>redirect(profile.role),800);
 }
 
+/* ── DOCUMENT UPLOAD PREVIEW ── */
+function handleDocUpload(input){
+  const file=input.files[0];
+  const label=document.getElementById('swDocLabel');
+  const nameEl=document.getElementById('swDocName');
+  const mainEl=label.querySelector('.file-upload-main');
+  if(!file){
+    label.classList.remove('has-file');
+    nameEl.style.display='none';
+    nameEl.textContent='';
+    mainEl.textContent='Click to upload or drag & drop';
+    return;
+  }
+  const allowed=['image/jpeg','image/jpg','image/png','application/pdf'];
+  if(!allowed.includes(file.type)){
+    showErr('Invalid file type. Please upload JPG, JPEG, PNG, or PDF.');
+    input.value='';
+    label.classList.remove('has-file');
+    nameEl.style.display='none';
+    return;
+  }
+  if(file.size>5*1024*1024){
+    showErr('File too large. Maximum size is 5MB.');
+    input.value='';
+    label.classList.remove('has-file');
+    nameEl.style.display='none';
+    return;
+  }
+  label.classList.add('has-file');
+  nameEl.textContent='✅ '+file.name;
+  nameEl.style.display='block';
+  mainEl.textContent='File selected';
+}
+
 /* ── SIGNUP ── */
 async function doSignup(role){
   hideErr();
@@ -441,7 +494,29 @@ async function doSignup(role){
     const radiusInt=parseInt(radius);
     const expInt=expVal===''?0:parseInt(expVal)||0;
 
+    /* Document validation */
+    const docInput=document.getElementById('swDocFile');
+    const docFile=docInput&&docInput.files[0]?docInput.files[0]:null;
+    if(!docFile){showErr('Please upload a valid government ID proof.');return;}
+
     setBtn('signupWorkerBtn','swBtnTxt',true,'Registering…');
+
+    /* Step 0: Upload document to Supabase Storage */
+    let docUrl='',docFileName='';
+    try{
+      const ext=docFile.name.split('.').pop().toLowerCase();
+      docFileName='worker_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+ext;
+      const {data:uploadData,error:uploadErr}=await sb.storage
+        .from('worker-documents')
+        .upload(docFileName,docFile,{cacheControl:'3600',upsert:false});
+      if(uploadErr)throw uploadErr;
+      const {data:publicData}=sb.storage.from('worker-documents').getPublicUrl(docFileName);
+      docUrl=publicData.publicUrl||'';
+    }catch(uploadEx){
+      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
+      showErr('Document upload failed: '+(uploadEx.message||'Unknown error'));
+      return;
+    }
 
     /* Step 1: Create auth account */
     const {data:a,error:ae}=await sb.auth.signUp({
@@ -486,7 +561,9 @@ async function doSignup(role){
       emergency_available: emergencyAvailable,
       area:         selectedArea.name,
       lat:          selectedArea.lat,
-      lng:          selectedArea.lng
+      lng:          selectedArea.lng,
+      document_url:  docUrl,
+      document_name: docFileName
     });
     if(we){
       setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
@@ -513,7 +590,7 @@ async function doSignup(role){
     sessionStorage.setItem('qf_user',JSON.stringify(sess));
     sessionStorage.setItem('qf_role','worker');
     setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
-    showToast('🎉 Registered! Redirecting to your dashboard…');
+    showToast('🎉 Registration successful. Document uploaded successfully.');
     setTimeout(()=>redirect('worker'),800);
   }
 }
