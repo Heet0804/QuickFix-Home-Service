@@ -269,6 +269,7 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
       <div class="pc-name" id="pcName">—</div>
       <div class="pc-meta">
         <span class="pc-skill" id="pcSkill">—</span>
+        <span class="pc-radius" id="pcPhone">—</span>
         <span class="pc-radius" id="pcRadius">—</span>
         <span class="pc-radius" id="pcArea">—</span>
       </div>
@@ -450,6 +451,8 @@ function renderProfile(){
   document.getElementById('navName').textContent=W.name||'—';
   document.getElementById('pcName').textContent=W.name||'—';
   document.getElementById('pcSkill').textContent=W.skill||'—';
+  document.getElementById('pcPhone').textContent =
+  W.phone ? `📞 ${W.phone}` : '📞 N/A';
   document.getElementById('pcRadius').textContent=(W.radius!=null?`📍 ${W.radius} km radius`:'');
   document.getElementById('pcArea').textContent=W.area?`🏙️ ${W.area}`:'';
 
@@ -817,6 +820,7 @@ async function submitCompletionOtp(){
   input.value = '';
 
   await bumpWorkerCounter('completed_jobs');
+  await bumpWorkerCounter('total_jobs');
   showToast('🏁 Job completed! Earnings credited.');
 
   await loadBookings();

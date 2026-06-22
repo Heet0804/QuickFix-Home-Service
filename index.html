@@ -938,9 +938,10 @@ const DB = {
     const user=session?session.user:null;
     if(!user) return normalizeBookings(getLocalBookings());
     const {data,error}=await sb.from('bookings')
-      .select('*')
-      .eq('user_id',user.id)
-      .order('created_at',{ascending:false});
+  .select('*')
+  .eq('user_id',user.id)
+  .eq('hidden_by_user', false)
+  .order('created_at',{ascending:false});
     if(error){console.error('DB.bookings:',error.message);return [];}
     /* Normalise DB column names → JS camelCase the UI uses */
     return normalizeBookings((data||[]).map(b=>({
@@ -961,15 +962,20 @@ const DB = {
   },
 
   clearAll: async () => {
-    const {data:{session}}=await sb.auth.getSession();
-    const user=session?session.user:null;
-    if(user){
-      await sb.from('bookings').delete().eq('user_id', user.id);
-    }
-    setLocalBookings([]);
-    sessionStorage.removeItem('qf_bookings_cache');
-    return true;
-  },
+  const {data:{session}} = await sb.auth.getSession();
+  const user = session ? session.user : null;
+
+  if(user){
+    await sb
+      .from('bookings')
+      .update({ hidden_by_user: true })
+      .eq('user_id', user.id);
+  }
+
+  setLocalBookings([]);
+  sessionStorage.removeItem('qf_bookings_cache');
+  return true;
+},
 
   /* Save a single booking object to Supabase */
   save: async (bk) => {
@@ -1809,9 +1815,14 @@ async function openBooking(id){
         <div style="font-size:.76rem;color:var(--text2)">Nearest worker · ${w.dist} km radius</div>
         ${w.ea?'<span class="bdg bge" style="margin-top:3px;display:inline-flex">🚨 Emergency Available</span>':''}
       </div>
-      <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:3px">
-        ${stars(w.rating)}<span style="font-size:.68rem;color:var(--text3)">🔒 Identity hidden</span>
-      </div>
+      <div style="margin-left:auto;text-align:right">
+  <div style="display:flex;justify-content:flex-end;gap:2px;line-height:1">
+    ${stars(w.rating)}
+  </div>
+  <span style="font-size:.68rem;color:var(--text3)">
+    🔒 Identity hidden
+  </span>
+</div>
     </div>`;
 
   const sel=document.getElementById('bkSvc');
@@ -2128,8 +2139,9 @@ async function onAccepted(){
     ?`Your service is booked for <strong>${fmtDate(bk.date)} at ${sf}</strong>.<br/>Worker details &amp; OTPs appear in My Bookings at <strong>${rf}</strong> (30 min before).`
     :`The nearest available worker accepted. Their details are now in My Bookings.`;
   document.getElementById('confDet').innerHTML=`
-    <div class="mrow"><span class="ml">Service</span><span class="mv">${bk.service}</span></div>
-    <div class="mrow"><span class="ml">Date &amp; Time</span><span class="mv">${fmtDate(bk.date)} · ${sf}</span></div>
+  <div class="mrow"><span class="ml">Service</span><span class="mv">${bk.service}</span></div>
+  <div class="mrow"><span class="ml">Date &amp; Time</span><span class="mv">${fmtDate(bk.date)} · ${sf}</span></div>
+  <div class="mrow"><span class="ml">Address</span><span class="mv">${bk.address}</span></div>
     ${advance
       ?`<div class="mrow"><span class="ml">Worker</span><span class="mv" style="color:var(--text3);font-style:italic">🔒 Revealed at ${rf}</span></div>
          <div class="mrow"><span class="ml">Phone</span><span class="mv" style="color:var(--text3);font-style:italic">🔒 Revealed at ${rf}</span></div>`
@@ -2174,8 +2186,8 @@ async function renderBookings(){
       ?`<div class="cbox"><strong>👤 ${b.workerName}</strong>&nbsp; 📞 <a href="tel:${b.workerPhone}" style="color:#266049;font-weight:600;text-decoration:none">${b.workerPhone}</a>&nbsp; 📍 ${b.workerDist}km</div>`
       :b.isAdvance?`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.6rem .95rem;margin-top:.55rem;font-size:.79rem;color:var(--text2)">🔒 Worker details revealed at <strong>${rf}</strong></div>`:'';
     const otpHtml=show?`<div class="otppair">
-      <div class="otpbox"><div class="otplbl">🚗 Arrival OTP</div><div class="otpcode">${b.arrivalOtp||'——'}</div></div>
-      <div class="otpbox c2"><div class="otplbl">✅ Completion OTP</div><div class="otpcode c2">${b.completionOtp||'——'}</div></div></div>`:'';
+      <div class="otpbox"><div class="otplbl">🚗 Arrival OTP</div><div class="otpcode">${b.arrival_otp||'——'}</div></div>
+      <div class="otpbox c2"><div class="otplbl">✅ Completion OTP</div><div class="otpcode c2">${b.completion_otp||'——'}</div></div></div>`:'';
     const payHtml=(show||b.status==='Scheduled')?`<div style="font-size:.72rem;color:var(--text2);margin-top:.3rem">${payLabel}</div>`:'';
     const schedNote=b.status==='Scheduled'&&!rev?`<div style="font-size:.76rem;color:var(--brand);font-weight:600;margin-top:.4rem">📅 Scheduled for ${fmt12(b.time)} · Worker assigned</div>`:'';
     const trackBtn=b.status==='Confirmed'?`<button class="btn bt" style="font-size:.72rem;padding:5px 10px" onclick="openArrival(${b.id})">🚗 Track</button>`:'';
