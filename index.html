@@ -990,30 +990,32 @@ const DB = {
       return true;
     }
     const {error}=await sb.from('bookings').upsert({
-      id:            String(bk.id),
-      user_id:       user.id,
-      worker_id:     bk.workerId||null,
-      worker_name:   bk.workerName||'',
-      worker_phone:  bk.workerPhone||'',
-      worker_role:  bk.workerRole||'',
-      worker_emoji:  bk.workerEmoji||'',
-      worker_dist:   bk.workerDist!=null ? bk.workerDist : null,
-      service:       bk.service,
-      date:          bk.date,
-      time:          bk.time,
-      address:       bk.address,
-      notes:         bk.notes||'',
-      price:         bk.price,
-      base_price:    bk.basePrice,
-      payment_method:bk.paymentMethod,
-      status:        bk.status,
-      arrival_otp:   bk.arrivalOtp,
-      completion_otp:bk.completionOtp,
-      is_emergency:  bk.isEmergency||false,
-      is_advance:    bk.isAdvance||false,
-      rated:         bk.rated||false,
-      created_at:    bk.createdAt
-    });
+  id:             String(bk.id),
+  user_id:        user.id,
+  worker_id:      bk.workerId||null,
+  worker_name:    bk.workerName||'',
+  worker_phone:   bk.workerPhone||'',
+  worker_role:    bk.workerRole||'',
+  worker_emoji:   bk.workerEmoji||'',
+  worker_dist:    bk.workerDist!=null ? bk.workerDist : null,
+  service:        bk.service,
+  date:           bk.date,
+  time:           bk.time,
+  address:        bk.address,
+  notes:          bk.notes||'',
+  price:          bk.price,
+  base_price:     bk.basePrice,
+  payment_method: bk.paymentMethod,
+  status:         bk.status,
+  w_status:       bk.wStatus||'Pending',
+  arrival_otp:    bk.arrivalOtp,
+  completion_otp: bk.completionOtp,
+  is_emergency:   bk.isEmergency||false,
+  is_advance:     bk.isAdvance||false,
+  rated:          bk.rated||false,
+  hidden_by_user: false,
+  created_at:     bk.createdAt
+});
     if(error){ console.error('DB.save:',error.message); return false; }
     return true;
   },
@@ -2054,26 +2056,62 @@ function drawQR(amount){
 }
 
 /* ── BROADCAST ────────────────────────────────────────────── */
-function startBroadcast(){
+async function startBroadcast(){
   accLeft=120;
   clearInterval(accInt);
 
-  document.getElementById('acceptModal').classList.add('on');
+  const bkId = Date.now();
+  const arrivalOtp = genOtp();
+  const completionOtp = genOtp();
+  const advance = isAdv(pendBk.date, pendBk.time);
 
+  const bk = {
+    id:           bkId,
+    workerId:     pendBk.workerId,
+    workerName:   curW.name||'',
+    workerPhone:  curW.phone||'',
+    workerRole:   pendBk.workerRole,
+    workerEmoji:  pendBk.workerEmoji,
+    workerDist:   null,
+    service:      pendBk.service,
+    date:         pendBk.date,
+    time:         pendBk.time,
+    address:      pendBk.address,
+    price:        pendBk.price,
+    basePrice:    pendBk.basePrice,
+    notes:        pendBk.notes,
+    isEmergency:  pendBk.isEmergency,
+    isAdvance:    advance,
+    paymentMethod,
+    status:       'Pending',
+    wStatus:      'Pending',
+    arrivalOtp,
+    completionOtp,
+    rated:        false,
+    createdAt:    new Date().toISOString()
+  };
+
+  const saved = await DB.save(bk);
+  if(!saved){
+    showToast('⚠️ Booking could not be saved. Please try again.');
+    return;
+  }
+
+  pendBkId = bkId;
+  pendBk._bk = bk;
+
+  document.getElementById('acceptModal').classList.add('on');
   updateAcc();
 
-  accInt=setInterval(()=>{
+  accInt = setInterval(()=>{
     accLeft--;
     updateAcc();
-
     if(accLeft<=0){
       clearInterval(accInt);
       closeModal('acceptModal');
       document.getElementById('noAcceptModal').classList.add('on');
     }
   },1000);
-
-  // NO setTimeout here
 }
 function updateAcc(){
   const mn=Math.floor(accLeft/60), sc=accLeft%60;
@@ -2084,91 +2122,63 @@ function updateAcc(){
 /* ── ON ACCEPTED ──────────────────────────────────────────── */
 async function onAccepted(){
   try {
-    /* ── SERVER-SIDE BOOKING VALIDATION ──────────────────────
-       Do not trust the UI-time eligibility check alone — availability
-       can change between form submission and worker acceptance.
-       Re-validate: skill match (case-insensitive), is_available=true,
-       and Haversine distance from the booked area <= worker.radius
-       and <= MAX_ASSIGN_KM, picking the nearest eligible worker. */
-    const areas=await loadAreas();
-    const area=areas.find(a=>String(a.id)===String(pendBk.areaId))
+    const areas = await loadAreas();
+    const area = areas.find(a=>String(a.id)===String(pendBk.areaId))
       || (pendBk.areaLat!=null && pendBk.areaLng!=null ? {lat:pendBk.areaLat,lng:pendBk.areaLng,name:pendBk.areaName} : null);
 
-    let nearest=null;
+    let nearest = null;
     if(area && area.lat!=null && area.lng!=null){
-      const eligible=await getEligibleWorkersForArea(pendBk.workerRole, area, {emergencyOnly:pendBk.isEmergency});
+      const eligible = await getEligibleWorkersForArea(pendBk.workerRole, area, {emergencyOnly:pendBk.isEmergency});
       nearest = eligible[0] || null;
     }
 
     if(!nearest){
-      /* Hard validation failure — no eligible worker within radius/MAX_ASSIGN_KM.
-         Reject the booking instead of silently assigning an out-of-range worker. */
       closeModal('acceptModal');
       showToast(`⚠️ Booking rejected: no ${pendBk.workerRole} worker available within ${MAX_ASSIGN_KM} km of ${pendBk.areaName||'your area'}.`);
       return;
     }
 
-    const arrivalOtp=genOtp(), completionOtp=genOtp(), advance=isAdv(pendBk.date,pendBk.time);
-    console.log("NEAREST WORKER", nearest);
-console.log("ROLE =", nearest.role);
-console.log("SKILL =", nearest.skill);
-    const bk={
-    id:Date.now(),
-    workerId:nearest.id, workerName:nearest.name, workerPhone:nearest.phone,
-    workerRole:nearest.role, workerEmoji:nearest.emoji, workerDist:Number(nearest.kmDist.toFixed(2)),
-    service:pendBk.service, date:pendBk.date, time:pendBk.time,
-    address:pendBk.address, price:pendBk.price, basePrice:pendBk.basePrice,
-    notes:pendBk.notes,
-    isEmergency:pendBk.isEmergency,
-    isAdvance:advance,
-    paymentMethod,
-    status:advance?'Scheduled':'Confirmed',
-    arrivalOtp,
-    completionOtp,
-    rated:false,
-    createdAt:new Date().toISOString()
-  };
-    const existing=await DB.bookings();
-    const bks=Array.isArray(existing)?[...existing]:[];
-    bks.unshift(bk);
-    sessionStorage.setItem('qf_bookings_cache', JSON.stringify(bks));
-    console.log("BOOKING ABOUT TO SAVE", bk);
-    const saved=await DB.save(bk);
+    const bkBase      = pendBk._bk;
+    const arrivalOtp  = bkBase.arrivalOtp;
+    const completionOtp = bkBase.completionOtp;
+    const advance     = bkBase.isAdvance;
+
+    const bk = {
+      ...bkBase,
+      workerId:    nearest.id,
+      workerName:  nearest.name,
+      workerPhone: nearest.phone,
+      workerRole:  nearest.role,
+      workerEmoji: nearest.emoji,
+      workerDist:  Number(nearest.kmDist.toFixed(2)),
+      status:      advance ? 'Scheduled' : 'Confirmed',
+      wStatus:     'Accepted',
+    };
+
+    const saved = await DB.save(bk);
     if(!saved){
       showToast('⚠️ Booking could not be saved right now. Please try again.');
       return;
     }
 
-    /* Worker performance: this booking counts as an accepted job —
-       bump accepted_jobs and recompute completion/reliability/activity/
-       worker_score immediately so the next assignment decision uses
-       fresh numbers. */
     await WorkerStats.onJobAccepted(nearest.id);
 
     const sf=fmt12(bk.time), rf=revealAt(bk.time);
-  const ico=document.getElementById('confIco');
-  ico.textContent=advance?'📅':'✅';
-  ico.style.background=advance?'#fef3d0':'var(--teal-light)';
-  ico.className='mico anim';
-  document.getElementById('confTitle').textContent=advance?'Booking Scheduled!':'Worker Assigned!';
-  document.getElementById('confDesc').innerHTML=advance
-    ?`Your service is booked for <strong>${fmtDate(bk.date)} at ${sf}</strong>.<br/>Worker details &amp; OTPs appear in My Bookings at <strong>${rf}</strong> (30 min before).`
-    :`The nearest available worker accepted. Their details are now in My Bookings.`;
-  document.getElementById('confDet').innerHTML=`
-  <div class="mrow"><span class="ml">Service</span><span class="mv">${bk.service}</span></div>
-  <div class="mrow"><span class="ml">Date &amp; Time</span><span class="mv">${fmtDate(bk.date)} · ${sf}</span></div>
-  <div class="mrow" style="align-items:flex-start">
-  <span class="ml">Address</span>
-  <span class="mv" style="
-    max-width:260px;
-    text-align:right;
-    white-space:normal;
-    word-break:break-word;
-    line-height:1.4;
-  ">
-    ${bk.address}
-  </span>
-</div>
+    const ico=document.getElementById('confIco');
+    ico.textContent=advance?'📅':'✅';
+    ico.style.background=advance?'#fef3d0':'var(--teal-light)';
+    ico.className='mico anim';
+    document.getElementById('confTitle').textContent=advance?'Booking Scheduled!':'Worker Assigned!';
+    document.getElementById('confDesc').innerHTML=advance
+      ?`Your service is booked for <strong>${fmtDate(bk.date)} at ${sf}</strong>.<br/>Worker details &amp; OTPs appear in My Bookings at <strong>${rf}</strong> (30 min before).`
+      :`The nearest available worker accepted. Their details are now in My Bookings.`;
+    document.getElementById('confDet').innerHTML=`
+    <div class="mrow"><span class="ml">Service</span><span class="mv">${bk.service}</span></div>
+    <div class="mrow"><span class="ml">Date &amp; Time</span><span class="mv">${fmtDate(bk.date)} · ${sf}</span></div>
+    <div class="mrow" style="align-items:flex-start">
+      <span class="ml">Address</span>
+      <span class="mv" style="max-width:260px;text-align:right;white-space:normal;word-break:break-word;line-height:1.4">${bk.address}</span>
+    </div>
     ${advance
       ?`<div class="mrow"><span class="ml">Worker</span><span class="mv" style="color:var(--text3);font-style:italic">🔒 Revealed at ${rf}</span></div>
          <div class="mrow"><span class="ml">Phone</span><span class="mv" style="color:var(--text3);font-style:italic">🔒 Revealed at ${rf}</span></div>`
@@ -2184,7 +2194,7 @@ console.log("SKILL =", nearest.skill);
           <div class="cotp c2"><div class="cotplbl">✅ Completion OTP<br/><span style="font-size:.58rem;opacity:.75">Give after service is done</span></div><div class="cotpcode c2">${completionOtp}</div></div>
         </div>`;
     document.getElementById('confirmModal').classList.add('on');
-  } catch (err) {
+  } catch(err){
     console.error('onAccepted failed:', err);
     showToast('⚠️ Booking confirmation hit an error. Please try again.');
   }
@@ -2206,7 +2216,9 @@ async function renderBookings(){
   c.innerHTML=`<div class="bklist">${list.map(b=>{
     const cls=sMap[b.status]||'bgg';
     const rev=shouldReveal(b);
-    const show=['Confirmed','Worker on Way','Arrived','Completed'].includes(b.status)||(b.status==='Scheduled'&&rev);
+    const show =
+  ['Accepted','Confirmed','Worker on Way','Arrived','Completed'].includes(b.status)
+  || (b.status==='Scheduled'&&rev);
     const rf=b.isAdvance?revealAt(b.time):null;
     const payLabel=b.paymentMethod==='gpay'?'📱 GPay (Paid)':'💵 Cash on Arrival';
     const contactHtml=show
@@ -2217,9 +2229,9 @@ async function renderBookings(){
       <div class="otpbox c2"><div class="otplbl">✅ Completion OTP</div><div class="otpcode c2">${b.completion_otp||'——'}</div></div></div>`:'';
     const payHtml=(show||b.status==='Scheduled')?`<div style="font-size:.72rem;color:var(--text2);margin-top:.3rem">${payLabel}</div>`:'';
     const schedNote=b.status==='Scheduled'&&!rev?`<div style="font-size:.76rem;color:var(--brand);font-weight:600;margin-top:.4rem">📅 Scheduled for ${fmt12(b.time)} · Worker assigned</div>`:'';
-    const trackBtn=b.status==='Confirmed'?`<button class="btn bt" style="font-size:.72rem;padding:5px 10px" onclick="openArrival(${b.id})">🚗 Track</button>`:'';
+    const trackBtn=['Accepted','Confirmed'].includes(b.status)?`<button class="btn bt" style="font-size:.72rem;padding:5px 10px" onclick="openArrival(${b.id})">🚗 Track</button>`:'';
     const compBtn=b.status==='Arrived'?`<button class="btn bt" style="font-size:.72rem;padding:5px 10px" onclick="triggerOtp('complete',${b.id})">✅ Complete</button>`:'';
-    const canCancel=['Confirmed','Scheduled'].includes(b.status)&&!rev;
+    const canCancel=['Accepted','Confirmed','Scheduled'].includes(b.status)&&!rev;
 const cancelBtn=canCancel
   ?`<div><button class="btn bd" style="font-size:.72rem;padding:5px 10px" onclick="cancelBk(${b.id})">❌ Cancel</button><div style="font-size:.65rem;color:var(--text3);margin-top:3px">Free cancellation up to 10 min before</div></div>`
   :(['Confirmed','Scheduled'].includes(b.status)&&rev)?`<div style="font-size:.65rem;color:var(--danger);font-weight:600;margin-top:4px">🔒 Cancellation locked — worker is on the way</div>`:'' ;
