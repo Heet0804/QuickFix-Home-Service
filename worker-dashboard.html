@@ -610,7 +610,7 @@ function renderJobCard(b){
   const earning = b.worker_earning!=null ? Number(b.worker_earning) : Math.round((Number(b.price)||0)*0.80);
 
   let actions='';
-  if(['Pending','Confirmed'].includes(b.status)){
+  if(['Pending','Confirmed','Scheduled'].includes(b.status)){
     actions=`
       <div class="job-acts">
         <button class="jbtn jbtn-accept" onclick="promptAccept('${b.id}')">✅ Accept</button>

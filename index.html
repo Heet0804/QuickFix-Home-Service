@@ -2055,13 +2055,25 @@ function drawQR(amount){
 
 /* ── BROADCAST ────────────────────────────────────────────── */
 function startBroadcast(){
-  accLeft=120; clearInterval(accInt);
+  accLeft=120;
+  clearInterval(accInt);
+
   document.getElementById('acceptModal').classList.add('on');
+
   updateAcc();
-  accInt=setInterval(()=>{ accLeft--; updateAcc(); if(accLeft<=0){ clearInterval(accInt); closeModal('acceptModal'); document.getElementById('noAcceptModal').classList.add('on'); } },1000);
-  /* Worker accepts after 3–7 seconds; timer keeps running visually until accept fires */
-  const delay=3000+Math.random()*4000;
-  setTimeout(()=>{ if(accLeft>0){ clearInterval(accInt); closeModal('acceptModal'); onAccepted(); } },delay);
+
+  accInt=setInterval(()=>{
+    accLeft--;
+    updateAcc();
+
+    if(accLeft<=0){
+      clearInterval(accInt);
+      closeModal('acceptModal');
+      document.getElementById('noAcceptModal').classList.add('on');
+    }
+  },1000);
+
+  // NO setTimeout here
 }
 function updateAcc(){
   const mn=Math.floor(accLeft/60), sc=accLeft%60;
@@ -2097,6 +2109,9 @@ async function onAccepted(){
     }
 
     const arrivalOtp=genOtp(), completionOtp=genOtp(), advance=isAdv(pendBk.date,pendBk.time);
+    console.log("NEAREST WORKER", nearest);
+console.log("ROLE =", nearest.role);
+console.log("SKILL =", nearest.skill);
     const bk={
     id:Date.now(),
     workerId:nearest.id, workerName:nearest.name, workerPhone:nearest.phone,
@@ -2117,6 +2132,7 @@ async function onAccepted(){
     const bks=Array.isArray(existing)?[...existing]:[];
     bks.unshift(bk);
     sessionStorage.setItem('qf_bookings_cache', JSON.stringify(bks));
+    console.log("BOOKING ABOUT TO SAVE", bk);
     const saved=await DB.save(bk);
     if(!saved){
       showToast('⚠️ Booking could not be saved right now. Please try again.');
@@ -2141,7 +2157,18 @@ async function onAccepted(){
   document.getElementById('confDet').innerHTML=`
   <div class="mrow"><span class="ml">Service</span><span class="mv">${bk.service}</span></div>
   <div class="mrow"><span class="ml">Date &amp; Time</span><span class="mv">${fmtDate(bk.date)} · ${sf}</span></div>
-  <div class="mrow"><span class="ml">Address</span><span class="mv">${bk.address}</span></div>
+  <div class="mrow" style="align-items:flex-start">
+  <span class="ml">Address</span>
+  <span class="mv" style="
+    max-width:260px;
+    text-align:right;
+    white-space:normal;
+    word-break:break-word;
+    line-height:1.4;
+  ">
+    ${bk.address}
+  </span>
+</div>
     ${advance
       ?`<div class="mrow"><span class="ml">Worker</span><span class="mv" style="color:var(--text3);font-style:italic">🔒 Revealed at ${rf}</span></div>
          <div class="mrow"><span class="ml">Phone</span><span class="mv" style="color:var(--text3);font-style:italic">🔒 Revealed at ${rf}</span></div>`
