@@ -2103,15 +2103,36 @@ async function startBroadcast(){
   document.getElementById('acceptModal').classList.add('on');
   updateAcc();
 
-  accInt = setInterval(()=>{
-    accLeft--;
-    updateAcc();
-    if(accLeft<=0){
+  accInt = setInterval(async ()=>{
+
+  try{
+    const all = await DB.bookings();
+    const current = all.find(x => String(x.id) === String(pendBkId));
+
+    if(current && current.status === 'Accepted'){
       clearInterval(accInt);
       closeModal('acceptModal');
-      document.getElementById('noAcceptModal').classList.add('on');
+
+      // show confirmation modal immediately
+      pendBk._bk = current;
+      await onAccepted();
+
+      return;
     }
-  },1000);
+  }catch(err){
+    console.error(err);
+  }
+
+  accLeft--;
+  updateAcc();
+
+  if(accLeft<=0){
+    clearInterval(accInt);
+    closeModal('acceptModal');
+    document.getElementById('noAcceptModal').classList.add('on');
+  }
+
+},1000);
 }
 function updateAcc(){
   const mn=Math.floor(accLeft/60), sc=accLeft%60;
@@ -2204,7 +2225,7 @@ async function onAccepted(){
 async function renderBookings(){
   const all=normalizeBookings(await DB.bookings());
   let list=all;
-  if(curTab==='upcoming') list=all.filter(b=>['Scheduled','Confirmed','Worker on Way','Arrived'].includes(b.status));
+  if(curTab==='upcoming') list=all.filter(b=>['Scheduled','Confirmed','Accepted','Worker on Way','Arrived'].includes(b.status));
   if(curTab==='completed') list=all.filter(b=>b.status==='Completed');
   if(curTab==='cancelled') list=all.filter(b=>b.status==='Cancelled');
   const c=document.getElementById('bkList');
