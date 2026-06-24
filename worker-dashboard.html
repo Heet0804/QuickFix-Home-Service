@@ -187,8 +187,7 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 .jbtn-arrive:hover{background:var(--brand-dark)}
 .jbtn-complete{background:#1d4ed8;color:#fff}
 .jbtn-complete:hover{background:#1e3a8a}
-.jbtn-call{background:var(--surface);color:var(--text2);border:1.5px solid var(--border)}
-.jbtn-call:hover{border-color:var(--brand);color:var(--brand)}
+
 
 .otp-chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface3);border:1px dashed var(--border);border-radius:var(--radius-sm);padding:.45rem .75rem;font-size:.78rem;font-weight:700;color:var(--text2);font-family:'Sora',sans-serif;letter-spacing:1px}
 
@@ -216,6 +215,47 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 /* ── TOAST ── */
 .toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--text);color:#fff;padding:.75rem 1.1rem;border-radius:var(--radius-sm);font-size:.845rem;font-weight:500;z-index:600;display:flex;align-items:center;gap:7px;box-shadow:0 6px 24px rgba(0,0,0,.22);transform:translateY(90px);opacity:0;transition:.3s cubic-bezier(.4,0,.2,1);max-width:320px}
 .toast.on{transform:translateY(0);opacity:1}
+
+/* ── SECTION DIVIDER ── */
+.section-hdr{font-family:'Sora',sans-serif;font-size:.8rem;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin:0 0 .75rem;display:flex;align-items:center;gap:.5rem}
+.section-hdr::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── WORKER RANK BADGE ── */
+.rank-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:50px;font-size:.78rem;font-weight:800;font-family:'Sora',sans-serif}
+.rank-gold{background:#fef3c7;color:#92400e;border:1.5px solid #fbbf24}
+.rank-silver{background:#f1f5f9;color:#475569;border:1.5px solid #94a3b8}
+.rank-bronze{background:#fdf6ee;color:var(--brand-dark);border:1.5px solid var(--brand-mid)}
+.rank-new{background:var(--surface3);color:var(--text3);border:1.5px solid var(--border)}
+
+/* ── RELIABILITY STATUS PILL ── */
+.rel-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:50px;font-size:.7rem;font-weight:700}
+.rel-excellent{background:#dcfce7;color:#166534}
+.rel-good{background:#fef9c3;color:#713f12}
+.rel-needs{background:var(--danger-light);color:var(--danger)}
+
+/* ── EARNINGS ROW ── */
+.earn-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem;margin-bottom:1.5rem}
+.earn-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.9rem 1rem;box-shadow:var(--sh0)}
+.earn-card strong{display:block;font-family:'Sora',sans-serif;font-size:1.25rem;font-weight:800;color:var(--teal)}
+.earn-card span{font-size:.7rem;color:var(--text3);font-weight:600}
+
+/* ── ACCEPTANCE ROW ── */
+.accept-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem;margin-bottom:1.5rem}
+.accept-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.9rem 1rem;box-shadow:var(--sh0)}
+.accept-card strong{display:block;font-family:'Sora',sans-serif;font-size:1.25rem;font-weight:800;color:var(--text)}
+.accept-card span{font-size:.7rem;color:var(--text3);font-weight:600}
+.accept-rate-val{color:var(--teal)!important}
+
+/* ── TIMELINE ── */
+.timeline-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.25rem;margin-bottom:1.5rem;box-shadow:var(--sh0)}
+.tl-day-lbl{font-size:.72rem;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin:.9rem 0 .4rem}
+.tl-day-lbl:first-child{margin-top:0}
+.tl-item{display:flex;align-items:flex-start;gap:.75rem;padding:.5rem 0;border-bottom:1px solid var(--border2)}
+.tl-item:last-child{border-bottom:none}
+.tl-dot{width:8px;height:8px;border-radius:50%;background:var(--brand-mid);flex-shrink:0;margin-top:5px}
+.tl-name{font-size:.82rem;font-weight:600;color:var(--text)}
+.tl-meta{font-size:.72rem;color:var(--text3);margin-top:1px}
+.tl-empty{font-size:.82rem;color:var(--text3);text-align:center;padding:.75rem 0}
 
 @media(max-width:680px){
   .nav-name,.nav-role{display:none}
@@ -294,6 +334,34 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
     <div class="perf-card" id="pCompletionCard"><strong id="pCompletion">—</strong><span>Completion Rate</span></div>
     <div class="perf-card" id="pActivityCard"><strong id="pActivity">—</strong><span>Activity Score</span></div>
     <div class="perf-card" id="pWorkerScoreCard"><strong id="pWorkerScore">—</strong><span>Worker Score</span></div>
+  </div>
+
+  <!-- WORKER RANK + RELIABILITY STATUS -->
+  <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:1.25rem">
+    <span id="workerRankBadge" class="rank-badge rank-new">— Unranked</span>
+    <span id="reliabilityPill" class="rel-pill">—</span>
+  </div>
+
+  <!-- EARNINGS DASHBOARD -->
+  <div class="section-hdr">💰 Earnings</div>
+  <div class="earn-grid">
+    <div class="earn-card"><strong id="earnToday">₹0</strong><span>Today</span></div>
+    <div class="earn-card"><strong id="earnWeek">₹0</strong><span>This Week</span></div>
+    <div class="earn-card"><strong id="earnMonth">₹0</strong><span>This Month</span></div>
+  </div>
+
+  <!-- ACCEPTANCE RATE -->
+  <div class="section-hdr">📊 Acceptance Rate</div>
+  <div class="accept-row">
+    <div class="accept-card"><strong id="arAccepted">—</strong><span>Accepted Jobs</span></div>
+    <div class="accept-card"><strong id="arRejected">—</strong><span>Rejected Jobs</span></div>
+    <div class="accept-card"><strong id="arRate" class="accept-rate-val">—%</strong><span>Acceptance Rate</span></div>
+  </div>
+
+  <!-- BOOKING TIMELINE -->
+  <div class="section-hdr">📅 Upcoming Bookings</div>
+  <div class="timeline-wrap" id="bookingTimeline">
+    <div class="tl-empty">Loading…</div>
   </div>
 
   <!-- OFFLINE BANNER -->
@@ -471,15 +539,49 @@ function renderProfile(){
     .reduce((sum,b)=>sum+(Number(b.worker_earning)||0),0);
   document.getElementById('statEarnings').textContent='₹'+earned.toLocaleString('en-IN');
 
-  document.getElementById('pAccepted').textContent=W.accepted_jobs??0;
-  document.getElementById('pCompleted').textContent=W.completed_jobs??0;
-  document.getElementById('pCancelled').textContent=W.cancelled_jobs??0;
-  document.getElementById('pNoShow').textContent=W.no_show_count??0;
+  const acceptedJobs = bookings.filter(b =>
+  ['Accepted','Arrived','Completed'].includes(b.status)
+).length;
 
-  const rel=W.reliability_score!=null?Number(W.reliability_score):null;
-  const comp=W.completion_rate!=null?Number(W.completion_rate):null;
-  const act=W.activity_score!=null?Number(W.activity_score):null;
-  const wsc=W.worker_score!=null?Number(W.worker_score):null;
+const completedJobs = bookings.filter(b =>
+  b.status === 'Completed'
+).length;
+
+const cancelledJobs = bookings.filter(b =>
+  b.status === 'Cancelled'
+).length;
+
+const noShows = Number(W.no_show_count) || 0;
+
+const completionRate =
+  acceptedJobs > 0
+    ? Math.round((completedJobs / acceptedJobs) * 100)
+    : 0;
+
+const rel = Number(W.reliability_score) || 100;
+
+const activityScore =
+  Math.min(
+    acceptedJobs * 5 +
+    completedJobs * 10,
+    100
+  );
+
+const workerScore =
+  Math.round(
+    (rel * 0.5) +
+    (completionRate * 0.3) +
+    (activityScore * 0.2)
+  );
+
+document.getElementById('pAccepted').textContent = acceptedJobs;
+document.getElementById('pCompleted').textContent = completedJobs;
+document.getElementById('pCancelled').textContent = cancelledJobs;
+document.getElementById('pNoShow').textContent = noShows;
+
+const comp = completionRate;
+const act = activityScore;
+const wsc = workerScore;
 
   document.getElementById('pReliability').textContent=rel!=null?rel.toFixed(0):'—';
   document.getElementById('pCompletion').textContent=
@@ -623,7 +725,6 @@ function renderJobCard(b){
     actions=`
       <div class="job-acts">
         <button class="jbtn jbtn-arrive" onclick="markArrived('${b.id}')">📍 Mark Arrived</button>
-        ${b.worker_phone?`<button class="jbtn jbtn-call" onclick="callUser('${b.worker_phone}')">📞 Call</button>`:''}
       </div>`;
   } else if(b.status==='Arrived'){
     actions=`
@@ -687,7 +788,7 @@ async function confirmAccept(){
     return;
   }
 
-  await bumpWorkerCounter('accepted_jobs');
+  //await bumpWorkerCounter('accepted_jobs');
   showToast('✅ Job accepted! Head to the Accepted tab.');
   await loadBookings();
   switchTab('accepted',document.querySelector('.tab[data-tab="accepted"]'));
@@ -822,8 +923,8 @@ async function submitCompletionOtp(){
   closeModal('completionOtpModal');
   input.value = '';
 
-  await bumpWorkerCounter('completed_jobs');
-  await bumpWorkerCounter('total_jobs');
+  //await bumpWorkerCounter('completed_jobs');
+  //await bumpWorkerCounter('total_jobs');
   showToast('🏁 Job completed! Earnings credited.');
 
   await loadBookings();
@@ -836,7 +937,7 @@ async function submitCompletionOtp(){
    since Supabase JS has no atomic increment without an RPC, and the
    task scope disallows inventing new functions/columns server-side).
    ════════════════════════════════════════════════════════════ */
-async function bumpWorkerCounter(column){
+/*async function bumpWorkerCounter(column){
   const {data:fresh,error:fe}=await sb.from('workers').select('*').eq('id',W.id).single();
   if(fe||!fresh){console.error('bumpWorkerCounter fetch:',fe?.message);return;}
   const current=Number(fresh[column])||0;
@@ -846,7 +947,7 @@ async function bumpWorkerCounter(column){
   W={...W,...fresh,...updates};
   sessionStorage.setItem('qf_user',JSON.stringify(W));
   renderProfile();
-}
+}*/
 
 /* ════════════════════════════════════════════════════════════
    AVAILABILITY / EMERGENCY TOGGLES
@@ -883,9 +984,7 @@ async function toggleEmergency(){
 /* ════════════════════════════════════════════════════════════
    MISC
    ════════════════════════════════════════════════════════════ */
-function callUser(phone){
-  showToast('📞 Calling '+phone+'…');
-}
+
 function closeModal(id){ document.getElementById(id).classList.remove('on'); }
 
 function getIST(){ return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'})); }
@@ -911,6 +1010,177 @@ async function logout(){
   sessionStorage.removeItem('qf_bookings_cache');
   window.location.href='auth.html';
 }
+
+/* ════════════════════════════════════════════════════════════
+   EARNINGS DASHBOARD
+   Calculates today / this-week / this-month from completed bookings.
+   Uses booking.completed_at (ISO string) and booking.worker_earning.
+   ════════════════════════════════════════════════════════════ */
+function renderEarnings(){
+  const ist=getIST();
+  const todayStr=ist.toISOString().split('T')[0];
+
+  /* Week start = most recent Monday in IST */
+  const dow=ist.getDay()===0?6:ist.getDay()-1; /* 0=Mon…6=Sun */
+  const weekStart=new Date(ist);
+  weekStart.setDate(ist.getDate()-dow);
+  weekStart.setHours(0,0,0,0);
+
+  /* Month start */
+  const monthStart=new Date(ist.getFullYear(),ist.getMonth(),1);
+
+  let eToday=0,eWeek=0,eMonth=0;
+  bookings.forEach(b=>{
+    if(b.status!=='Completed')return;
+    const earn=Number(b.worker_earning)||0;
+    const ts=b.completed_at||b.created_at;
+    if(!ts)return;
+    const d=new Date(ts);
+    if(d>=monthStart)eMonth+=earn;
+    if(d>=weekStart)eWeek+=earn;
+    if(d.toISOString().split('T')[0]===todayStr)eToday+=earn;
+  });
+
+  document.getElementById('earnToday').textContent ='₹'+eToday.toLocaleString('en-IN');
+  document.getElementById('earnWeek').textContent  ='₹'+eWeek.toLocaleString('en-IN');
+  document.getElementById('earnMonth').textContent ='₹'+eMonth.toLocaleString('en-IN');
+}
+
+/* ════════════════════════════════════════════════════════════
+   ACCEPTANCE RATE
+   accepted_jobs and cancelled_jobs come from workers table.
+   Rejected bookings also counted from live bookings array.
+   acceptance_rate = accepted / (accepted + rejected_total)
+   ════════════════════════════════════════════════════════════ */
+function renderAcceptanceRate(){
+
+  const accepted = bookings.filter(b =>
+    ['Accepted','Arrived','Completed'].includes(b.status)
+  ).length;
+
+  const rejected = bookings.filter(b =>
+    b.status === 'Rejected' || b.w_status === 'Rejected'
+  ).length;
+
+  const total = accepted + rejected;
+
+  const rate =
+    total > 0
+      ? Math.round((accepted / total) * 100)
+      : 0;
+
+  document.getElementById('arAccepted').textContent = accepted;
+  document.getElementById('arRejected').textContent = rejected;
+  document.getElementById('arRate').textContent =
+    total > 0 ? rate + '%' : 'N/A';
+}
+
+/* ════════════════════════════════════════════════════════════
+   WORKER RANK
+   Derived from worker_score (existing column):
+   ≥ 80 → Gold, ≥ 50 → Silver, > 0 → Bronze, null/0 → Unranked
+   ════════════════════════════════════════════════════════════ */
+function renderWorkerRank(){
+  const el=document.getElementById('workerRankBadge');
+  const score=W.worker_score!=null?Number(W.worker_score):null;
+  el.className='rank-badge';
+  if(score===null||score===0){
+    el.classList.add('rank-new');
+    el.textContent='— Unranked';
+  } else if(score>=80){
+    el.classList.add('rank-gold');
+    el.textContent='🥇 Gold Worker';
+  } else if(score>=50){
+    el.classList.add('rank-silver');
+    el.textContent='🥈 Silver Worker';
+  } else {
+    el.classList.add('rank-bronze');
+    el.textContent='🥉 Bronze Worker';
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   RELIABILITY STATUS PILL
+   90–100 → Excellent, 70–89 → Good, <70 → Needs Improvement
+   ════════════════════════════════════════════════════════════ */
+function renderReliabilityPill(){
+  const el=document.getElementById('reliabilityPill');
+  const rel=W.reliability_score!=null?Number(W.reliability_score):null;
+  el.className='rel-pill';
+  if(rel===null){el.textContent='Reliability: —';el.classList.add('rel-needs');return;}
+  if(rel>=90){el.classList.add('rel-excellent');el.textContent='🟢 Excellent Reliability';}
+  else if(rel>=70){el.classList.add('rel-good');el.textContent='🟡 Good Reliability';}
+  else{el.classList.add('rel-needs');el.textContent='🔴 Needs Improvement';}
+}
+
+/* ════════════════════════════════════════════════════════════
+   BOOKING TIMELINE
+   Shows upcoming bookings (Pending, Accepted, Arrived) grouped
+   by IST date. Uses booking.created_at as the date reference
+   since bookings don't have a separate scheduled_date column in
+   the current schema — only created_at, accepted_at, completed_at.
+   Orders ascending so next jobs appear at top.
+   ════════════════════════════════════════════════════════════ */
+function renderTimeline(){
+  const wrap=document.getElementById('bookingTimeline');
+  const activeStatuses=['Pending','Confirmed','Scheduled','Accepted','Arrived'];
+  const upcoming=bookings
+    .filter(b=>activeStatuses.includes(b.status))
+    .slice() /* don't mutate global */
+    .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+
+  if(!upcoming.length){
+    wrap.innerHTML='<div class="tl-empty">No upcoming bookings</div>';
+    return;
+  }
+
+  const ist=getIST();
+  const todayStr=ist.toISOString().split('T')[0];
+  const tomorrowStr=(()=>{const t=new Date(ist);t.setDate(t.getDate()+1);return t.toISOString().split('T')[0];})();
+
+  /* Group by date string */
+  const groups={};
+  upcoming.forEach(b=>{
+    const ds=(b.created_at||'').split('T')[0]||'Unknown';
+    if(!groups[ds])groups[ds]=[];
+    groups[ds].push(b);
+  });
+
+  let html='';
+  Object.keys(groups).sort().forEach(ds=>{
+    const lbl=ds===todayStr?'📅 Today':ds===tomorrowStr?'📅 Tomorrow':`📅 ${ds}`;
+    html+=`<div class="tl-day-lbl">${lbl}</div>`;
+    groups[ds].forEach(b=>{
+      const name=b.service_name||b.service||'Service';
+      html+=`<div class="tl-item">
+        <div class="tl-dot"></div>
+        <div>
+          <div class="tl-name">${name}</div>
+          <div class="tl-meta">${b.address||'No address'} · <span style="font-size:.65rem;font-weight:700;padding:1px 6px;border-radius:50px;background:var(--surface3);color:var(--text2)">${b.status}</span></div>
+        </div>
+      </div>`;
+    });
+  });
+
+  wrap.innerHTML=html;
+}
+
+/* ── Patch renderProfile to also call the new renderers ── */
+const _origRenderProfile=renderProfile;
+renderProfile=function(){
+  _origRenderProfile();
+  renderWorkerRank();
+  renderReliabilityPill();
+};
+
+/* ── Patch loadBookings to also refresh the new sections after bookings load ── */
+const _origLoadBookings=loadBookings;
+loadBookings=async function(){
+  await _origLoadBookings();
+  renderEarnings();
+  renderAcceptanceRate();
+  renderTimeline();
+};
 
 /* ── BACKDROP CLOSE ── */
 ['acceptModal','rejectModal','arrivalOtpModal','completionOtpModal'].forEach(id=>{
