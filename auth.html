@@ -513,10 +513,15 @@ async function doSignup(role){
       const {data:publicData}=sb.storage.from('worker-documents').getPublicUrl(docFileName);
       docUrl=publicData.publicUrl||'';
     }catch(uploadEx){
-      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
-      showErr('Document upload failed: '+(uploadEx.message||'Unknown error'));
-      return;
-    }
+  console.error("UPLOAD ERROR OBJECT:", uploadEx);
+  console.error("MESSAGE:", uploadEx?.message);
+  console.error("FULL:", JSON.stringify(uploadEx,null,2));
+
+  alert(uploadEx?.message || JSON.stringify(uploadEx,null,2));
+
+  setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
+  return;
+}
 
     /* Step 1: Create auth account */
     const {data:a,error:ae}=await sb.auth.signUp({
