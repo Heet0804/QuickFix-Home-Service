@@ -967,6 +967,7 @@ async function toggleAvailability(){
   showToast(checked?'🟢 You are now Online':'⚪ You are now Offline');
 }
 
+
 async function toggleEmergency(){
   const checked=document.getElementById('emergToggle').checked;
   const {error}=await sb.from('workers').update({emergency_available:checked}).eq('id',W.id);
