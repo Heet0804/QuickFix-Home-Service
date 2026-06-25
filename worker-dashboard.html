@@ -789,7 +789,11 @@ async function confirmAccept(){
   }
 
   //await bumpWorkerCounter('accepted_jobs');
-  showToast('✅ Job accepted! Head to the Accepted tab.');
+
+  /* AUTO OFFLINE: worker is now on a job — stop receiving new requests */
+  await setWorkerAvailability(false);
+
+  showToast('✅ Job accepted! You are now Offline.');
   await loadBookings();
   switchTab('accepted',document.querySelector('.tab[data-tab="accepted"]'));
 }
@@ -925,8 +929,11 @@ async function submitCompletionOtp(){
 
   //await bumpWorkerCounter('completed_jobs');
   //await bumpWorkerCounter('total_jobs');
-  showToast('🏁 Job completed! Earnings credited.');
 
+  /* AUTO ONLINE: job finished — worker is free for new bookings */
+  await setWorkerAvailability(true);
+
+  showToast('🏁 Job completed! You are now Online.');
   await loadBookings();
   switchTab('completed', document.querySelector('.tab[data-tab="completed"]'));
 }
@@ -965,6 +972,18 @@ async function toggleAvailability(){
   sessionStorage.setItem('qf_user',JSON.stringify(W));
   renderProfile();
   showToast(checked?'🟢 You are now Online':'⚪ You are now Offline');
+}
+
+/* Shared helper — sets availability programmatically (accept→offline, complete→online).
+   Reuses the exact same Supabase write + local state + UI path as toggleAvailability,
+   so the toggle, status badge, offline banner and sessionStorage all update identically. */
+async function setWorkerAvailability(online){
+  const {error}=await sb.from('workers').update({is_available:online}).eq('id',W.id);
+  if(error){ console.error('setWorkerAvailability:',error.message); return; }
+  W.is_available=online;
+  sessionStorage.setItem('qf_user',JSON.stringify(W));
+  document.getElementById('availToggle').checked=online;
+  renderProfile(); /* renderProfile reads W.is_available and syncs toggle, badge, offline banner */
 }
 
 
