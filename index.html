@@ -1538,17 +1538,30 @@ function markErr(id){ const el=document.getElementById(id); if(!el)return; el.cl
 function goPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.nl[data-pg]').forEach(l=>l.classList.remove('on'));
+
   const pg=document.getElementById('page-'+id);
   if(!pg) return;
+
   pg.classList.add('on');
+
   const b=document.querySelector(`.nl[data-pg="${id}"]`);
   if(b) b.classList.add('on');
+
   window.scrollTo({top:0,behavior:'smooth'});
+
   if(id==='services') renderServices();
   if(id==='home'){ renderHomeCats(); renderHomeWorkers(); }
   if(id==='bookings') renderBookings();
   if(id==='account') renderAccount();
   if(id==='househelp') renderHousehelp();
+
+  clearInterval(window._bookingPoll);
+
+  if(id==='bookings'){
+    window._bookingPoll=setInterval(()=>{
+      renderBookings();
+    },2000);
+  }
 }
 function toggleMenu(){ document.getElementById('navLinks').classList.toggle('open'); }
 function goBack(){ sst.catId?goPage('smart'):goPage('services'); }
@@ -2166,26 +2179,21 @@ function updateAcc(){
 /* ── ON ACCEPTED ──────────────────────────────────────────── */
 async function onAccepted(){
   try {
-    const areas = await loadAreas();
-    const area = areas.find(a=>String(a.id)===String(pendBk.areaId))
-      || (pendBk.areaLat!=null && pendBk.areaLng!=null ? {lat:pendBk.areaLat,lng:pendBk.areaLng,name:pendBk.areaName} : null);
 
-    let nearest = null;
-    if(area && area.lat!=null && area.lng!=null){
-      const eligible = await getEligibleWorkersForArea(pendBk.workerRole, area, {emergencyOnly:pendBk.isEmergency});
-      nearest = eligible[0] || null;
-    }
+    const bkBase = pendBk._bk;
 
-    if(!nearest){
-      closeModal('acceptModal');
-      showToast(`⚠️ Booking rejected: no ${pendBk.workerRole} worker available within ${MAX_ASSIGN_KM} km of ${pendBk.areaName||'your area'}.`);
-      return;
-    }
+    const nearest = {
+      id:        bkBase.worker_id    || bkBase.workerId,
+      name:      bkBase.worker_name  || bkBase.workerName,
+      phone:     bkBase.worker_phone || bkBase.workerPhone,
+      role:      bkBase.worker_role  || bkBase.workerRole,
+      emoji:     bkBase.worker_emoji || bkBase.workerEmoji || '🔧',
+      kmDist:    bkBase.worker_dist  || bkBase.workerDist || 0
+    };
 
-    const bkBase      = pendBk._bk;
-    const arrivalOtp  = bkBase.arrivalOtp;
+    const arrivalOtp   = bkBase.arrivalOtp || bkBase.arrival_otp;
     const completionOtp = null;
-    const advance     = bkBase.isAdvance;
+    const advance      = bkBase.isAdvance ?? bkBase.is_advance ?? false;
 
     const bk = {
       ...bkBase,
@@ -2194,53 +2202,163 @@ async function onAccepted(){
       workerPhone: nearest.phone,
       workerRole:  nearest.role,
       workerEmoji: nearest.emoji,
-      workerDist:  Number(nearest.kmDist.toFixed(2)),
+      workerDist:  Number(nearest.kmDist || 0),
       status:      advance ? 'Scheduled' : 'Confirmed',
-      wStatus:     'Accepted',
+      wStatus:     'Accepted'
     };
 
     const saved = await DB.save(bk);
+
     if(!saved){
       showToast('⚠️ Booking could not be saved right now. Please try again.');
       return;
     }
 
-    await WorkerStats.onJobAccepted(nearest.id);
+    if(nearest.id){
+      await WorkerStats.onJobAccepted(nearest.id);
+    }
 
-    const sf=fmt12(bk.time), rf=revealAt(bk.time);
-    const ico=document.getElementById('confIco');
-    ico.textContent=advance?'📅':'✅';
-    ico.style.background=advance?'#fef3d0':'var(--teal-light)';
-    ico.className='mico anim';
-    document.getElementById('confTitle').textContent=advance?'Booking Scheduled!':'Worker Assigned!';
-    document.getElementById('confDesc').innerHTML=advance
-      ?`Your service is booked for <strong>${fmtDate(bk.date)} at ${sf}</strong>.<br/>Worker details &amp; OTPs appear in My Bookings at <strong>${rf}</strong> (30 min before).`
-      :`The nearest available worker accepted. Their details are now in My Bookings.`;
-    document.getElementById('confDet').innerHTML=`
-    <div class="mrow"><span class="ml">Service</span><span class="mv">${bk.service}</span></div>
-    <div class="mrow"><span class="ml">Date &amp; Time</span><span class="mv">${fmtDate(bk.date)} · ${sf}</span></div>
-    <div class="mrow" style="align-items:flex-start">
-      <span class="ml">Address</span>
-      <span class="mv" style="max-width:260px;text-align:right;white-space:normal;word-break:break-word;line-height:1.4">${bk.address}</span>
-    </div>
-    ${advance
-      ?`<div class="mrow"><span class="ml">Worker</span><span class="mv" style="color:var(--text3);font-style:italic">🔒 Revealed at ${rf}</span></div>
-         <div class="mrow"><span class="ml">Phone</span><span class="mv" style="color:var(--text3);font-style:italic">🔒 Revealed at ${rf}</span></div>`
-      :`<div class="mrow"><span class="ml">Worker</span><span class="mv">${nearest.name}</span></div>
-         <div class="mrow"><span class="ml">Phone</span><span class="mv">${nearest.phone}</span></div>
-         <div class="mrow"><span class="ml">Distance</span><span class="mv">${nearest.dist} km away</span></div>`}
-    <div class="mrow"><span class="ml">Payment</span><span class="mv">${paymentMethod==='gpay'?'📱 GPay (Paid)':'💵 Cash on Arrival'}</span></div>
-    <div class="mrow"><span class="ml">Total</span><span class="mv" style="color:var(--brand)">₹${bk.price}</span></div>`;
-    document.getElementById('confOtps').innerHTML=advance
-      ?`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.95rem;text-align:center;margin-bottom:1.1rem"><div style="font-size:.82rem;color:var(--text2)">🔒 OTPs appear in My Bookings at <strong>${rf}</strong></div></div>`
-      :`<div class="cotps">
-          <div class="cotp"><div class="cotplbl">🚗 Arrival OTP<br/><span style="font-size:.58rem;opacity:.75">Give to worker on arrival</span></div><div class="cotpcode">${arrivalOtp}</div></div>
-          
-        </div>`;
+    const sf = fmt12(bk.time);
+    const rf = revealAt(bk.time);
+
+    const ico = document.getElementById('confIco');
+
+    ico.textContent = advance ? '📅' : '✅';
+    ico.style.background = advance ? '#fef3d0' : 'var(--teal-light)';
+    ico.className = 'mico anim';
+
+    document.getElementById('confTitle').textContent =
+      advance ? 'Booking Scheduled!' : 'Worker Assigned!';
+
+    document.getElementById('confDesc').innerHTML =
+      advance
+      ? `Your service is booked for <strong>${fmtDate(bk.date)} at ${sf}</strong>.<br/>Worker details & OTPs appear in My Bookings at <strong>${rf}</strong> (30 min before).`
+      : `The nearest available worker accepted. Their details are now in My Bookings.`;
+
+    document.getElementById('confDet').innerHTML = `
+      <div class="mrow">
+        <span class="ml">Service</span>
+        <span class="mv">${bk.service}</span>
+      </div>
+
+      <div class="mrow">
+        <span class="ml">Date & Time</span>
+        <span class="mv">${fmtDate(bk.date)} · ${sf}</span>
+      </div>
+
+      <div class="mrow" style="align-items:flex-start">
+        <span class="ml">Address</span>
+        <span class="mv"
+          style="max-width:260px;text-align:right;white-space:normal;word-break:break-word;line-height:1.4">
+          ${bk.address}
+        </span>
+      </div>
+
+      ${
+        advance
+        ? `
+          <div class="mrow">
+            <span class="ml">Worker</span>
+            <span class="mv" style="color:var(--text3);font-style:italic">
+              🔒 Revealed at ${rf}
+            </span>
+          </div>
+
+          <div class="mrow">
+            <span class="ml">Phone</span>
+            <span class="mv" style="color:var(--text3);font-style:italic">
+              🔒 Revealed at ${rf}
+            </span>
+          </div>
+        `
+        : `
+          <div class="mrow">
+            <span class="ml">Worker</span>
+            <span class="mv">${nearest.name}</span>
+          </div>
+
+          <div class="mrow">
+            <span class="ml">Phone</span>
+            <span class="mv">${nearest.phone}</span>
+          </div>
+
+          <div class="mrow">
+            <span class="ml">Distance</span>
+            <span class="mv">${Number(nearest.kmDist || 0).toFixed(2)} km away</span>
+          </div>
+        `
+      }
+
+      <div class="mrow">
+        <span class="ml">Payment</span>
+        <span class="mv">
+          ${paymentMethod === 'gpay'
+            ? '📱 GPay (Paid)'
+            : '💵 Cash on Arrival'}
+        </span>
+      </div>
+
+      <div class="mrow">
+        <span class="ml">Total</span>
+        <span class="mv" style="color:var(--brand)">
+          ₹${bk.price}
+        </span>
+      </div>
+    `;
+
+    document.getElementById('confOtps').innerHTML =
+      advance
+      ? `
+        <div
+          style="background:var(--surface2);
+          border:1px solid var(--border);
+          border-radius:var(--radius-sm);
+          padding:.95rem;
+          text-align:center;
+          margin-bottom:1.1rem">
+
+          <div style="font-size:.82rem;color:var(--text2)">
+            🔒 OTPs appear in My Bookings at <strong>${rf}</strong>
+          </div>
+        </div>
+      `
+      : `
+        <div class="cotps">
+          <div class="cotp">
+            <div class="cotplbl">
+              🚗 Arrival OTP
+              <br>
+              <span style="font-size:.58rem;opacity:.75">
+                Give to worker on arrival
+              </span>
+            </div>
+
+            <div class="cotpcode">
+              ${arrivalOtp}
+            </div>
+          </div>
+        </div>
+      `;
+
+    console.log('SHOWING CONFIRM MODAL');
+    console.log(bk);
+
     document.getElementById('confirmModal').classList.add('on');
+
   } catch(err){
+
     console.error('onAccepted failed:', err);
-    showToast('⚠️ Booking confirmation hit an error. Please try again.');
+
+    alert(
+      'onAccepted error:\n\n' +
+      err.message +
+      '\n\n' +
+      err.stack
+    );
+
+    showToast(
+      '⚠️ Booking confirmation hit an error. Please try again.'
+    );
   }
 }
 
@@ -2379,24 +2497,68 @@ function triggerOtp(mode,id){
   document.getElementById('otpModal').classList.add('on');
 }
 async function verifyOtp(){
-  const entered=document.getElementById('otpInput').value.trim();
-  const all=await DB.bookings(); const b=all.find(x=>x.id===pendBkId);
-  if(!b){ showToast('⚠️ Booking not found'); return; }
-  if(otpMode==='arrival'){
-    if(entered!==b.arrivalOtp){ showToast('❌ Incorrect Arrival OTP'); return; }
-    clearInterval(arrInt); closeModal('arrivalModal'); closeModal('otpModal');
-    await DB.update(pendBkId,{status:'Arrived'}); showToast('✅ Arrival confirmed!'); renderBookings();
+
+  const entered = document.getElementById('otpInput').value.trim();
+
+  const all = await DB.bookings();
+
+  const b = all.find(
+    x => String(x.id) === String(pendBkId)
+  );
+
+  if(!b){
+    showToast('⚠️ Booking not found');
+    return;
+  }
+
+  if(otpMode === 'arrival'){
+
+    if(entered !== (b.arrivalOtp || b.arrival_otp)){
+      showToast('❌ Incorrect Arrival OTP');
+      return;
+    }
+
+    clearInterval(arrInt);
+
+    closeModal('arrivalModal');
+    closeModal('otpModal');
+
+    await DB.update(
+      pendBkId,
+      { status:'Arrived' }
+    );
+
+    showToast('✅ Arrival confirmed!');
+
+    await renderBookings();
+
   } else {
-    if(entered!==b.completionOtp){ showToast('❌ Incorrect Completion OTP'); return; }
-    closeModal('otpModal'); await DB.update(pendBkId,{status:'Completed'}); showToast('🎉 Service marked as Completed!');
-    /* Worker performance: this job reached completion — bump completed_jobs
-       and recompute scores immediately. */
-    if(b.workerId) await WorkerStats.onJobCompleted(b.workerId);
-    renderBookings();
-    /* MANDATORY rating modal — opens automatically right after Completion
-       OTP success. Star rating is required before the modal can be closed
-       (see openReview/submitReview for the enforcement). */
-    openReview(pendBkId);
+
+    if(entered !== (b.completionOtp || b.completion_otp)){
+      showToast('❌ Incorrect Completion OTP');
+      return;
+    }
+
+    closeModal('otpModal');
+
+    await DB.update(
+      pendBkId,
+      { status:'Completed' }
+    );
+
+    if(b.workerId || b.worker_id){
+      await WorkerStats.onJobCompleted(
+        b.workerId || b.worker_id
+      );
+    }
+
+    showToast('🎉 Service marked as Completed!');
+
+    await renderBookings();
+
+    openReview(
+      String(pendBkId)
+    );
   }
 }
 
@@ -2412,15 +2574,61 @@ async function openReview(bkId){
 }
 function setRating(r){ revRat=r; document.querySelectorAll('#starInput span').forEach((s,i)=>s.classList.toggle('lit',i<r)); }
 async function submitReview(){
-  if(!revRat){ showToast('⚠️ Please select a star rating'); return; }
-  const all=await DB.bookings();
-  const b=all.find(x=>String(x.id)===String(revId));
-  if(!b){ showToast('⚠️ Booking not found'); return; }
-  const user=JSON.parse(sessionStorage.getItem('qf_user')||'{}');
-  const workerId=b.workerId||b.worker_id||null;
-  await DB.saveReview(revId, workerId, revRat, document.getElementById('reviewComment').value.trim(), user.name||'Anonymous');
-  if(workerId) await WorkerStats.onReviewSubmitted(workerId, revRat);
-  closeModal('reviewModal'); showToast('⭐ Thank you for your review!'); renderBookings();
+  if(!revRat){
+    showToast('⚠️ Please select a star rating');
+    return;
+  }
+
+  const all = await DB.bookings();
+
+  const b = all.find(
+    x => String(x.id) === String(revId)
+  );
+
+  if(!b){
+    showToast('⚠️ Booking not found');
+    return;
+  }
+
+  const user = JSON.parse(
+    sessionStorage.getItem('qf_user') || '{}'
+  );
+
+  const workerId =
+    b.workerId ||
+    b.worker_id ||
+    null;
+
+  await DB.saveReview(
+    revId,
+    workerId,
+    revRat,
+    document.getElementById('reviewComment').value.trim(),
+    user.name || 'Anonymous'
+  );
+
+  if(workerId){
+    await WorkerStats.onReviewSubmitted(
+      workerId,
+      revRat
+    );
+  }
+
+  closeModal('reviewModal');
+
+  showToast('⭐ Thank you for your review!');
+
+  /* refresh latest booking state from DB */
+  await loadBookings();
+
+  renderBookings();
+
+  /* if worker dashboard is open anywhere,
+     force latest stats refresh */
+  try{
+    await loadBookings();
+    renderJobs();
+  }catch(e){}
 }
 
 /* ── AADHAAR UPLOAD ───────────────────────────────────────── */
@@ -2471,7 +2679,9 @@ async function submitReg(){
     if(e.target===this){ if(id==='payModal') stopPoll(); closeModal(id); }
   });
 });
-
+window.addEventListener('focus',()=>{
+  renderBookings();
+});
 /* ── INIT ─────────────────────────────────────────────────── */
 renderHomeCats();
 renderHomeWorkers();

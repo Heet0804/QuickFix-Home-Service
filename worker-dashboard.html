@@ -632,11 +632,32 @@ async function loadBookings(){
 
   bookings=data||[];
 
-  updateTabCounts();
+/* refresh latest worker row */
+const {data:workerLive}=await sb
+  .from('workers')
+  .select('*')
+  .eq('id',W.id)
+  .single();
 
-  renderJobs();
+if(workerLive){
+  W = {...W,...workerLive};
 
-  renderProfile();
+  sessionStorage.setItem(
+    'qf_user',
+    JSON.stringify(W)
+  );
+}
+
+updateTabCounts();
+
+renderJobs();
+
+renderProfile();
+renderWorkerRank();
+renderReliabilityPill();
+renderEarnings();
+renderAcceptanceRate();
+renderTimeline();
 }
 
 function bookingsByTab(tab){
