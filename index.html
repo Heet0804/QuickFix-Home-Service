@@ -2161,7 +2161,7 @@ async function onAccepted(){
 
     const bkBase      = pendBk._bk;
     const arrivalOtp  = bkBase.arrivalOtp;
-    const completionOtp = bkBase.completionOtp;
+    const completionOtp = null;
     const advance     = bkBase.isAdvance;
 
     const bk = {
@@ -2212,7 +2212,7 @@ async function onAccepted(){
       ?`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.95rem;text-align:center;margin-bottom:1.1rem"><div style="font-size:.82rem;color:var(--text2)">🔒 OTPs appear in My Bookings at <strong>${rf}</strong></div></div>`
       :`<div class="cotps">
           <div class="cotp"><div class="cotplbl">🚗 Arrival OTP<br/><span style="font-size:.58rem;opacity:.75">Give to worker on arrival</span></div><div class="cotpcode">${arrivalOtp}</div></div>
-          <div class="cotp c2"><div class="cotplbl">✅ Completion OTP<br/><span style="font-size:.58rem;opacity:.75">Give after service is done</span></div><div class="cotpcode c2">${completionOtp}</div></div>
+          
         </div>`;
     document.getElementById('confirmModal').classList.add('on');
   } catch(err){
@@ -2245,9 +2245,19 @@ async function renderBookings(){
     const contactHtml=show
       ?`<div class="cbox"><strong>👤 ${b.workerName}</strong>&nbsp; 📞 <a href="tel:${b.workerPhone}" style="color:#266049;font-weight:600;text-decoration:none">${b.workerPhone}</a>&nbsp; 📍 ${b.workerDist}km</div>`
       :b.isAdvance?`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.6rem .95rem;margin-top:.55rem;font-size:.79rem;color:var(--text2)">🔒 Worker details revealed at <strong>${rf}</strong></div>`:'';
-    const otpHtml=show?`<div class="otppair">
-      <div class="otpbox"><div class="otplbl">🚗 Arrival OTP</div><div class="otpcode">${b.arrival_otp||'——'}</div></div>
-      <div class="otpbox c2"><div class="otplbl">✅ Completion OTP</div><div class="otpcode c2">${b.completion_otp||'——'}</div></div></div>`:'';
+    const otpHtml=show?(()=>{
+      /* Sequential OTP: never show both at once.
+         arrival_otp is nulled after verification; completion_otp only exists after Arrived. */
+      if(b.status==='Arrived'&&b.completion_otp){
+        return `<div class="otppair" style="grid-template-columns:1fr">
+          <div class="otpbox c2"><div class="otplbl">✅ Completion OTP — Share after service is done</div><div class="otpcode c2">${b.completion_otp}</div></div></div>`;
+      }
+      if(['Accepted','Confirmed','Worker on Way'].includes(b.status)&&b.arrival_otp){
+        return `<div class="otppair" style="grid-template-columns:1fr">
+          <div class="otpbox"><div class="otplbl">🚗 Arrival OTP — Share with worker on arrival</div><div class="otpcode">${b.arrival_otp}</div></div></div>`;
+      }
+      return '';
+    })():'';
     const payHtml=(show||b.status==='Scheduled')?`<div style="font-size:.72rem;color:var(--text2);margin-top:.3rem">${payLabel}</div>`:'';
     const schedNote=b.status==='Scheduled'&&!rev?`<div style="font-size:.76rem;color:var(--brand);font-weight:600;margin-top:.4rem">📅 Scheduled for ${fmt12(b.time)} · Worker assigned</div>`:'';
     const trackBtn=['Accepted','Confirmed'].includes(b.status)?`<button class="btn bt" style="font-size:.72rem;padding:5px 10px" onclick="openArrival(${b.id})">🚗 Track</button>`:'';

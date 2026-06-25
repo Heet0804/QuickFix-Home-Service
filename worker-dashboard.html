@@ -727,9 +727,10 @@ function renderJobCard(b){
         <button class="jbtn jbtn-arrive" onclick="markArrived('${b.id}')">📍 Mark Arrived</button>
       </div>`;
   } else if(b.status==='Arrived'){
+    /* Arrival OTP already verified (arrival_otp is null in DB at this point).
+       Only Completion OTP remains. */
     actions=`
       <div class="job-acts">
-        <button class="jbtn jbtn-arrive" onclick="openOtpModal('arrival','${b.id}')">🚗 Verify Arrival OTP</button>
         <button class="jbtn jbtn-complete" onclick="openOtpModal('completion','${b.id}')">✅ Verify Completion OTP</button>
       </div>`;
   }
@@ -863,14 +864,26 @@ async function submitArrivalOtp() {
     return;
   }
 
+  /* Client-side OTP check — gives immediate feedback and ensures we only
+     generate a completion OTP on a confirmed match. */
+  const expectedArrival = String(b.arrival_otp ?? '').trim();
+  if (!expectedArrival || entered !== expectedArrival) {
+    showToast('❌ Incorrect Arrival OTP');
+    return;
+  }
+
+  /* Generate completion OTP now — must not exist before arrival is verified. */
+  const newCompletionOtp = String(Math.floor(100000 + Math.random() * 900000));
+
   const { error } = await sb
     .from('bookings')
     .update({
-      status: 'Arrived',
-      w_status: 'Arrived'
+      status:         'Arrived',
+      w_status:       'Arrived',
+      arrival_otp:    null,
+      completion_otp: newCompletionOtp
     })
-    .eq('id', b.id)
-    .eq('arrival_otp', entered);
+    .eq('id', b.id);
 
   if (error) {
     console.error('submitArrivalOtp:', error.message);
@@ -913,9 +926,10 @@ async function submitCompletionOtp(){
   }
 
   const { error } = await sb.from('bookings').update({
-    status: 'Completed',
-    w_status: 'Completed',
-    completed_at: new Date().toISOString()
+    status:         'Completed',
+    w_status:       'Completed',
+    completion_otp: null,          /* invalidate completion OTP immediately */
+    completed_at:   new Date().toISOString()
   }).eq('id', b.id);
 
   if (error) {
