@@ -618,18 +618,25 @@ function tagScoreCard(id,val){
    ════════════════════════════════════════════════════════════ */
 async function loadBookings(){
   if(!W||!W.id)return;
+
   const {data,error}=await sb.from('bookings')
     .select('*')
     .eq('worker_id',W.id)
     .order('created_at',{ascending:false});
+
   if(error){
     console.error('loadBookings:',error.message);
     showToast('⚠️ Could not load bookings: '+error.message);
     return;
   }
+
   bookings=data||[];
+
   updateTabCounts();
+
   renderJobs();
+
+  renderProfile();
 }
 
 function bookingsByTab(tab){

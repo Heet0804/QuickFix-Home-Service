@@ -1033,21 +1033,30 @@ const DB = {
     if(error) console.error('DB.update:',error.message);
   },
 
-  /* Save a review and mark booking as rated */
-  saveReview: async (bkId, workerId, rating, comment, authorName) => {
-    const {data:{session}}=await sb.auth.getSession();
-    const user=session?session.user:null;
-    if(!user) return;
-    await sb.from('reviews').insert({
-      booking_id:  String(bkId),
-      user_id:     user.id,
-      worker_id:   workerId||null,
-      rating,
-      comment,
-      author_name: authorName
-    });
-    await sb.from('bookings').update({rated:true}).eq('id',String(bkId));
-  },
+  /* Save a review — writes rating and comment back to the booking row
+   using bookings.review_rating and bookings.review_comment as required.
+   Also inserts into reviews table if it exists. */
+saveReview: async (bkId, workerId, rating, comment, authorName) => {
+  const {data:{session}}=await sb.auth.getSession();
+  const user=session?session.user:null;
+  if(!user) return;
+  /* Write rating + comment into the booking row itself */
+  const {error:bkErr}=await sb.from('bookings').update({
+    rated:          true,
+    review_rating:  rating,
+    review_comment: comment||''
+  }).eq('id',String(bkId));
+  if(bkErr) console.error('DB.saveReview booking update:',bkErr.message);
+  /* Also insert into reviews table */
+  await sb.from('reviews').insert({
+    booking_id:  String(bkId),
+    user_id:     user.id,
+    worker_id:   workerId||null,
+    rating,
+    comment,
+    created_at:  new Date().toISOString()
+  });
+},
 
   /* Worker registration — saves to profiles table for now */
   saveReg: async (r) => {
@@ -1408,15 +1417,29 @@ const WorkerStats = {
      average across total_jobs+1) and workers.total_jobs, then recalcs
      the blended worker_score since rating feeds 50% of it. */
   async onReviewSubmitted(workerId, ratingValue){
-    const w=await DB.getWorker(workerId);
-    if(!w) return;
-    const prevTotal=Number(w.total_jobs)||0;
-    const prevRating=Number(w.rating)||0;
-    const newTotal=prevTotal+1;
-    const newRating=Number((((prevRating*prevTotal)+ratingValue)/newTotal).toFixed(2));
-    await DB.updateWorker(workerId,{rating:newRating, total_jobs:newTotal});
-    await this.recalc(workerId);
-  }
+  if(!workerId) return;
+  /* Recalculate rating as true average of all review_rating values
+     for this worker from the bookings table — matches the requirement
+     and avoids drift from the previous running-average approach. */
+  const {data:rows,error}=await sb.from('bookings')
+    .select('review_rating')
+    .eq('worker_id', String(workerId))
+    .eq('rated', true);
+  if(error){ console.error('onReviewSubmitted fetch:',error.message); return; }
+  const ratings=(rows||[]).map(r=>Number(r.review_rating)).filter(v=>v>0);
+  const newRating=ratings.length
+    ? Number((ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(2))
+    : ratingValue;
+  /* completed_jobs count for total_jobs */
+  const {data:completed,error:ce}=await sb.from('bookings')
+    .select('id')
+    .eq('worker_id', String(workerId))
+    .eq('status','Completed');
+  if(ce) console.error('onReviewSubmitted count:',ce.message);
+  const newTotal=(completed||[]).length||1;
+  await DB.updateWorker(workerId,{rating:newRating, total_jobs:newTotal});
+  await this.recalc(workerId);
+}
 };
 
 function getIST(){ return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'})); }
@@ -2267,7 +2290,7 @@ const cancelBtn=canCancel
   ?`<div><button class="btn bd" style="font-size:.72rem;padding:5px 10px" onclick="cancelBk(${b.id})">❌ Cancel</button><div style="font-size:.65rem;color:var(--text3);margin-top:3px">Free cancellation up to 10 min before</div></div>`
   :(['Confirmed','Scheduled'].includes(b.status)&&rev)?`<div style="font-size:.65rem;color:var(--danger);font-weight:600;margin-top:4px">🔒 Cancellation locked — worker is on the way</div>`:'' ;
     const bookAgainBtn=b.status==='Cancelled'?`<button class="btn bp" style="font-size:.72rem;padding:5px 10px" onclick="goPage('services')">🔄 Book Again</button>`:'';
-    const rateBtn=b.status==='Completed'&&!b.rated?`<button class="btn" style="font-size:.72rem;padding:5px 10px;background:var(--amber);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:600" onclick="openReview(${b.id})">⭐ Rate</button>`:'';
+    const rateBtn=b.status==='Completed'&&!b.rated?`<button class="btn" style="font-size:.72rem;padding:5px 10px;background:var(--amber);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:600" onclick="openReview('${b.id}')">⭐ Rate</button>`:'';
     return `<div class="bkitem">
       <div class="bkico">${b.workerEmoji}</div>
       <div class="bkdet">
@@ -2379,21 +2402,24 @@ async function verifyOtp(){
 
 /* ── REVIEW ───────────────────────────────────────────────── */
 async function openReview(bkId){
-  revId=bkId; revRat=0;
-  const all=await DB.bookings(); const b=all.find(x=>x.id===bkId);
-  document.getElementById('reviewDesc').innerHTML=`How was your <strong>${b.workerRole}</strong> service experience?`;
+  revId=String(bkId); revRat=0;
+  const all=await DB.bookings();
+  const b=all.find(x=>String(x.id)===String(bkId));
+  if(!b){ showToast('⚠️ Booking not found'); return; }
+  document.getElementById('reviewDesc').innerHTML=`How was your <strong>${b.workerRole||b.worker_role||'service'}</strong> experience?`;
   setRating(0); document.getElementById('reviewComment').value='';
   document.getElementById('reviewModal').classList.add('on');
 }
 function setRating(r){ revRat=r; document.querySelectorAll('#starInput span').forEach((s,i)=>s.classList.toggle('lit',i<r)); }
 async function submitReview(){
   if(!revRat){ showToast('⚠️ Please select a star rating'); return; }
-  const all=await DB.bookings(); const b=all.find(x=>x.id===revId); if(!b) return;
+  const all=await DB.bookings();
+  const b=all.find(x=>String(x.id)===String(revId));
+  if(!b){ showToast('⚠️ Booking not found'); return; }
   const user=JSON.parse(sessionStorage.getItem('qf_user')||'{}');
-  await DB.saveReview(revId, b.workerId||null, revRat, document.getElementById('reviewComment').value.trim(), user.name||'Anonymous');
-  /* Update workers.rating (running average) + workers.total_jobs, then
-     recompute the blended worker_score since rating is 50% of it. */
-  if(b.workerId) await WorkerStats.onReviewSubmitted(b.workerId, revRat);
+  const workerId=b.workerId||b.worker_id||null;
+  await DB.saveReview(revId, workerId, revRat, document.getElementById('reviewComment').value.trim(), user.name||'Anonymous');
+  if(workerId) await WorkerStats.onReviewSubmitted(workerId, revRat);
   closeModal('reviewModal'); showToast('⭐ Thank you for your review!'); renderBookings();
 }
 
