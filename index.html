@@ -1706,12 +1706,29 @@ function wCard(w){
       <div class="wmeta">
         <div class="wanon">Identity revealed after booking</div>
         <div class="wrole${e?' er':''}">${w.emoji} ${w.role}</div>
-        <div class="wstars">${stars(w.rating)}<span class="rnum">${w.rating} (${w.reviews} reviews)</span></div>
+        <div class="wstars">
+  ${stars(Number(w.rating || 0))}
+  <span class="rnum">
+    ${Number(w.rating || 0).toFixed(1)}
+    (${w.total_jobs || 0} jobs)
+  </span>
+</div>
       </div>
     </div>
-    <div class="wdesc">${w.desc}</div>
+    <div class="wdesc">
+  ${w.skill || w.role}
+</div>
     <div class="wfoot">
-      <div><div class="wprice">₹${w.price} <span>/ visit</span></div><div class="wmeta2">📍 ${w.dist} km away · ${w.exp}</div></div>
+      <div>
+  <div class="wprice">
+    ₹${w.basePrice || w.base_price || 149}
+    <span>/ visit</span>
+  </div>
+
+  <div class="wmeta2">
+    📍 ${w.dist ?? 5} km away · ${w.experience || w.exp || 0} yrs
+  </div>
+</div>
       <button class="btn${e?' be':' bp'}" onclick="event.stopPropagation();openBooking(${w.id})">Book</button>
     </div>
   </div>`;
