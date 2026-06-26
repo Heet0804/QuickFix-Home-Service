@@ -661,14 +661,38 @@ renderTimeline();
 }
 
 function bookingsByTab(tab){
-  if(tab==='pending')
-  return bookings.filter(
-    b => ['Pending','Confirmed','Scheduled'].includes(b.status)
-  );
-  if(tab==='accepted')  return bookings.filter(b=>b.status==='Accepted');
-  if(tab==='arrived')   return bookings.filter(b=>b.status==='Arrived');
-  if(tab==='completed') return bookings.filter(b=>b.status==='Completed');
-  if(tab==='cancelled') return bookings.filter(b=>b.status==='Rejected'||b.status==='Cancelled');
+
+  if(tab==='pending'){
+    return bookings.filter(b=>
+      b.w_status==='Pending'
+    );
+  }
+
+  if(tab==='accepted'){
+    return bookings.filter(b=>
+      b.w_status==='Accepted'
+    );
+  }
+
+  if(tab==='arrived'){
+    return bookings.filter(b=>
+      b.status==='Arrived'
+    );
+  }
+
+  if(tab==='completed'){
+    return bookings.filter(b=>
+      b.status==='Completed'
+    );
+  }
+
+  if(tab==='cancelled'){
+    return bookings.filter(b=>
+      b.status==='Rejected' ||
+      b.status==='Cancelled'
+    );
+  }
+
   return [];
 }
 
