@@ -1536,6 +1536,7 @@ function markErr(id){ const el=document.getElementById(id); if(!el)return; el.cl
 
 /* ── NAV ───────────────────────────────────────────────────── */
 function goPage(id){
+
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.nl[data-pg]').forEach(l=>l.classList.remove('on'));
 
@@ -1550,18 +1551,47 @@ function goPage(id){
   window.scrollTo({top:0,behavior:'smooth'});
 
   if(id==='services') renderServices();
-  if(id==='home'){ renderHomeCats(); renderHomeWorkers(); }
-  if(id==='bookings') renderBookings();
-  if(id==='account') renderAccount();
-  if(id==='househelp') renderHousehelp();
+
+  if(id==='home'){
+    renderHomeCats();
+    renderHomeWorkers();
+  }
+
+  if(id==='bookings'){
+    renderBookings();
+  }
+
+  if(id==='account'){
+    renderAccount();
+  }
+
+  if(id==='househelp'){
+    renderHousehelp();
+  }
 
   clearInterval(window._bookingPoll);
 
-  if(id==='bookings'){
-    window._bookingPoll=setInterval(()=>{
-      renderBookings();
-    },2000);
-  }
+  /* Keep bookings synced everywhere */
+  window._bookingPoll = setInterval(async ()=>{
+
+    if(typeof renderBookings==='function'){
+      await renderBookings();
+    }
+
+    if(document.getElementById('page-home')?.classList.contains('on')){
+      if(typeof renderHomeWorkers==='function'){
+        await renderHomeWorkers();
+      }
+    }
+
+    if(document.getElementById('page-account')?.classList.contains('on')){
+      if(typeof renderAccount==='function'){
+        await renderAccount();
+      }
+    }
+
+  },2000);
+
 }
 function toggleMenu(){ document.getElementById('navLinks').classList.toggle('open'); }
 function goBack(){ sst.catId?goPage('smart'):goPage('services'); }
@@ -2213,23 +2243,38 @@ async function onAccepted(){
     const advance      = bkBase.isAdvance ?? bkBase.is_advance ?? false;
 
     const bk = {
-      ...bkBase,
-      workerId:    nearest.id,
-      workerName:  nearest.name,
-      workerPhone: nearest.phone,
-      workerRole:  nearest.role,
-      workerEmoji: nearest.emoji,
-      workerDist:  Number(nearest.kmDist || 0),
-      status:      advance ? 'Scheduled' : 'Confirmed',
-      wStatus:     'Accepted'
-    };
+  ...bkBase,
+  workerId: nearest.id,
+  workerName: nearest.name,
+  workerPhone: nearest.phone,
+  workerRole: nearest.role,
+  workerEmoji: nearest.emoji,
+  workerDist: Number(nearest.kmDist || 0),
+
+  // NEVER change the worker status after acceptance.
+  status: bkBase.status,
+  wStatus: bkBase.w_status || bkBase.wStatus
+};
+
+/* NEVER overwrite worker status after acceptance */
+const saved = await DB.update(
+  bk.id,
+  {
+    workerId:    bk.workerId,
+    workerName:  bk.workerName,
+    workerPhone: bk.workerPhone,
+    workerRole:  bk.workerRole,
+    workerEmoji: bk.workerEmoji,
+    workerDist:  bk.workerDist
+  }
+);
 
     const saved = await DB.save(bk);
 
-    if(!saved){
+    /*if(!saved){
       showToast('⚠️ Booking could not be saved right now. Please try again.');
       return;
-    }
+    }*/
 
     if(nearest.id){
       await WorkerStats.onJobAccepted(nearest.id);

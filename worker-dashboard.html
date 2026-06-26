@@ -507,11 +507,38 @@ let pendOtpId=null;
 
   renderProfile();
   await loadBookings();
-  switchTab('pending', document.querySelector('.tab[data-tab="pending"]'));
 
-  tickClock();
-  setInterval(tickClock,1000);
-  setInterval(loadBookings,15000); /* light polling so new Pending requests show up without manual refresh */
+switchTab(
+  'pending',
+  document.querySelector('.tab[data-tab="pending"]')
+);
+
+tickClock();
+setInterval(tickClock,1000);
+
+/* ---------- REALTIME BOOKING SYNC ---------- */
+
+sb.channel('worker-bookings-' + W.id)
+
+.on(
+  'postgres_changes',
+  {
+    event: '*',
+    schema: 'public',
+    table: 'bookings',
+    filter: `worker_id=eq.${W.id}`
+  },
+  async () => {
+
+    console.log('Realtime booking update');
+
+    await loadBookings();
+
+  }
+)
+
+.subscribe();
+
 })();
 
 /* ════════════════════════════════════════════════════════════
@@ -830,11 +857,46 @@ async function confirmAccept(){
   if(!b)return;
   const earning=Math.round((Number(b.price)||0)*0.80);
 
-  const {error}=await sb.from('bookings').update({
+  /* First check latest status from Supabase */
+const {data:live,error:fetchErr}=await sb
+  .from('bookings')
+  .select('status')
+  .eq('id',id)
+  .single();
+
+if(fetchErr){
+  console.error(fetchErr.message);
+  showToast('⚠️ Could not verify booking.');
+  return;
+}
+
+/* Someone already accepted/completed it */
+if(
+  live.status!=='Pending' &&
+  live.status!=='Scheduled' &&
+  live.status!=='Confirmed'
+){
+  showToast('⚠️ This booking has already been accepted by another worker.');
+  await loadBookings();
+  return;
+}
+
+/* Safe to accept */
+const {error}=await sb
+.from('bookings')
+.update({
   status:'Accepted',
   w_status:'Accepted',
   worker_earning:earning
-}).eq('id',id);
+})
+.eq('id',id)
+.in('status',['Pending','Scheduled','Confirmed']);
+
+if(error){
+  console.error(error.message);
+  showToast('⚠️ Could not accept booking.');
+  return;
+}
   if(error){
     console.error('confirmAccept:',error.message);
     showToast('⚠️ Could not accept job: '+error.message);
