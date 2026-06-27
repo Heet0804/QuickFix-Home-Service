@@ -2507,7 +2507,10 @@ function switchTab(tab,btn){
 /* ── ARRIVAL TIMER ────────────────────────────────────────── */
 async function openArrival(bkId){
   const all=await DB.bookings(); const b=all.find(x=>x.id===bkId); if(!b) return;
-  await DB.update(bkId,{status:'Worker on Way'});
+  await DB.update(bkId,{
+  status:'Worker on Way',
+  on_way_at:new Date().toISOString()
+});
   pendBkId=bkId; arrExt=false; arrLeft=900;
   document.getElementById('arrOtpShow').textContent=b.arrivalOtp||'——';
   document.getElementById('arrivalModal').classList.add('on');
@@ -2576,9 +2579,12 @@ async function verifyOtp(){
     closeModal('otpModal');
 
     await DB.update(
-      pendBkId,
-      { status:'Arrived' }
-    );
+  pendBkId,
+  {
+    status:'Arrived',
+    arrived_at:new Date().toISOString()
+  }
+);
 
     showToast('✅ Arrival confirmed!');
 
@@ -2594,9 +2600,12 @@ async function verifyOtp(){
     closeModal('otpModal');
 
     await DB.update(
-      pendBkId,
-      { status:'Completed' }
-    );
+  pendBkId,
+  {
+    status:'Completed',
+    completed_at:new Date().toISOString()
+  }
+);
 
     if(b.workerId || b.worker_id){
       await WorkerStats.onJobCompleted(

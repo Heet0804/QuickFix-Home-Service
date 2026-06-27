@@ -554,8 +554,33 @@ function renderProfile(){
   document.getElementById('pcRadius').textContent=(W.radius!=null?`📍 ${W.radius} km radius`:'');
   document.getElementById('pcArea').textContent=W.area?`🏙️ ${W.area}`:'';
 
-  document.getElementById('statRating').textContent=W.rating!=null?Number(W.rating).toFixed(1):'0.0';
-  document.getElementById('statTotalJobs').textContent=W.total_jobs??0;
+  const ratedBookings = bookings.filter(
+    b =>
+        b.status === "Completed" &&
+        Number(b.review_rating || 0) > 0
+);
+
+const dashboardRating =
+    ratedBookings.length
+        ? (
+            ratedBookings.reduce(
+                (sum, b) => sum + Number(b.review_rating),
+                0
+            ) / ratedBookings.length
+        ).toFixed(1)
+        : "0.0";
+
+const dashboardTotalJobs =
+    bookings.filter(b =>
+        ["Accepted","Arrived","Completed","Cancelled"]
+        .includes(b.status)
+    ).length;
+
+document.getElementById("statRating").textContent =
+    dashboardRating;
+
+document.getElementById("statTotalJobs").textContent =
+    dashboardTotalJobs;
 
   /* Earnings: no earnings/wallet column exists on workers per the schema
      in scope, and bookings.worker_earning is only ever set by THIS page
@@ -887,7 +912,8 @@ const {error}=await sb
 .update({
   status:'Accepted',
   w_status:'Accepted',
-  worker_earning:earning
+  worker_earning:earning,
+  accepted_at:new Date().toISOString()
 })
 .eq('id',id)
 .in('status',['Pending','Scheduled','Confirmed']);
