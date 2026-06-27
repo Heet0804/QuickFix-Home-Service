@@ -2213,16 +2213,19 @@ async function onAccepted(){
     const advance      = bkBase.isAdvance ?? bkBase.is_advance ?? false;
 
     const bk = {
-      ...bkBase,
-      workerId:    nearest.id,
-      workerName:  nearest.name,
-      workerPhone: nearest.phone,
-      workerRole:  nearest.role,
-      workerEmoji: nearest.emoji,
-      workerDist:  Number(nearest.kmDist || 0),
-      status:      advance ? 'Scheduled' : 'Confirmed',
-      wStatus:     'Accepted'
-    };
+  ...bkBase,
+  workerId: nearest.id,
+  workerName: nearest.name,
+  workerPhone: nearest.phone,
+  workerRole: nearest.role,
+  workerEmoji: nearest.emoji,
+  workerDist: Number(nearest.kmDist || 0),
+
+  // NEVER downgrade an already accepted booking
+  status: bkBase.status,
+
+  wStatus: bkBase.w_status || 'Accepted'
+};
 
     const saved = await DB.save(bk);
 
@@ -2400,9 +2403,41 @@ async function renderBookings(){
   || (b.status==='Scheduled'&&rev);
     const rf=b.isAdvance?revealAt(b.time):null;
     const payLabel=b.paymentMethod==='gpay'?'📱 GPay (Paid)':'💵 Cash on Arrival';
-    const contactHtml=show
-      ?`<div class="cbox"><strong>👤 ${b.workerName}</strong>&nbsp; 📞 <a href="tel:${b.workerPhone}" style="color:#266049;font-weight:600;text-decoration:none">${b.workerPhone}</a>&nbsp; 📍 ${b.workerDist}km</div>`
-      :b.isAdvance?`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.6rem .95rem;margin-top:.55rem;font-size:.79rem;color:var(--text2)">🔒 Worker details revealed at <strong>${rf}</strong></div>`:'';
+    const km = Number(b.workerDist || 0);
+
+let eta = "5 mins";
+
+if (km <= 2) eta = "5 mins";
+else if (km <= 5) eta = "12 mins";
+else if (km <= 8) eta = "18 mins";
+else if (km <= 12) eta = "25 mins";
+else eta = "35 mins";
+
+const contactHtml = show
+  ? `
+    <div class="cbox">
+      <strong>👤 ${b.workerName}</strong>
+      &nbsp; 📞
+      <a href="tel:${b.workerPhone}"
+         style="color:#266049;font-weight:600;text-decoration:none">
+         ${b.workerPhone}
+      </a>
+      &nbsp; 📍 ${km.toFixed(1)} km
+      &nbsp; ⏱ ~${eta}
+    </div>`
+  : b.isAdvance
+    ? `
+      <div style="background:var(--surface2);
+                  border:1px solid var(--border);
+                  border-radius:var(--radius-sm);
+                  padding:.6rem .95rem;
+                  margin-top:.55rem;
+                  font-size:.79rem;
+                  color:var(--text2)">
+          🔒 Worker details revealed at
+          <strong>${rf}</strong>
+      </div>`
+    : '';
     const otpHtml=show?(()=>{
       /* Sequential OTP: never show both at once.
          arrival_otp is nulled after verification; completion_otp only exists after Arrived. */
