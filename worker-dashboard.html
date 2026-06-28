@@ -263,6 +263,26 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
   .pc-stat{flex:1;padding:.55rem .4rem}
   .job-price{text-align:right}
 }
+
+/* ── ACHIEVEMENTS ──────────────────────────────────────────── */
+.ach-section{margin-bottom:1.1rem}
+.ach-section-title{font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.55rem;padding-left:2px}
+.ach-card{display:flex;align-items:flex-start;gap:.85rem;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:.85rem .95rem;margin-bottom:.5rem;transition:var(--tr)}
+.ach-card.unlocked{border-color:var(--teal);background:var(--teal-light)}
+.ach-ico{font-size:1.6rem;line-height:1;flex-shrink:0;width:36px;text-align:center;filter:grayscale(1);opacity:.45;transition:var(--tr)}
+.ach-card.unlocked .ach-ico{filter:none;opacity:1}
+.ach-body{flex:1;min-width:0}
+.ach-title{font-size:.85rem;font-weight:700;color:var(--text);margin-bottom:1px}
+.ach-desc{font-size:.74rem;color:var(--text3);margin-bottom:.45rem;line-height:1.4}
+.ach-prog-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:.3rem}
+.ach-prog-label{font-size:.7rem;font-weight:600;color:var(--text2)}
+.ach-prog-val{font-size:.7rem;font-weight:700;color:var(--text2)}
+.ach-bar-track{width:100%;height:6px;background:var(--border);border-radius:99px;overflow:hidden}
+.ach-bar-fill{height:100%;width:0%;border-radius:99px;background:var(--border2);transition:width .7s cubic-bezier(.4,0,.2,1)}
+.ach-card.unlocked .ach-bar-fill{background:var(--teal)}
+.ach-badge{font-size:.67rem;font-weight:700;margin-top:.45rem;display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:99px;border:1.5px solid var(--border);color:var(--text3);background:var(--surface)}
+.ach-card.unlocked .ach-badge{border-color:var(--teal);color:var(--teal);background:var(--teal-light)}
+.ach-coming{font-size:.8rem;color:var(--text3);text-align:center;padding:.85rem;background:var(--surface2);border-radius:var(--radius-sm);border:1px dashed var(--border)}
 </style>
 </head>
 <body>
@@ -298,6 +318,7 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
         </div>
       </div>
       <button class="nav-profile-btn" onclick="window.location.href='worker-profile.html'">👤 My Profile</button>
+      <button class="nav-profile-btn" onclick="openAchievements()" style="border-color:var(--teal);color:var(--teal)">🏆 Achievements</button>
       <button class="nav-logout" onclick="logout()">Logout</button>
     </div>
   </div>
@@ -440,6 +461,17 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
       <button class="mbtn-secondary" onclick="closeModal('completionOtpModal')">Cancel</button>
       <button class="mbtn-primary" onclick="submitCompletionOtp()">Verify</button>
     </div>
+  </div>
+</div>
+
+<!-- ACHIEVEMENTS MODAL -->
+<div class="modal-bg" id="achievementsModal">
+  <div class="modal" style="max-width:520px;max-height:88vh;overflow-y:auto;padding:1.5rem 1.25rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem">
+      <h3 style="margin:0;font-size:1.1rem">🏆 My Achievements</h3>
+      <button onclick="closeModal('achievementsModal')" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text3);line-height:1">×</button>
+    </div>
+    <div id="achievementsBody"></div>
   </div>
 </div>
 
@@ -1154,6 +1186,105 @@ async function toggleEmergency(){
 /* ════════════════════════════════════════════════════════════
    MISC
    ════════════════════════════════════════════════════════════ */
+
+/* ── ACHIEVEMENTS ──────────────────────────────────────────── */
+function renderAchievements(){
+  /* All values derived from the live worker object W and the bookings
+     array — same sources used by renderProfile(). No new columns. */
+  const completedJobs = bookings.filter(b=>b.status==='Completed').length;
+  const acceptedJobs  = bookings.filter(b=>['Accepted','Arrived','Completed'].includes(b.status)).length;
+  const ratedBookings = bookings.filter(b=>b.status==='Completed'&&Number(b.review_rating||0)>0);
+  const rating        = ratedBookings.length
+    ? ratedBookings.reduce((s,b)=>s+Number(b.review_rating),0)/ratedBookings.length
+    : 0;
+  const rel  = Number(W.reliability_score)||0;
+  const act  = Math.min(acceptedJobs*5+completedJobs*10,100);
+  const comp = acceptedJobs>0?Math.round((completedJobs/acceptedJobs)*100):0;
+  const wsc  = Math.round((rel*.5)+(comp*.3)+(act*.2));
+  const has5Star = ratedBookings.some(b=>Number(b.review_rating)===5);
+
+  /* Helper: build one achievement card.
+     current = actual value, target = threshold to unlock,
+     pct overrides the bar fill if you need custom scaling. */
+  function card(ico,title,desc,current,target,pct){
+    const unlocked = current>=target;
+    const fill     = pct!=null ? Math.min(pct,100) : Math.min(Math.round((current/target)*100),100);
+    return `<div class="ach-card${unlocked?' unlocked':''}">
+      <div class="ach-ico">${ico}</div>
+      <div class="ach-body">
+        <div class="ach-title">${title}</div>
+        <div class="ach-desc">${desc}</div>
+        <div class="ach-prog-row">
+          <span class="ach-prog-label">Progress</span>
+          <span class="ach-prog-val">${Math.min(current,target)} / ${target}</span>
+        </div>
+        <div class="ach-bar-track"><div class="ach-bar-fill" data-fill="${fill}"></div></div>
+        <div class="ach-badge">${unlocked?'✅ Unlocked':'🔒 Locked'}</div>
+      </div>
+    </div>`;
+  }
+
+  function section(title,cards){
+    return `<div class="ach-section">
+      <div class="ach-section-title">${title}</div>
+      ${cards}
+    </div>`;
+  }
+
+  const html = [
+    section('🔨 Jobs', [
+      card('🥇','First Job','Complete your very first job.',completedJobs,1),
+      card('🏅','10 Jobs Completed','A seasoned professional.',completedJobs,10),
+      card('🥈','25 Jobs Completed','Making your mark.',completedJobs,25),
+      card('🥇','50 Jobs Completed','Half a century of service!',completedJobs,50),
+      card('🏆','100 Jobs Completed','A true QuickFix veteran.',completedJobs,100),
+    ].join('')),
+
+    section('⭐ Rating', [
+      card('⭐','First 5★ Review','Earn your first perfect rating.',has5Star?1:0,1,has5Star?100:0),
+      card('🌟','4.5+ Rated','Consistently excellent service.',rating,4.5,Math.min(Math.round((rating/4.5)*100),100)),
+      card('💫','4.8+ Rated','Near-perfect performance.',rating,4.8,Math.min(Math.round((rating/4.8)*100),100)),
+      card('✨','Perfect 5.0 Rating','The gold standard.',rating,5.0,Math.min(Math.round((rating/5)*100),100)),
+    ].join('')),
+
+    section('🛡 Reliability', [
+      card('🛡','Reliable Worker','Reliability score ≥ 90.',rel,90),
+      card('🔰','Trusted Worker','Reliability score ≥ 95.',rel,95),
+      card('💎','Perfect Reliability','Reliability score of 100.',rel,100),
+    ].join('')),
+
+    section('⚡ Activity', [
+      card('⚡','Active Worker','Activity score ≥ 25.',act,25),
+      card('🔥','Super Active','Activity score ≥ 50.',act,50),
+      card('💪','Workaholic','Activity score ≥ 75.',act,75),
+    ].join('')),
+
+    section('🏅 Worker Score', [
+      card('🥉','Bronze Worker','Worker score ≥ 40.',wsc,40),
+      card('🥈','Silver Worker','Worker score ≥ 60.',wsc,60),
+      card('🥇','Gold Worker','Worker score ≥ 80.',wsc,80),
+      card('💎','Platinum Worker','Worker score ≥ 95.',wsc,95),
+    ].join('')),
+
+    section('🚨 Emergency', `<div class="ach-coming">🚧 Emergency achievements — Coming Soon</div>`),
+
+  ].join('');
+
+  const body=document.getElementById('achievementsBody');
+  body.innerHTML=html;
+
+  /* Animate progress bars on next frame */
+  requestAnimationFrame(()=>{
+    body.querySelectorAll('.ach-bar-fill').forEach(el=>{
+      el.style.width=(el.dataset.fill||0)+'%';
+    });
+  });
+}
+
+function openAchievements(){
+  renderAchievements();
+  document.getElementById('achievementsModal').classList.add('on');
+}
 
 function closeModal(id){ document.getElementById(id).classList.remove('on'); }
 
