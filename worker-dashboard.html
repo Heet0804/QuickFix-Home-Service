@@ -907,9 +907,8 @@ if(
 }
 
 /* Safe to accept */
-const {error}=await sb
-.from('bookings')
-.update({
+/* Read current timeline */
+const {error}=await sb.from('bookings').update({
   status:'Accepted',
   w_status:'Accepted',
   worker_earning:earning,
@@ -919,15 +918,10 @@ const {error}=await sb
 .in('status',['Pending','Scheduled','Confirmed']);
 
 if(error){
-  console.error(error.message);
-  showToast('⚠️ Could not accept booking.');
+  console.error('confirmAccept:',error.message);
+  showToast('⚠️ Could not accept job: '+error.message);
   return;
 }
-  if(error){
-    console.error('confirmAccept:',error.message);
-    showToast('⚠️ Could not accept job: '+error.message);
-    return;
-  }
 
   //await bumpWorkerCounter('accepted_jobs');
 
@@ -1016,13 +1010,15 @@ async function submitArrivalOtp() {
   const newCompletionOtp = String(Math.floor(100000 + Math.random() * 900000));
 
   const { error } = await sb
-    .from('bookings')
-    .update({
-      status:         'Arrived',
-      w_status:       'Arrived',
-      arrival_otp:    null,
-      completion_otp: newCompletionOtp
-    })
+  .from('bookings')
+  .update({
+    status:         'Arrived',
+    w_status:       'Arrived',
+    arrival_otp:    null,
+    completion_otp: newCompletionOtp,
+    arrived_at:     new Date().toISOString(),
+    started_at:     new Date().toISOString()
+  })
     .eq('id', b.id);
 
   if (error) {
