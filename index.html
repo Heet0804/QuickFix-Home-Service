@@ -1802,7 +1802,7 @@ async function openProfile(id){
         <div class="pstats">
           <div class="pstat"><strong>${w.exp}</strong><span>Experience</span></div>
           <div class="pstat"><strong>${w.reviews}</strong><span>Reviews</span></div>
-          <div class="pstat"><strong>₹${w.price}</strong><span>Starting</span></div>
+          <div class="pstat"><strong>See services</strong><span>Pricing</span></div>
           <div class="pstat"><strong>${w.rating}★</strong><span>Rating</span></div>
         </div>
       </div>
@@ -2009,9 +2009,14 @@ function onTimeChange(){
 
 function updatePrice(){
   const sel=document.getElementById('bkSvc'), opt=sel.options[sel.selectedIndex];
-  const base=parseInt(sel.value)||0, fee=base?Math.min(50,Math.max(20,Math.round(base*.1))):0;
+  const fixedBase=parseInt(sel.value)||0;
+  const e=isEmerg();
+  /* Emergency = fixed price × 1.5, calculated once here for display.
+     The same formula is applied in initiateBooking() before storing. */
+  const base=e&&fixedBase?Math.round(fixedBase*1.5):fixedBase;
+  const fee=base?Math.min(50,Math.max(20,Math.round(base*.1))):0;
   document.getElementById('pSvc').textContent=opt?opt.dataset.sname:'—';
-  document.getElementById('pBase').textContent=base?`₹${base}`:'—';
+  document.getElementById('pBase').textContent=base?`₹${base}${e?' (incl. 1.5× emergency)':''}`:'—';
   document.getElementById('pFee').textContent=base?`₹${fee}`:'—';
   document.getElementById('pTotal').textContent=base?`₹${base+fee}`:'—';
 }
@@ -2023,10 +2028,14 @@ async function initiateBooking(){
   const areaId=document.getElementById('bkArea').value;
   const sel=document.getElementById('bkSvc');
   const svcName=sel.options[sel.selectedIndex]?.dataset.sname||'';
-  const base=parseInt(sel.value)||0;
+  const fixedBase=parseInt(sel.value)||0;
+  const e=isEmerg();
+  /* Price always comes from fixed service prices in the select options.
+     workers.price is never used. Emergency adds 1.5× multiplier once,
+     stored into booking.price — never recalculated after this point. */
+  const base=e&&fixedBase?Math.round(fixedBase*1.5):fixedBase;
   const fee=base?Math.min(50,Math.max(20,Math.round(base*.1))):0;
   const total=base+fee;
-  const e=isEmerg();
   let time=document.getElementById('bkTime').value;
   if(e) time=nowSlot();
   let ok=true;
