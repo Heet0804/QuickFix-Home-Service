@@ -257,11 +257,66 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 .tl-meta{font-size:.72rem;color:var(--text3);margin-top:1px}
 .tl-empty{font-size:.82rem;color:var(--text3);text-align:center;padding:.75rem 0}
 
+/* ── TABLET (≤900px) ──────────────────────────────────────── */
+@media(max-width:900px){
+  /* Nav overflows at this width — hide lower-priority items */
+  .nav-profile{display:none}
+  .clock{font-size:.68rem;padding:4px 9px}
+  .avail-lbl{font-size:.72rem}
+}
+
+/* ── MOBILE (≤680px) ──────────────────────────────────────── */
 @media(max-width:680px){
+  /* Nav: collapse to two rows */
+  .navi{height:auto;flex-wrap:wrap;padding:.5rem 0;gap:.4rem}
+  .nav-right{flex-wrap:wrap;gap:.4rem .6rem;width:100%;justify-content:flex-start}
   .nav-name,.nav-role{display:none}
+  .nav-profile{display:none}
+  .clock{font-size:.68rem;padding:4px 9px;flex-shrink:0}
+  .avail-wrap{gap:.4rem}
+  .avail-lbl{font-size:.7rem}
+  .avail-status{font-size:.68rem;padding:2px 8px}
+  .nav-profile-btn,.nav-logout{font-size:.72rem;padding:4px 9px;min-height:36px}
+
+  /* Wrap */
+  .wrap{padding:1rem .875rem 4.5rem}
+
+  /* Profile card stacks vertically */
+  .profile-card{flex-direction:column;align-items:flex-start;gap:.75rem}
   .pc-stats{width:100%;justify-content:space-between}
-  .pc-stat{flex:1;padding:.55rem .4rem}
-  .job-price{text-align:right}
+  .pc-stat{flex:1;padding:.55rem .4rem;min-width:0}
+
+  /* Perf grid: 2 columns on mobile */
+  .perf-grid{grid-template-columns:repeat(2,1fr)}
+  .earn-grid,.accept-row{grid-template-columns:repeat(3,1fr)}
+
+  /* Tabs: full width, scroll if needed */
+  .tabs{width:100%;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{font-size:.76rem;padding:6px 10px;white-space:nowrap;flex-shrink:0}
+
+  /* Job card */
+  .job-top{flex-wrap:wrap}
+  .job-price{text-align:left;width:100%;margin-top:.3rem}
+  .job-acts button{min-height:44px;font-size:.78rem}
+
+  /* Modal touch targets */
+  .modal{padding:1.35rem 1rem}
+  .modal-acts button{min-height:48px;font-size:.875rem}
+  .modal-otp-input{min-height:56px;font-size:1.2rem}
+
+  /* Toast must not overflow 320px */
+  .toast{right:.75rem;left:.75rem;max-width:calc(100vw - 1.5rem)}
+}
+
+/* ── SMALL MOBILE (≤400px) ────────────────────────────────── */
+@media(max-width:400px){
+  .wrap{padding:.875rem .75rem 4rem}
+  .perf-grid{grid-template-columns:repeat(2,1fr);gap:.5rem}
+  .earn-grid,.accept-row{grid-template-columns:1fr}
+  .profile-card{padding:1rem}
+  .tabs{gap:.2rem}
+  .tab{font-size:.72rem;padding:6px 8px}
 }
 
 /* ── ACHIEVEMENTS ──────────────────────────────────────────── */

@@ -75,14 +75,34 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .toast.on{transform:translateY(0);opacity:1}
 @media(max-width:780px){
   body{grid-template-columns:1fr;grid-template-rows:auto 1fr}
-  .left{padding:1rem 1.25rem;min-height:auto;flex-direction:row;align-items:center;justify-content:space-between;gap:1rem}
+  .left{padding:1rem 1.25rem;min-height:auto;flex-direction:row;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
   .left::before,.left::after{display:none}
   .left-main,.left-footer{display:none}
   .left-logo{margin-bottom:0}
   .left-mobile-tag{display:block}
-  .right{padding:1.5rem 1.25rem 2.5rem}
+  .right{padding:1.5rem 1.25rem 2.5rem;min-height:0;width:100%}
   .role-toggle,.auth-box{max-width:100%}
   .frow{grid-template-columns:1fr}
+  /* Touch-friendly inputs and buttons */
+  .finput,.fselect{padding:.8rem .95rem;font-size:1rem;min-height:48px}
+  .submit-btn{padding:1rem;min-height:52px;font-size:1rem}
+  .rtab{padding:.65rem;min-height:44px}
+  .sbtn{min-height:44px;padding:.7rem}
+  .ftab{padding:.35rem 0;min-height:44px}
+  /* Social buttons stack on very narrow screens */
+  .social-btns{flex-wrap:wrap}
+  /* Toast must not overflow viewport */
+  .toast{right:1rem;left:1rem;max-width:calc(100vw - 2rem)}
+}
+
+@media(max-width:400px){
+  .left{padding:.75rem 1rem}
+  .right{padding:1.25rem 1rem 2rem}
+  .auth-box h1{font-size:1.45rem}
+  .role-toggle{padding:3px}
+  .rtab{font-size:.75rem;gap:3px}
+  .social-btns{flex-direction:column}
+  .sbtn{width:100%}
 }
 
 .file-upload-label{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1.5px dashed var(--border);border-radius:var(--radius-sm);padding:1.1rem .95rem;background:#fdfaf7;cursor:pointer;transition:all .2s ease;position:relative;overflow:hidden}

@@ -103,12 +103,64 @@ footer a:hover{color:#fff}
 @keyframes fadeDown{from{opacity:0;transform:translateY(-18px)}to{opacity:1;transform:translateY(0)}}
 .reveal{opacity:0;transform:translateY(24px);transition:opacity .6s ease,transform .6s ease;}
 .reveal.on{opacity:1;transform:translateY(0)}
+/* ── TABLET (max 900px) ───────────────────────────────────── */
+@media(max-width:900px){
+  .section{padding:3.5rem 1.5rem}
+  .steps-grid{grid-template-columns:repeat(2,1fr)}
+  .services-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}
+}
+
+/* ── MOBILE (max 600px) ───────────────────────────────────── */
 @media(max-width:600px){
-  .path-wrap{grid-template-columns:1fr}
-  .stats-strip{gap:1.25rem}
+  /* Nav */
+  nav{padding:.75rem 1rem;gap:.5rem;flex-wrap:wrap}
+  .nav-right{gap:.5rem}
+  .nav-cta{padding:.5rem .9rem;font-size:.78rem}
+  .nav-dash{padding:.45rem .8rem;font-size:.75rem}
+
+  /* Hero */
+  .hero{padding:5.5rem 1rem 3.5rem;min-height:auto}
+  .hero-badge{font-size:.72rem;padding:.35rem .8rem}
+  .hero-sub{margin-bottom:2rem}
+
+  /* Path cards */
+  .path-wrap{grid-template-columns:1fr;gap:1rem;margin-bottom:2rem}
+  .path-card{padding:1.5rem 1.25rem}
+  .card-title{font-size:1.25rem}
+  .card-btn{padding:.65rem 1rem;font-size:.82rem;min-height:44px}
+
+  /* Stats */
+  .stats-strip{gap:.75rem 1.25rem;justify-content:center}
   .stat-div{display:none}
-  nav{padding:1rem 1.25rem}
-  .hero{padding:5rem 1.25rem 4rem}
+  .stat-num{font-size:1.2rem}
+
+  /* Sections */
+  .section{padding:2.75rem 1rem}
+  .section-sub{margin-bottom:2rem}
+
+  /* Steps — single column on small mobile */
+  .steps-grid{grid-template-columns:1fr;gap:1rem}
+  .step-card{padding:1.35rem 1.1rem}
+
+  /* Services grid — 3 per row minimum, touch-friendly */
+  .services-grid{grid-template-columns:repeat(3,1fr);gap:.6rem}
+  .svc-pill{padding:1rem .5rem;min-height:72px;justify-content:center}
+  .svc-pill-ico{font-size:1.35rem}
+  .svc-pill-lbl{font-size:.67rem}
+
+  /* Footer */
+  footer{padding:1.5rem 1rem}
+  footer p{line-height:1.8}
+  footer a{display:inline-block;margin:.25rem .5rem;min-height:44px;line-height:44px}
+}
+
+/* ── VERY SMALL (max 380px) ───────────────────────────────── */
+@media(max-width:380px){
+  .hero h1{letter-spacing:-.03em}
+  .path-card{padding:1.25rem 1rem}
+  .services-grid{grid-template-columns:repeat(2,1fr)}
+  .stats-strip{flex-direction:column;gap:.6rem;align-items:center}
+  .stat-div{display:none}
 }
 </style>
 </head>

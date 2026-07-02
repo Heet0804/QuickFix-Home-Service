@@ -261,6 +261,19 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);position:sti
 .tl-toggle.open .tl-arr{transform:rotate(180deg)}
 .tl-wrap{max-height:0;overflow:hidden;transition:max-height .38s cubic-bezier(.4,0,.2,1),opacity .25s ease;opacity:0;width:100%}
 .tl-wrap.open{max-height:600px;opacity:1}
+
+/* ── LIVE WORKER TRACKING ─────────────────────────────────── */
+.trk-toggle{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:4px 11px;border-radius:50px;border:1px solid var(--teal);background:var(--teal-light);font-size:.72rem;font-weight:600;color:var(--teal);cursor:pointer;transition:var(--tr);line-height:1.4}
+.trk-toggle:hover{background:#d5ecdf;border-color:#3a7a5e}
+.trk-toggle .trk-arr{font-size:.6rem;transition:transform .25s ease}
+.trk-toggle.open .trk-arr{transform:rotate(180deg)}
+.trk-wrap{max-height:0;overflow:hidden;transition:max-height .4s cubic-bezier(.4,0,.2,1),opacity .25s ease;opacity:0;width:100%}
+.trk-wrap.open{max-height:420px;opacity:1}
+.trk-body{padding:.75rem 0 .2rem}
+.trk-map{width:100%;height:300px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface3);overflow:hidden}
+.trk-meta{display:flex;align-items:center;gap:.5rem;font-size:.75rem;font-weight:600;color:var(--teal);margin-top:.5rem}
+.trk-meta .trk-dot{width:7px;height:7px;border-radius:50%;background:var(--teal);animation:ep 1.4s infinite;flex-shrink:0}
+@media(max-width:640px){.trk-map{height:220px}}
 .tl-body{padding:.9rem 0 .25rem .3rem;border-top:1px solid var(--border);margin-top:.6rem}
 .tl-step{display:flex;align-items:flex-start;gap:.7rem;position:relative;padding-bottom:1.05rem}
 .tl-step:last-child{padding-bottom:0}
@@ -350,6 +363,10 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
   .navlinks{display:none;flex-direction:column;position:absolute;top:60px;left:0;right:0;background:var(--surface);border-bottom:1px solid var(--border);padding:.875rem;gap:3px;z-index:299}
   .navlinks.open{display:flex}.hbg{display:flex}
   .clock{font-size:.7rem;padding:4px 9px}
+  /* Touch-friendly nav items */
+  .nl{min-height:44px;display:inline-flex;align-items:center}
+  /* Worker grid: prevent cards forcing horizontal scroll on tablets */
+  .wgrid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
 }
 @media(max-width:640px){
   .hero{padding:1.75rem 1.1rem}.hstats{gap:1.1rem}
@@ -361,6 +378,43 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
   .cotps,.otppair{grid-template-columns:1fr}
   .rg{grid-template-columns:1fr}
   .hhgrid{grid-template-columns:1fr 1fr}
+  /* Worker grid: single column so cards never overflow */
+  .wgrid{grid-template-columns:1fr}
+  /* Touch-friendly inputs and buttons */
+  .finput,.fselect{min-height:48px;font-size:1rem}
+  .btn.blg{min-height:48px;padding:12px 18px}
+  .nl{min-height:44px;display:inline-flex;align-items:center}
+  /* Booking tabs wrap and fill width on small screens */
+  .bktabs{width:100%;justify-content:flex-start}
+  .bktab{flex:1;justify-content:center;text-align:center;min-height:40px}
+  /* Prevent sticky pricebox going off-screen */
+  .pricebox{position:static}
+  /* Service item price label wraps instead of overflowing */
+  .svitem{flex-wrap:wrap;gap:.35rem}
+  /* Emergency bar wraps on narrow screens */
+  .ebar{flex-wrap:wrap;padding:.5rem 1rem;gap:6px}
+  /* Modal padding reduced for small screens */
+  .modal{padding:1.5rem 1.1rem;border-radius:14px}
+  /* Big timer fits on screen */
+  .bigtmr{font-size:2rem;letter-spacing:1px}
+  /* Toast must not overflow 320px viewport */
+  .toast{right:.75rem;left:.75rem;max-width:calc(100vw - 1.5rem)}
+}
+@media(max-width:400px){
+  .bk-date-time-row{grid-template-columns:1fr}
+  .wrap{padding:.875rem .75rem 4rem}
+  .hero{padding:1.4rem .875rem}
+  .hero h1{font-size:1.4rem}
+  /* Date/time inline grid (not class-based, target via booking form context) */
+  .bklayout .fg,
+  .bklayout > .csec > div[style*="grid-template-columns:1fr 1fr"]{
+    display:flex;flex-direction:column
+  }
+  .modal{padding:1.25rem .875rem}
+  .bkitem{padding:.9rem 1rem}
+  .bigtmr{font-size:1.65rem}
+  /* Stats strip in hero */
+  .hstats{gap:.75rem}
 }
 </style>
 </head>
@@ -540,7 +594,7 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
         <div class="cst">📋 Booking Details</div>
         <div id="bkWorkerInfo" style="margin-bottom:1.1rem"></div>
         <div class="fg"><label class="flabel">Select Service</label><select class="fselect" id="bkSvc" onchange="updatePrice()"></select></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.95rem">
+        <div class="bk-date-time-row" style="display:grid;grid-template-columns:1fr 1fr;gap:.95rem">
           <div class="fg"><label class="flabel">Date</label><input type="date" class="finput" id="bkDate" onchange="onDateChange()"/></div>
           <div class="fg" id="bkTimeGrp"><label class="flabel">Time (8:30 AM – 9:45 PM)</label><select class="fselect" id="bkTime" onchange="onTimeChange()"><option value="">Select time…</option></select></div>
         </div>
@@ -897,6 +951,9 @@ function normalizeBookings(raw){
     completed_at:b.completed_at|| null,
     accepted_at: b.accepted_at || null,
     started_at:  b.started_at  || null,
+    /* Live tracking columns — worker GPS from bookings table only */
+    worker_live_lat: b.worker_live_lat != null ? Number(b.worker_live_lat) : null,
+    worker_live_lng: b.worker_live_lng != null ? Number(b.worker_live_lng) : null,
   }));
 }
 
@@ -2545,6 +2602,149 @@ function toggleTimeline(id){
   }
 }
 
+/* ── LIVE WORKER TRACKING ─────────────────────────────────── */
+const TRACKING_ZOOM   = 14;
+const TRACKING_HEIGHT = 300; /* matches .trk-map CSS height; update both together */
+
+/* Maps bookingId → { map, workerMarker, directionsService, directionsRenderer, channel }
+   Created once per booking, never recreated on re-renders or re-opens. */
+const _trkState = {};
+
+/* FIX 2: load SDK exactly once — guard against concurrent calls with a promise cache */
+let _mapsLoadPromise = null;
+function _loadGoogleMaps(){
+  if(window.google && window.google.maps) return Promise.resolve();
+  if(_mapsLoadPromise) return _mapsLoadPromise;
+  _mapsLoadPromise = new Promise((resolve, reject)=>{
+    const s=document.createElement('script');
+    /* Replace YOUR_GOOGLE_MAPS_KEY with your actual API key */
+    s.src='https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_KEY&libraries=geometry';
+    s.async=true; s.defer=true;
+    s.onload=resolve;
+    s.onerror=()=>{ _mapsLoadPromise=null; reject(new Error('Maps SDK failed to load')); };
+    document.head.appendChild(s);
+  });
+  return _mapsLoadPromise;
+}
+
+async function toggleTracking(bkId, workerLat, workerLng){
+  const btn =document.getElementById('trk-btn-'+bkId);
+  const wrap=document.getElementById('trk-wrap-'+bkId);
+  if(!btn||!wrap) return;
+  const opening=!wrap.classList.contains('open');
+  wrap.classList.toggle('open', opening);
+  btn.classList.toggle('open', opening);
+  btn.innerHTML=opening
+    ?'📍 Track Worker <span class="trk-arr">▲</span>'
+    :'📍 Track Worker <span class="trk-arr">▼</span>';
+
+  if(!opening){
+    /* FIX 3: unsubscribe only on collapse, not on every re-open */
+    if(_trkState[bkId]?.channel){
+      sb.removeChannel(_trkState[bkId].channel);
+      _trkState[bkId].channel=null;
+    }
+    return;
+  }
+
+  /* FIX 3: map already exists — just re-subscribe (channel was removed on collapse) */
+  if(_trkState[bkId]?.map){
+    _trkSubscribe(bkId);
+    return;
+  }
+
+  /* First open — build the map */
+  try{ await _loadGoogleMaps(); }
+  catch(e){
+    const el=document.getElementById('trk-eta-'+bkId);
+    if(el) el.textContent='⚠️ Could not load Google Maps.';
+    return;
+  }
+
+  const mapEl=document.getElementById('trk-map-'+bkId);
+  if(!mapEl) return;
+
+  /* FIX 1: use worker_live_lat/lng directly — no geocoding at all.
+     If coordinates are missing, show a message and stop. */
+  const initLat=Number(workerLat), initLng=Number(workerLng);
+  const hasCoords=!isNaN(initLat)&&!isNaN(initLng)&&workerLat!=null&&workerLng!=null;
+
+  if(!hasCoords){
+    const el=document.getElementById('trk-eta-'+bkId);
+    if(el) el.textContent='Worker location unavailable.';
+  }
+
+  const centre=hasCoords
+    ? new google.maps.LatLng(initLat, initLng)
+    : new google.maps.LatLng(20.5937, 78.9629); /* India fallback — map still loads */
+
+  const map=new google.maps.Map(mapEl,{
+    center:centre, zoom:TRACKING_ZOOM,
+    disableDefaultUI:true, zoomControl:true,
+    styles:[{featureType:'poi',stylers:[{visibility:'off'}]}]
+  });
+
+  /* Worker marker — starts at current known position */
+  const workerMarker=new google.maps.Marker({
+    position:centre, map,
+    label:{text:'🔧',fontSize:'20px'},
+    title:'Worker Location',
+    visible:hasCoords
+  });
+
+  const directionsService  =new google.maps.DirectionsService();
+  const directionsRenderer =new google.maps.DirectionsRenderer({
+    map, suppressMarkers:true,
+    polylineOptions:{strokeColor:'#4a8b6e',strokeWeight:4,strokeOpacity:.85}
+  });
+
+  _trkState[bkId]={map, workerMarker, directionsService, directionsRenderer, channel:null};
+
+  _trkSubscribe(bkId);
+}
+
+function _trkSubscribe(bkId){
+  /* FIX 3: never create a duplicate channel */
+  if(_trkState[bkId]?.channel) return;
+
+  /* Fetch current position immediately on subscribe */
+  sb.from('bookings')
+    .select('worker_live_lat,worker_live_lng')
+    .eq('id',bkId).single()
+    .then(({data})=>{
+      if(data) _trkUpdate(bkId, data.worker_live_lat, data.worker_live_lng);
+    });
+
+  const ch=sb.channel('trk-'+bkId)
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'bookings',
+      filter:`id=eq.${bkId}`},
+      payload=>{
+        const {worker_live_lat:lat, worker_live_lng:lng}=payload.new;
+        /* FIX 7: guard invalid coords in realtime handler */
+        if(lat==null||lng==null||isNaN(Number(lat))||isNaN(Number(lng))) return;
+        _trkUpdate(bkId, lat, lng);
+      })
+    .subscribe();
+  _trkState[bkId].channel=ch;
+}
+
+function _trkUpdate(bkId, rawLat, rawLng){
+  const st=_trkState[bkId];
+  if(!st?.map) return;
+
+  if(rawLat==null||rawLng==null) return;
+  const lat=Number(rawLat), lng=Number(rawLng);
+  if(isNaN(lat)||isNaN(lng)) return;
+
+  const workerPos=new google.maps.LatLng(lat,lng);
+  st.workerMarker.setPosition(workerPos);
+  st.workerMarker.setVisible(true);
+  st.map.panTo(workerPos);
+
+  const etaEl=document.getElementById('trk-eta-'+bkId);
+  if(etaEl) etaEl.textContent='📍 Live worker location';
+}
+
 /* ── MY BOOKINGS ──────────────────────────────────────────── */
 async function renderBookings(){
   /* Remember which timelines are currently open so we can restore them
@@ -2552,6 +2752,10 @@ async function renderBookings(){
   const openTls=new Set(
     [...document.querySelectorAll('.tl-wrap.open')]
       .map(el=>el.id.replace('tl-wrap-',''))
+  );
+  const openTrks=new Set(
+    [...document.querySelectorAll('.trk-wrap.open')]
+      .map(el=>el.id.replace('trk-wrap-',''))
   );
   const all=normalizeBookings(await DB.bookings());
   let list=all;
@@ -2642,6 +2846,14 @@ const cancelBtn=canCancel
         <div class="bkacts">${trackBtn}${compBtn}${cancelBtn}${bookAgainBtn}${rateBtn}</div>
         <button class="tl-toggle" id="tl-btn-${b.id}" onclick="toggleTimeline('${b.id}')">▼ View Timeline <span class="tl-arr">▼</span></button>
         <div class="tl-wrap" id="tl-wrap-${b.id}">${buildTimeline(b)}</div>
+        ${['Accepted','Worker on Way','Arrived'].includes(b.status)?`
+        <button class="trk-toggle" id="trk-btn-${b.id}" onclick="toggleTracking('${b.id}',${b.worker_live_lat!=null?b.worker_live_lat:'null'},${b.worker_live_lng!=null?b.worker_live_lng:'null'})">📍 Track Worker <span class="trk-arr">▼</span></button>
+        <div class="trk-wrap" id="trk-wrap-${b.id}">
+          <div class="trk-body">
+            <div class="trk-map" id="trk-map-${b.id}"></div>
+            <div class="trk-meta" id="trk-meta-${b.id}"><span class="trk-dot"></span><span id="trk-eta-${b.id}">${b.worker_live_lat!=null?'Fetching location…':'Worker location unavailable.'}</span></div>
+          </div>
+        </div>`:''}
       </div>
       <div class="bkst"><span class="bdg ${cls}">${b.status}</span></div>
     </div>`;
@@ -2655,6 +2867,18 @@ const cancelBtn=canCancel
       btn.classList.add('open');
       btn.innerHTML='▲ Hide Timeline <span class="tl-arr">▲</span>';
     }
+  });
+  /* FIX 4: restore open tracking panels and reconnect subscriptions */
+  openTrks.forEach(id=>{
+    const wrap=document.getElementById('trk-wrap-'+id);
+    const btn=document.getElementById('trk-btn-'+id);
+    if(!wrap||!btn) return;
+    wrap.classList.add('open');
+    btn.classList.add('open');
+    btn.innerHTML='📍 Track Worker <span class="trk-arr">▲</span>';
+    /* Map object still exists in _trkState — just re-subscribe (channel was
+       removed when DOM was destroyed; FIX 3 prevents duplicates) */
+    if(_trkState[id]?.map) _trkSubscribe(id);
   });
 }
 

@@ -193,15 +193,47 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 .mt-empty{text-align:center;padding:2rem;font-size:.82rem;color:var(--text3)}
 
 @media(max-width:680px){
+  /* Nav */
+  nav{padding:0 .875rem}
+  .navi{height:auto;min-height:56px;flex-wrap:wrap;padding:.4rem 0;gap:.4rem}
+  .nav-right{gap:.45rem;flex-wrap:wrap}
   .nav-name,.nav-role{display:none}
+  .nav-profile{display:none}
+  .nav-back{font-size:.75rem;padding:.4rem .75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
+  .nav-logout{font-size:.75rem;padding:4px 10px;min-height:36px}
+
+  /* Wrap */
+  .wrap{padding:1rem .875rem 4.5rem}
+
+  /* Profile card */
+  .pc-top{flex-direction:column;align-items:flex-start;gap:.875rem}
+  .pc-stats{gap:.5rem}
+  .pc-stat{padding:.55rem .5rem;min-width:calc(50% - .25rem);flex:unset}
+  .pc-actions{justify-content:stretch}
+  .btn-edit,.btn-cancel{flex:1;justify-content:center;min-height:44px}
+
+  /* Section card */
+  .section-card{padding:1rem}
+
+  /* Info grid and form */
   .info-grid,.frow{grid-template-columns:1fr}
   .irow.full{grid-column:1}
-  .pc-stats{gap:.5rem}
-  .pc-stat{padding:.55rem .5rem}
+
+  /* Perf grid */
   .perf-grid{grid-template-columns:repeat(2,1fr)}
-  .pc-actions{justify-content:stretch}
-  .btn-edit,.btn-cancel{flex:1;justify-content:center}
-  nav{padding:0 .875rem}
+
+  /* Touch-friendly inputs */
+  .finput,.fselect{min-height:48px;font-size:1rem}
+
+  /* Toast */
+  .toast{right:.75rem;left:.75rem;max-width:calc(100vw - 1.5rem)}
+}
+
+@media(max-width:400px){
+  .wrap{padding:.875rem .75rem 4rem}
+  .pc-stat{min-width:calc(50% - .2rem)}
+  .perf-grid{gap:.5rem}
+  .section-card{padding:.875rem}
 }
 </style>
 </head>
