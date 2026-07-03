@@ -6,6 +6,8 @@
 <title>QuickFix – Local Service Booking</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>"/>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -2602,147 +2604,101 @@ function toggleTimeline(id){
   }
 }
 
-/* ── LIVE WORKER TRACKING ─────────────────────────────────── */
-const TRACKING_ZOOM   = 14;
-const TRACKING_HEIGHT = 300; /* matches .trk-map CSS height; update both together */
+/* ── LIVE WORKER TRACKING (Leaflet + OpenStreetMap) ───────────
+   No polling, no timers, no extra Supabase channels.
+   updateTrackingMaps() is called by renderBookings() after every
+   refresh — that is the only update mechanism. */
+const TRACKING_ZOOM = 15;
 
-/* Maps bookingId → { map, workerMarker, directionsService, directionsRenderer, channel }
-   Created once per booking, never recreated on re-renders or re-opens. */
+/* bookingId → { map: L.Map, marker: L.Marker } */
 const _trkState = {};
 
-/* FIX 2: load SDK exactly once — guard against concurrent calls with a promise cache */
-let _mapsLoadPromise = null;
-function _loadGoogleMaps(){
-  if(window.google && window.google.maps) return Promise.resolve();
-  if(_mapsLoadPromise) return _mapsLoadPromise;
-  _mapsLoadPromise = new Promise((resolve, reject)=>{
-    const s=document.createElement('script');
-    /* Replace YOUR_GOOGLE_MAPS_KEY with your actual API key */
-    s.src='https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_KEY&libraries=geometry';
-    s.async=true; s.defer=true;
-    s.onload=resolve;
-    s.onerror=()=>{ _mapsLoadPromise=null; reject(new Error('Maps SDK failed to load')); };
-    document.head.appendChild(s);
-  });
-  return _mapsLoadPromise;
-}
-
-async function toggleTracking(bkId, workerLat, workerLng){
-  const btn =document.getElementById('trk-btn-'+bkId);
-  const wrap=document.getElementById('trk-wrap-'+bkId);
-  if(!btn||!wrap) return;
-  const opening=!wrap.classList.contains('open');
+function toggleTracking(bkId){
+  const btn  = document.getElementById('trk-btn-'+bkId);
+  const wrap = document.getElementById('trk-wrap-'+bkId);
+  if(!btn || !wrap) return;
+  const opening = !wrap.classList.contains('open');
   wrap.classList.toggle('open', opening);
   btn.classList.toggle('open', opening);
-  btn.innerHTML=opening
-    ?'📍 Track Worker <span class="trk-arr">▲</span>'
-    :'📍 Track Worker <span class="trk-arr">▼</span>';
-
-  if(!opening){
-    /* FIX 3: unsubscribe only on collapse, not on every re-open */
-    if(_trkState[bkId]?.channel){
-      sb.removeChannel(_trkState[bkId].channel);
-      _trkState[bkId].channel=null;
-    }
-    return;
+  btn.innerHTML = opening
+    ? '📍 Track Worker <span class="trk-arr">▲</span>'
+    : '📍 Track Worker <span class="trk-arr">▼</span>';
+  if(opening){
+    setTimeout(()=>{
+      if(_trkState[bkId]?.map) _trkState[bkId].map.invalidateSize();
+    }, 450);
   }
-
-  /* FIX 3: map already exists — just re-subscribe (channel was removed on collapse) */
-  if(_trkState[bkId]?.map){
-    _trkSubscribe(bkId);
-    return;
-  }
-
-  /* First open — build the map */
-  try{ await _loadGoogleMaps(); }
-  catch(e){
-    const el=document.getElementById('trk-eta-'+bkId);
-    if(el) el.textContent='⚠️ Could not load Google Maps.';
-    return;
-  }
-
-  const mapEl=document.getElementById('trk-map-'+bkId);
-  if(!mapEl) return;
-
-  /* FIX 1: use worker_live_lat/lng directly — no geocoding at all.
-     If coordinates are missing, show a message and stop. */
-  const initLat=Number(workerLat), initLng=Number(workerLng);
-  const hasCoords=!isNaN(initLat)&&!isNaN(initLng)&&workerLat!=null&&workerLng!=null;
-
-  if(!hasCoords){
-    const el=document.getElementById('trk-eta-'+bkId);
-    if(el) el.textContent='Worker location unavailable.';
-  }
-
-  const centre=hasCoords
-    ? new google.maps.LatLng(initLat, initLng)
-    : new google.maps.LatLng(20.5937, 78.9629); /* India fallback — map still loads */
-
-  const map=new google.maps.Map(mapEl,{
-    center:centre, zoom:TRACKING_ZOOM,
-    disableDefaultUI:true, zoomControl:true,
-    styles:[{featureType:'poi',stylers:[{visibility:'off'}]}]
-  });
-
-  /* Worker marker — starts at current known position */
-  const workerMarker=new google.maps.Marker({
-    position:centre, map,
-    label:{text:'🔧',fontSize:'20px'},
-    title:'Worker Location',
-    visible:hasCoords
-  });
-
-  const directionsService  =new google.maps.DirectionsService();
-  const directionsRenderer =new google.maps.DirectionsRenderer({
-    map, suppressMarkers:true,
-    polylineOptions:{strokeColor:'#4a8b6e',strokeWeight:4,strokeOpacity:.85}
-  });
-
-  _trkState[bkId]={map, workerMarker, directionsService, directionsRenderer, channel:null};
-
-  _trkSubscribe(bkId);
 }
 
-function _trkSubscribe(bkId){
-  /* FIX 3: never create a duplicate channel */
-  if(_trkState[bkId]?.channel) return;
+/* Called by renderBookings() after every re-render.
+   Creates the Leaflet map once when coords first arrive,
+   then only moves the marker on subsequent calls. */
+function updateTrackingMaps(bookingList){
+  bookingList.forEach(b=>{
+    /* Requirement 7: only show tracking for Accepted and Worker on Way.
+       Arrived means worker is there — tracking section is hidden in template. */
+    if(!['Accepted','Worker on Way'].includes(b.status)) return;
 
-  /* Fetch current position immediately on subscribe */
-  sb.from('bookings')
-    .select('worker_live_lat,worker_live_lng')
-    .eq('id',bkId).single()
-    .then(({data})=>{
-      if(data) _trkUpdate(bkId, data.worker_live_lat, data.worker_live_lng);
+    const lat = b.worker_live_lat != null ? Number(b.worker_live_lat) : null;
+    const lng = b.worker_live_lng != null ? Number(b.worker_live_lng) : null;
+    const hasCoords = lat != null && lng != null && !isNaN(lat) && !isNaN(lng);
+
+    const msgEl = document.getElementById('trk-eta-'+b.id);
+
+    if(!hasCoords){
+      /* No coords yet — show message, do not create map */
+      if(msgEl) msgEl.textContent = 'Waiting for worker location...';
+      return;
+    }
+
+    if(_trkState[b.id]){
+      /* Map already exists — only move marker, never recreate */
+      _trkState[b.id].marker.setLatLng([lat, lng]);
+      _trkState[b.id].map.panTo([lat, lng]);
+      if(msgEl) msgEl.textContent = '📍 Live worker location';
+      return;
+    }
+
+    /* First time valid coords exist — build the map */
+    const mapEl = document.getElementById('trk-map-'+b.id);
+    if(!mapEl) return;
+
+    /* Guard: destroy any stale Leaflet instance on this container */
+    if(mapEl._leaflet_id != null){
+      try{ _trkState[b.id]?.map?.remove(); }catch(_){}
+      delete _trkState[b.id];
+    }
+
+    const map = L.map(mapEl, { zoomControl:true, attributionControl:false })
+                 .setView([lat, lng], TRACKING_ZOOM);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      maxZoom:19
+    }).addTo(map);
+
+    _trkState[b.id] = { map, marker };
+
+    /* If the panel is already open, invalidate immediately */
+    const wrap = document.getElementById('trk-wrap-'+b.id);
+    if(wrap && wrap.classList.contains('open')){
+      setTimeout(()=>{ map.invalidateSize(); }, 450);
+    }
+
+    /* Force Leaflet to recalculate dimensions after tiles load.
+       Without this the map renders blank inside a collapsed container. */
+    setTimeout(()=>{ map.invalidateSize(); }, 450);
+
+    const workerIcon = L.divIcon({
+      html:'<div style="font-size:24px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))">🔧</div>',
+      className:'',
+      iconSize:[28,28],
+      iconAnchor:[14,14]
     });
 
-  const ch=sb.channel('trk-'+bkId)
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'bookings',
-      filter:`id=eq.${bkId}`},
-      payload=>{
-        const {worker_live_lat:lat, worker_live_lng:lng}=payload.new;
-        /* FIX 7: guard invalid coords in realtime handler */
-        if(lat==null||lng==null||isNaN(Number(lat))||isNaN(Number(lng))) return;
-        _trkUpdate(bkId, lat, lng);
-      })
-    .subscribe();
-  _trkState[bkId].channel=ch;
-}
-
-function _trkUpdate(bkId, rawLat, rawLng){
-  const st=_trkState[bkId];
-  if(!st?.map) return;
-
-  if(rawLat==null||rawLng==null) return;
-  const lat=Number(rawLat), lng=Number(rawLng);
-  if(isNaN(lat)||isNaN(lng)) return;
-
-  const workerPos=new google.maps.LatLng(lat,lng);
-  st.workerMarker.setPosition(workerPos);
-  st.workerMarker.setVisible(true);
-  st.map.panTo(workerPos);
-
-  const etaEl=document.getElementById('trk-eta-'+bkId);
-  if(etaEl) etaEl.textContent='📍 Live worker location';
+    const marker = L.marker([lat, lng],{ icon:workerIcon }).addTo(map);
+    _trkState[b.id] = { map, marker };
+    if(msgEl) msgEl.textContent = '📍 Live worker location';
+  });
 }
 
 /* ── MY BOOKINGS ──────────────────────────────────────────── */
@@ -2846,12 +2802,12 @@ const cancelBtn=canCancel
         <div class="bkacts">${trackBtn}${compBtn}${cancelBtn}${bookAgainBtn}${rateBtn}</div>
         <button class="tl-toggle" id="tl-btn-${b.id}" onclick="toggleTimeline('${b.id}')">▼ View Timeline <span class="tl-arr">▼</span></button>
         <div class="tl-wrap" id="tl-wrap-${b.id}">${buildTimeline(b)}</div>
-        ${['Accepted','Worker on Way','Arrived'].includes(b.status)?`
-        <button class="trk-toggle" id="trk-btn-${b.id}" onclick="toggleTracking('${b.id}',${b.worker_live_lat!=null?b.worker_live_lat:'null'},${b.worker_live_lng!=null?b.worker_live_lng:'null'})">📍 Track Worker <span class="trk-arr">▼</span></button>
+        ${['Accepted','Worker on Way'].includes(b.status)?`
+        <button class="trk-toggle" id="trk-btn-${b.id}" onclick="toggleTracking('${b.id}')">📍 Track Worker <span class="trk-arr">▼</span></button>
         <div class="trk-wrap" id="trk-wrap-${b.id}">
           <div class="trk-body">
             <div class="trk-map" id="trk-map-${b.id}"></div>
-            <div class="trk-meta" id="trk-meta-${b.id}"><span class="trk-dot"></span><span id="trk-eta-${b.id}">${b.worker_live_lat!=null?'Fetching location…':'Worker location unavailable.'}</span></div>
+            <div class="trk-meta" id="trk-meta-${b.id}"><span class="trk-dot"></span><span id="trk-eta-${b.id}">Waiting for worker location...</span></div>
           </div>
         </div>`:''}
       </div>
@@ -2868,7 +2824,9 @@ const cancelBtn=canCancel
       btn.innerHTML='▲ Hide Timeline <span class="tl-arr">▲</span>';
     }
   });
-  /* FIX 4: restore open tracking panels and reconnect subscriptions */
+  /* Restore open tracking panels after re-render.
+     If the booking moved to Arrived/Completed, its trk- elements no
+     longer exist in the DOM — the forEach just skips them silently. */
   openTrks.forEach(id=>{
     const wrap=document.getElementById('trk-wrap-'+id);
     const btn=document.getElementById('trk-btn-'+id);
@@ -2876,10 +2834,14 @@ const cancelBtn=canCancel
     wrap.classList.add('open');
     btn.classList.add('open');
     btn.innerHTML='📍 Track Worker <span class="trk-arr">▲</span>';
-    /* Map object still exists in _trkState — just re-subscribe (channel was
-       removed when DOM was destroyed; FIX 3 prevents duplicates) */
-    if(_trkState[id]?.map) _trkSubscribe(id);
+    /* Re-run invalidateSize since container just became visible again */
+    if(_trkState[id]?.map){
+      setTimeout(()=>{ _trkState[id].map.invalidateSize(); }, 420);
+    }
   });
+  /* Pass full booking list so active bookings are always tracked
+     regardless of which tab the user is currently viewing */
+  updateTrackingMaps(all);
 }
 
 async function cancelBk(id){

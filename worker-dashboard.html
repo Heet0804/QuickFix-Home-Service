@@ -1529,6 +1529,81 @@ renderProfile=function(){
   renderReliabilityPill();
 };
 
+/* ── LIVE GPS PUBLISHING ──────────────────────────────────────
+   One watchPosition watcher, one active booking at a time.
+   Starts automatically on boot if an active booking exists,
+   restarts when a new booking becomes active, stops when the
+   booking completes/cancels or the worker goes offline. */
+let _gpsWatchId   = null;   /* navigator.geolocation watch handle */
+let _gpsBookingId = null;   /* booking currently receiving GPS updates */
+
+const GPS_ACTIVE_STATUSES = ['Accepted', 'Worker on Way', 'Arrived'];
+
+function _getActiveBookingId(){
+  /* bookings is the module-level array kept by loadBookings() */
+  const b = (bookings||[]).find(b => GPS_ACTIVE_STATUSES.includes(b.status));
+  return b ? b.id : null;
+}
+
+function _stopGPS(){
+  if(_gpsWatchId !== null){
+    navigator.geolocation.clearWatch(_gpsWatchId);
+    console.log('GPS stopped');
+    _gpsWatchId   = null;
+    _gpsBookingId = null;
+  }
+}
+
+function _startGPS(bookingId){
+  if(!bookingId) return;
+  /* Never create a duplicate watcher for the same booking */
+  if(_gpsWatchId !== null && _gpsBookingId === bookingId) return;
+  /* Clear any watcher for a different booking before starting new one */
+  _stopGPS();
+  if(!navigator.geolocation){
+    console.warn('GPS: geolocation not supported by this browser');
+    showToast('Enable location permission');
+    return;
+  }
+  /* Set both together so duplicate-guard is always consistent */
+  _gpsBookingId = bookingId;
+  _gpsWatchId   = navigator.geolocation.watchPosition(
+    async (pos)=>{
+      const { latitude, longitude } = pos.coords;
+      /* Stop if booking is no longer in an active status */
+      const stillActive = (bookings||[]).find(
+        b => b.id === _gpsBookingId && GPS_ACTIVE_STATUSES.includes(b.status)
+      );
+      if(!stillActive){ _stopGPS(); return; }
+      console.log('GPS update', latitude, longitude);
+      const { error } = await sb.from('bookings').update({
+        worker_live_lat:  latitude,
+        worker_live_lng:  longitude,
+        worker_last_seen: new Date().toISOString()
+      }).eq('id', _gpsBookingId);
+      if(error) console.error('GPS publish error:', error.message);
+    },
+    (err)=>{
+      /* Permission denied or hardware error — stop cleanly, no crash */
+      console.warn('GPS error:', err.message);
+      showToast('Enable location permission');
+      _gpsWatchId   = null;
+      _gpsBookingId = null;
+    },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+  );
+  console.log('GPS started', bookingId);
+}
+
+function syncGPS(){
+  const activeId = _getActiveBookingId();
+  if(!activeId){
+    _stopGPS();
+    return;
+  }
+  _startGPS(activeId);
+}
+
 /* ── Patch loadBookings to also refresh the new sections after bookings load ── */
 const _origLoadBookings=loadBookings;
 loadBookings=async function(){
@@ -1536,6 +1611,8 @@ loadBookings=async function(){
   renderEarnings();
   renderAcceptanceRate();
   renderTimeline();
+  /* Requirement 7: sync GPS state after every bookings refresh */
+  syncGPS();
 };
 
 /* ── BACKDROP CLOSE ── */
