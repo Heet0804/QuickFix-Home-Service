@@ -2624,80 +2624,96 @@ function toggleTracking(bkId){
     ? '📍 Track Worker <span class="trk-arr">▲</span>'
     : '📍 Track Worker <span class="trk-arr">▼</span>';
   if(opening){
-    setTimeout(()=>{
-      if(_trkState[bkId]?.map) _trkState[bkId].map.invalidateSize();
+    /* CSS transition takes ~400ms. After it finishes, either fix
+       an existing map's size or build the map fresh if not yet created. */
+    setTimeout(async ()=>{
+      if(_trkState[bkId]?.map){
+        _trkState[bkId].map.invalidateSize();
+      } else {
+        /* Build map now — panel is open so container has real dimensions */
+        const fresh = normalizeBookings(await DB.bookings());
+        _buildTrackingMap(fresh.find(b => b.id === bkId));
+      }
     }, 450);
   }
 }
 
+/* Only builds the map — never called unless panel is open.
+   Called by toggleTracking and updateTrackingMaps (when panel is open). */
+function _buildTrackingMap(b){
+  if(!b) return;
+  const lat = b.worker_live_lat != null ? Number(b.worker_live_lat) : null;
+  const lng = b.worker_live_lng != null ? Number(b.worker_live_lng) : null;
+  if(lat == null || lng == null || isNaN(lat) || isNaN(lng)) return;
+
+  const mapEl = document.getElementById('trk-map-'+b.id);
+  if(!mapEl) return;
+
+  /* Clean up any stale Leaflet instance */
+  if(mapEl._leaflet_id != null){
+    try{ L.map(mapEl).remove(); }catch(_){}
+    delete _trkState[b.id];
+  }
+
+  const map = L.map(mapEl, { zoomControl:true, attributionControl:false })
+               .setView([lat, lng], TRACKING_ZOOM);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:19
+  }).addTo(map);
+
+  const workerIcon = L.divIcon({
+    html:'<div style="font-size:24px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))">🔧</div>',
+    className:'',
+    iconSize:[28,28],
+    iconAnchor:[14,14]
+  });
+
+  const marker = L.marker([lat, lng],{ icon:workerIcon }).addTo(map);
+  _trkState[b.id] = { map, marker };
+
+  const msgEl = document.getElementById('trk-eta-'+b.id);
+  if(msgEl) msgEl.textContent = '📍 Live worker location';
+
+  /* Container is open and has real dimensions — invalidate immediately */
+  setTimeout(()=>{ map.invalidateSize(); }, 50);
+}
+
 /* Called by renderBookings() after every re-render.
-   Creates the Leaflet map once when coords first arrive,
-   then only moves the marker on subsequent calls. */
+   - If panel is closed: store coords, build map only when user opens panel
+   - If panel is open and map exists: move marker only
+   - If panel is open and no map: build it now */
 function updateTrackingMaps(bookingList){
   bookingList.forEach(b=>{
-    /* Requirement 7: only show tracking for Accepted and Worker on Way.
-       Arrived means worker is there — tracking section is hidden in template. */
     if(!['Accepted','Worker on Way'].includes(b.status)) return;
 
     const lat = b.worker_live_lat != null ? Number(b.worker_live_lat) : null;
     const lng = b.worker_live_lng != null ? Number(b.worker_live_lng) : null;
     const hasCoords = lat != null && lng != null && !isNaN(lat) && !isNaN(lng);
-
     const msgEl = document.getElementById('trk-eta-'+b.id);
+    const wrap  = document.getElementById('trk-wrap-'+b.id);
+    const isOpen = wrap?.classList.contains('open');
 
     if(!hasCoords){
-      /* No coords yet — show message, do not create map */
       if(msgEl) msgEl.textContent = 'Waiting for worker location...';
       return;
     }
 
-    if(_trkState[b.id]){
-      /* Map already exists — only move marker, never recreate */
+    if(_trkState[b.id]?.map){
+      /* Map exists — move marker, never recreate */
       _trkState[b.id].marker.setLatLng([lat, lng]);
       _trkState[b.id].map.panTo([lat, lng]);
       if(msgEl) msgEl.textContent = '📍 Live worker location';
       return;
     }
 
-    /* First time valid coords exist — build the map */
-    const mapEl = document.getElementById('trk-map-'+b.id);
-    if(!mapEl) return;
-
-    /* Guard: destroy any stale Leaflet instance on this container */
-    if(mapEl._leaflet_id != null){
-      try{ _trkState[b.id]?.map?.remove(); }catch(_){}
-      delete _trkState[b.id];
+    /* No map yet — only build if panel is open (has real dimensions) */
+    if(isOpen){
+      _buildTrackingMap(b);
+    } else {
+      /* Panel closed — update message, map will be built when user opens */
+      if(msgEl) msgEl.textContent = '📍 Live worker location';
     }
-
-    const map = L.map(mapEl, { zoomControl:true, attributionControl:false })
-                 .setView([lat, lng], TRACKING_ZOOM);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-      maxZoom:19
-    }).addTo(map);
-
-    _trkState[b.id] = { map, marker };
-
-    /* If the panel is already open, invalidate immediately */
-    const wrap = document.getElementById('trk-wrap-'+b.id);
-    if(wrap && wrap.classList.contains('open')){
-      setTimeout(()=>{ map.invalidateSize(); }, 450);
-    }
-
-    /* Force Leaflet to recalculate dimensions after tiles load.
-       Without this the map renders blank inside a collapsed container. */
-    setTimeout(()=>{ map.invalidateSize(); }, 450);
-
-    const workerIcon = L.divIcon({
-      html:'<div style="font-size:24px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))">🔧</div>',
-      className:'',
-      iconSize:[28,28],
-      iconAnchor:[14,14]
-    });
-
-    const marker = L.marker([lat, lng],{ icon:workerIcon }).addTo(map);
-    _trkState[b.id] = { map, marker };
-    if(msgEl) msgEl.textContent = '📍 Live worker location';
   });
 }
 
