@@ -2642,6 +2642,13 @@ function toggleTracking(bkId){
    Called by toggleTracking and updateTrackingMaps (when panel is open). */
 function _buildTrackingMap(b){
   if(!b) return;
+
+  if(_trkState[b.id]?.map){
+    try{
+      _trkState[b.id].map.remove();
+    }catch(e){}
+    delete _trkState[b.id];
+  }
   const lat = b.worker_live_lat != null ? Number(b.worker_live_lat) : null;
   const lng = b.worker_live_lng != null ? Number(b.worker_live_lng) : null;
   if(lat == null || lng == null || isNaN(lat) || isNaN(lng)) return;
@@ -2841,20 +2848,33 @@ const cancelBtn=canCancel
     }
   });
   /* Restore open tracking panels after re-render.
-     If the booking moved to Arrived/Completed, its trk- elements no
-     longer exist in the DOM — the forEach just skips them silently. */
-  openTrks.forEach(id=>{
-    const wrap=document.getElementById('trk-wrap-'+id);
-    const btn=document.getElementById('trk-btn-'+id);
-    if(!wrap||!btn) return;
-    wrap.classList.add('open');
-    btn.classList.add('open');
-    btn.innerHTML='📍 Track Worker <span class="trk-arr">▲</span>';
-    /* Re-run invalidateSize since container just became visible again */
-    if(_trkState[id]?.map){
-      setTimeout(()=>{ _trkState[id].map.invalidateSize(); }, 420);
-    }
-  });
+   The booking cards were rebuilt with innerHTML, so any previous
+   Leaflet map belongs to the OLD DOM node. Destroy it and rebuild
+   the map on the NEW container. */
+openTrks.forEach(id=>{
+  const wrap=document.getElementById('trk-wrap-'+id);
+  const btn=document.getElementById('trk-btn-'+id);
+
+  if(!wrap || !btn) return;
+
+  wrap.classList.add('open');
+  btn.classList.add('open');
+  btn.innerHTML='📍 Track Worker <span class="trk-arr">▲</span>';
+
+  const booking = all.find(b => String(b.id) === String(id));
+  if(!booking) return;
+
+  if(_trkState[id]?.map){
+    try{
+      _trkState[id].map.remove();
+    }catch(e){}
+    delete _trkState[id];
+  }
+
+  setTimeout(()=>{
+    _buildTrackingMap(booking);
+  },420);
+});
   /* Pass full booking list so active bookings are always tracked
      regardless of which tab the user is currently viewing */
   updateTrackingMaps(all);
