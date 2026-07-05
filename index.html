@@ -2681,11 +2681,27 @@ function _buildTrackingMap(b){
   }).addTo(map);
 
   const workerIcon = L.divIcon({
-    html:'<div style="font-size:24px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))">🔧</div>',
-    className:'',
-    iconSize:[28,28],
-    iconAnchor:[14,14]
-  });
+  className: "worker-marker",
+  html: `
+    <div style="
+      width:22px;
+      height:22px;
+      border-radius:50%;
+      background:#ff6b35;
+      border:3px solid white;
+      box-shadow:0 0 8px rgba(0,0,0,.35);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:12px;
+      color:#fff;
+    ">
+      🔧
+    </div>
+  `,
+  iconSize:[28,28],
+  iconAnchor:[14,14]
+});
 
   const marker = L.marker([lat, lng],{ icon:workerIcon }).addTo(map);
   _trkState[b.id] = { map, marker };
