@@ -1645,9 +1645,20 @@ function goPage(id){
   clearInterval(window._bookingPoll);
 
   if(id==='bookings'){
-    window._bookingPoll=setInterval(()=>{
-      renderBookings();
-    },2000);
+    window._bookingPoll = setInterval(async () => {
+  const all = normalizeBookings(await DB.bookings());
+
+  /* Update only the live tracking markers. */
+  updateTrackingMaps(all);
+
+  /* Re-render only if booking count/status changed. */
+  const snapshot = all.map(b => `${b.id}:${b.status}`).join('|');
+
+  if (window._bookingSnapshot !== snapshot) {
+    window._bookingSnapshot = snapshot;
+    renderBookings();
+  }
+}, 2000);
   }
 }
 function toggleMenu(){ document.getElementById('navLinks').classList.toggle('open'); }
@@ -2862,18 +2873,33 @@ openTrks.forEach(id=>{
   btn.innerHTML='📍 Track Worker <span class="trk-arr">▲</span>';
 
   const booking = all.find(b => String(b.id) === String(id));
-  if(!booking) return;
+if(!booking) return;
 
-  if(_trkState[id]?.map){
-    try{
-      _trkState[id].map.remove();
-    }catch(e){}
-    delete _trkState[id];
-  }
+const currentContainer = document.getElementById('trk-map-'+id);
+const existing = _trkState[id];
 
+const stale =
+  existing &&
+  existing.map &&
+  existing.map.getContainer() !== currentContainer;
+
+/* Only destroy/rebuild if the DOM node actually changed */
+if(stale){
+  try{
+    existing.map.remove();
+  }catch(e){}
+  delete _trkState[id];
+}
+
+if(!_trkState[id]){
   setTimeout(()=>{
     _buildTrackingMap(booking);
   },420);
+}else{
+  setTimeout(()=>{
+    _trkState[id].map.invalidateSize();
+  },50);
+}
 });
   /* Pass full booking list so active bookings are always tracked
      regardless of which tab the user is currently viewing */
