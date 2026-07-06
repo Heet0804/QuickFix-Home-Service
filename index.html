@@ -2483,22 +2483,10 @@ async function onAccepted(){
         </div>
       `;
 
-    // Only show the confirm modal if the accept flow was opened for this booking
-    try{
-      const acceptOpen = (document.getElementById('acceptModal') && document.getElementById('acceptModal').classList.contains('on'));
-      if(_acceptModalShownFor.has(String(bk.id)) || acceptOpen){
-        console.log('SHOWING CONFIRM MODAL');
-        console.log(bk);
-        document.getElementById('confirmModal').classList.add('on');
-        try{ _acceptModalShownFor.delete(String(bk.id)); }catch(e){}
-      } else {
-        console.log('SKIPPING CONFIRM MODAL - accept flow not opened for', bk.id);
-      }
-    }catch(e){
-      console.log('SHOWING CONFIRM MODAL (fallback)');
-      console.log(bk);
-      document.getElementById('confirmModal').classList.add('on');
-    }
+    console.log('SHOWING CONFIRM MODAL');
+    console.log(bk);
+
+    document.getElementById('confirmModal').classList.add('on');
 
   } catch(err){
 
@@ -2774,9 +2762,9 @@ async function _buildTrackingMap(b){
     }catch(e){}
     return;
   }
-  const workerLat = b.worker_live_lat != null ? Number(b.worker_live_lat) : null;
-  const workerLng = b.worker_live_lng != null ? Number(b.worker_live_lng) : null;
-  const hasWorkerCoords = workerLat != null && workerLng != null && !isNaN(workerLat) && !isNaN(workerLng);
+  const lat = b.worker_live_lat != null ? Number(b.worker_live_lat) : null;
+  const lng = b.worker_live_lng != null ? Number(b.worker_live_lng) : null;
+  if(lat == null || lng == null || isNaN(lat) || isNaN(lng)) return;
 
   const mapEl = document.getElementById('trk-map-'+b.id);
   if(!mapEl) return;
@@ -2787,14 +2775,8 @@ async function _buildTrackingMap(b){
     delete _trkState[b.id];
   }
 
-  // try to resolve customer location to use as fallback center
-  let customerFallback = null;
-  try{ customerFallback = await _resolveCustomerLatLng(b); }catch(e){}
-
-  const center = hasWorkerCoords ? [workerLat, workerLng] : (customerFallback ? [customerFallback.lat, customerFallback.lng] : [20.5937,78.9629]);
-
   const map = L.map(mapEl, { zoomControl:true, attributionControl:false })
-               .setView(center, TRACKING_ZOOM);
+               .setView([lat, lng], TRACKING_ZOOM);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
     maxZoom:19
@@ -2815,14 +2797,11 @@ async function _buildTrackingMap(b){
     iconAnchor:[14,14]
   });
 
-    let marker = null;
-    if(hasWorkerCoords){
-     marker = L.marker([workerLat, workerLng],{ icon:workerIcon }).addTo(map);
-    }
+  const marker = L.marker([lat, lng],{ icon:workerIcon }).addTo(map);
 
-    /* State exists BEFORE any await so a live update landing mid-flight
-      never races an uninitialised entry, and can always move the marker. */
-    _trkState[b.id] = { map, marker, customerMarker:null, routeLine:null, initialized:false, lastRouteFetch:0 };
+  /* State exists BEFORE any await so a live update landing mid-flight
+     never races an uninitialised entry, and can always move the marker. */
+  _trkState[b.id] = { map, marker, customerMarker:null, routeLine:null, initialized:false, lastRouteFetch:0 };
 
   const msgEl = document.getElementById('trk-eta-'+b.id);
   if(msgEl) msgEl.textContent = '📍 Live worker location';
@@ -2860,23 +2839,17 @@ async function _buildTrackingMap(b){
     const customerMarker = L.marker([customer.lat, customer.lng], { icon:customerIcon }).addTo(map);
     _trkState[b.id].customerMarker = customerMarker;
 
-    if(hasWorkerCoords){
-      await _drawOrUpdateRoute(b.id, {lat:workerLat,lng:workerLng}, customer);
-      if(_trkState[b.id]?.map !== map) return; /* torn down while awaiting */
+    await _drawOrUpdateRoute(b.id, {lat,lng}, customer);
+    if(_trkState[b.id]?.map !== map) return; /* torn down while awaiting */
 
-      const st = _trkState[b.id];
-      const bounds = st.routeLine
-        ? st.routeLine.getBounds().pad(0.25)
-        : L.latLngBounds([[workerLat,workerLng],[customer.lat,customer.lng]]).pad(0.35);
+    const st = _trkState[b.id];
+    const bounds = st.routeLine
+      ? st.routeLine.getBounds().pad(0.25)
+      : L.latLngBounds([[lat,lng],[customer.lat,customer.lng]]).pad(0.35);
 
-      /* The ONLY fitBounds call in this map instance's lifetime. */
-      map.fitBounds(bounds, { maxZoom:16, padding:[40,40] });
-      st.initialized = true;
-    }else{
-      // No worker coords yet — focus the map on the customer location so user sees context
-      try{ map.setView([customer.lat, customer.lng], Math.min(TRACKING_ZOOM,14)); }catch(e){}
-      if(_trkState[b.id]) _trkState[b.id].initialized = true;
-    }
+    /* The ONLY fitBounds call in this map instance's lifetime. */
+    map.fitBounds(bounds, { maxZoom:16, padding:[40,40] });
+    st.initialized = true;
   }catch(err){
     console.error('_buildTrackingMap overview failed (worker tracking continues):', err);
     if(_trkState[b.id]) _trkState[b.id].initialized = true;
@@ -2940,12 +2913,6 @@ async function renderBookings(){
       const b = all.find(x=>String(x.id)===String(id));
       if(!b || b.status!=='Accepted') _confirmedAccepted.delete(id);
       if(!currentIds.has(String(id))) _confirmedAccepted.delete(id);
-    }
-    for(const id of Array.from(_acceptModalShownFor)){
-      const b = all.find(x=>String(x.id)===String(id));
-      // keep it only while booking exists and is Pending or Accepted (accept flow)
-      if(!b || !['Pending','Accepted'].includes(b.status)) _acceptModalShownFor.delete(id);
-      if(!currentIds.has(String(id))) _acceptModalShownFor.delete(id);
     }
   }catch(e){}
   let list=all;
