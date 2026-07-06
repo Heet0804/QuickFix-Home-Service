@@ -2742,9 +2742,9 @@ async function _buildTrackingMap(b){
 
   if(_trkState[b.id]?.map){
     try{
-      _trkState[b.id].map.remove();
+      _trkState[b.id].map.invalidateSize();
     }catch(e){}
-    delete _trkState[b.id];
+    return;
   }
   const lat = b.worker_live_lat != null ? Number(b.worker_live_lat) : null;
   const lng = b.worker_live_lng != null ? Number(b.worker_live_lng) : null;
@@ -3025,15 +3025,18 @@ const stale =
   existing.map &&
   existing.map.getContainer() !== currentContainer;
 
-/* Only destroy/rebuild if the DOM node actually changed */
-if(stale){
+/* Reuse the existing Leaflet instance when the panel DOM is refreshed.
+   This avoids tearing down and recreating the map on every booking re-render. */
+if(stale && currentContainer){
+  const oldContainer = existing.map.getContainer();
+  if(oldContainer && oldContainer.parentNode){
+    oldContainer.parentNode.removeChild(oldContainer);
+  }
+  currentContainer.appendChild(oldContainer);
   try{
-    existing.map.remove();
+    existing.map.invalidateSize();
   }catch(e){}
-  delete _trkState[id];
-}
-
-if(!_trkState[id]){
+}else if(!_trkState[id]){
   setTimeout(()=>{
     _buildTrackingMap(booking);
   },420);
