@@ -2769,10 +2769,11 @@ async function _buildTrackingMap(b){
   if(!b) return;
 
   if(_trkState[b.id]?.map){
-    try{ _trkState[b.id].map.invalidateSize(); }catch(e){}
+    try{
+      _trkState[b.id].map.invalidateSize();
+    }catch(e){}
     return;
   }
-
   const workerLat = b.worker_live_lat != null ? Number(b.worker_live_lat) : null;
   const workerLng = b.worker_live_lng != null ? Number(b.worker_live_lng) : null;
   const hasWorkerCoords = workerLat != null && workerLng != null && !isNaN(workerLat) && !isNaN(workerLng);
@@ -2786,8 +2787,11 @@ async function _buildTrackingMap(b){
     delete _trkState[b.id];
   }
 
-  // Immediate center: worker if available, otherwise a reasonable default
-  const center = hasWorkerCoords ? [workerLat, workerLng] : [20.5937,78.9629];
+  // try to resolve customer location to use as fallback center
+  let customerFallback = null;
+  try{ customerFallback = await _resolveCustomerLatLng(b); }catch(e){}
+
+  const center = hasWorkerCoords ? [workerLat, workerLng] : (customerFallback ? [customerFallback.lat, customerFallback.lng] : [20.5937,78.9629]);
 
   const map = L.map(mapEl, { zoomControl:true, attributionControl:false })
                .setView(center, TRACKING_ZOOM);
@@ -2811,17 +2815,17 @@ async function _buildTrackingMap(b){
     iconAnchor:[14,14]
   });
 
-  let marker = null;
-  if(hasWorkerCoords){
-    marker = L.marker([workerLat, workerLng],{ icon:workerIcon }).addTo(map);
-  }
+    let marker = null;
+    if(hasWorkerCoords){
+     marker = L.marker([workerLat, workerLng],{ icon:workerIcon }).addTo(map);
+    }
 
-  /* State exists BEFORE any await so a live update landing mid-flight
-     never races an uninitialised entry, and can always move the marker. */
-  _trkState[b.id] = { map, marker, customerMarker:null, routeLine:null, initialized:false, lastRouteFetch:0 };
+    /* State exists BEFORE any await so a live update landing mid-flight
+      never races an uninitialised entry, and can always move the marker. */
+    _trkState[b.id] = { map, marker, customerMarker:null, routeLine:null, initialized:false, lastRouteFetch:0 };
 
   const msgEl = document.getElementById('trk-eta-'+b.id);
-  if(msgEl) msgEl.textContent = hasWorkerCoords ? '📍 Live worker location' : 'Waiting for worker location...';
+  if(msgEl) msgEl.textContent = '📍 Live worker location';
 
   setTimeout(()=>{ map.invalidateSize(); }, 50);
 
@@ -2833,7 +2837,8 @@ async function _buildTrackingMap(b){
     if(_trkState[b.id]?.map !== map) return; /* torn down while awaiting */
 
     if(!customer){
-      /* No area on this booking — keep worker tracking centred as-is. */
+      /* No area on this booking — keep worker tracking working exactly
+         as before, just centred on the worker. */
       _trkState[b.id].initialized = true;
       return;
     }
