@@ -2268,8 +2268,8 @@ async function startBroadcast(){
 
   pendBkId = bkId;
   pendBk._bk = bk;
+
   document.getElementById('acceptModal').classList.add('on');
-  try{ _acceptModalShownFor.add(String(bkId)); }catch(e){}
   updateAcc();
 
   accInt = setInterval(async ()=>{
