@@ -1612,10 +1612,6 @@ let arrInt=null, arrLeft=900, arrExt=false;
 let pendBk=null, pendBkId=null, otpMode=null;
 let payMethod=null, sst={catId:null,item:null,issue:''};
 let pollInt=null, pollCnt=0, qrInt=null;
-/* session-scoped set to avoid duplicate confirmation modals for the same booking id */
-const _confirmedAccepted = new Set();
-/* track booking ids for which the accept modal was shown this session */
-const _acceptModalShownFor = new Set();
 let revRat=0, revId=null, aadhaarData=null;
 const POLL_MAX=60, POLL_MS=3000;
 
@@ -2283,15 +2279,8 @@ async function startBroadcast(){
       closeModal('acceptModal');
 
       // show confirmation modal immediately
-      // prevent duplicate confirmation for the same booking
-      try{
-        if(_confirmedAccepted.has(String(current.id))) return;
-      }catch(e){}
-
       pendBk._bk = current;
       await onAccepted();
-
-      try{ _confirmedAccepted.add(String(current.id)); }catch(e){}
 
       return;
     }
@@ -2906,15 +2895,6 @@ async function renderBookings(){
       .map(el=>el.id.replace('trk-wrap-',''))
   );
   const all=normalizeBookings(await DB.bookings());
-  // cleanup any session-confirmed ids that are no longer present or accepted
-  try{
-    const currentIds = new Set(all.map(b=>String(b.id)));
-    for(const id of Array.from(_confirmedAccepted)){
-      const b = all.find(x=>String(x.id)===String(id));
-      if(!b || b.status!=='Accepted') _confirmedAccepted.delete(id);
-      if(!currentIds.has(String(id))) _confirmedAccepted.delete(id);
-    }
-  }catch(e){}
   let list=all;
   if(curTab==='upcoming') list=all.filter(b=>['Scheduled','Confirmed','Accepted','Worker on Way','Arrived'].includes(b.status));
   if(curTab==='completed') list=all.filter(b=>b.status==='Completed');
