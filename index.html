@@ -956,6 +956,8 @@ function normalizeBookings(raw){
     /* Live tracking columns — worker GPS from bookings table only */
     worker_live_lat: b.worker_live_lat != null ? Number(b.worker_live_lat) : null,
     worker_live_lng: b.worker_live_lng != null ? Number(b.worker_live_lng) : null,
+    /* Customer destination — resolved later via AREAS_CACHE, never geocoded */
+    areaId: b.areaId ?? b.area_id ?? null,
   }));
 }
 
@@ -1038,6 +1040,7 @@ const DB = {
       workerRole:    b.worker_role,
       workerEmoji:   b.worker_emoji,
       workerDist:    0,
+      areaId:        b.area_id,
       basePrice:     b.base_price,
       paymentMethod: b.payment_method,
       arrivalOtp:    b.arrival_otp,
@@ -1089,6 +1092,7 @@ const DB = {
   date:           bk.date,
   time:           bk.time,
   address:        bk.address,
+  area_id:        bk.areaId||null,
   notes:          bk.notes||'',
   price:          bk.price,
   base_price:     bk.basePrice,
@@ -2237,6 +2241,7 @@ async function startBroadcast(){
     date:         pendBk.date,
     time:         pendBk.time,
     address:      pendBk.address,
+    areaId:       pendBk.areaId||null,
     price:        pendBk.price,
     basePrice:    pendBk.basePrice,
     notes:        pendBk.notes,
@@ -2616,12 +2621,22 @@ function toggleTimeline(id){
 }
 
 /* ── LIVE WORKER TRACKING (Leaflet + OpenStreetMap) ───────────
-   No polling, no timers, no extra Supabase channels.
+   No polling timers of its own, no extra Supabase channels.
    updateTrackingMaps() is called by renderBookings() after every
-   refresh — that is the only update mechanism. */
+   refresh — that is the only update mechanism.
+
+   Phase 2 additions:
+   - Fixed green customer marker, resolved from AREAS_CACHE via
+     booking.areaId only (no geolocation, no geocoding).
+   - Blue route line between worker and customer, drawn via OSRM,
+     falling back to a dashed straight line if OSRM fails.
+   - map.fitBounds() is called exactly ONCE per map instance, at the
+     end of _buildTrackingMap(). Nothing after that ever moves the
+     camera — updateTrackingMaps() only moves the worker marker and
+     refreshes the route geometry. */
 const TRACKING_ZOOM = 15;
 
-/* bookingId → { map: L.Map, marker: L.Marker } */
+/* bookingId → { map, marker, customerMarker, routeLine, initialized, lastRouteFetch } */
 const _trkState = {};
 
 function toggleTracking(bkId){
@@ -2649,9 +2664,80 @@ function toggleTracking(bkId){
   }
 }
 
+/* Resolve a booking's customer destination from AREAS_CACHE only.
+   No geolocation. No geocoding. Returns {lat,lng} or null. */
+async function _resolveCustomerLatLng(b){
+  if(b.areaId == null) return null;
+  const areas = await loadAreas();
+  const area = areas.find(a=>String(a.id)===String(b.areaId));
+  if(!area || area.lat==null || area.lng==null) return null;
+  return { lat:Number(area.lat), lng:Number(area.lng) };
+}
+
+/* OSRM road route. Returns an array of [lat,lng] pairs, or null on
+   any failure — caller always has a straight-line fallback ready. */
+async function _fetchRoadRoute(from, to){
+  try{
+    const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('OSRM HTTP '+res.status);
+    const data = await res.json();
+    const coords = data?.routes?.[0]?.geometry?.coordinates;
+    if(!Array.isArray(coords) || !coords.length) throw new Error('OSRM: empty route');
+    return coords.map(([lng,lat])=>[lat,lng]);
+  }catch(e){
+    return null;
+  }
+}
+
+/* Draws the worker→customer line the first time, then only ever
+   updates its points — the layer itself is never recreated.
+   Throttled to one OSRM call per 8s per booking; marker still moves
+   every tick regardless. Falls back to a dashed straight line. */
+async function _drawOrUpdateRoute(bkId, workerPt, customerPt){
+  const st = _trkState[bkId];
+  if(!st || !st.map) return;
+
+  const now = Date.now();
+  const throttled = st.lastRouteFetch && (now - st.lastRouteFetch < 8000);
+
+  let latlngs = null;
+
+  if(!throttled){
+    st.lastRouteFetch = now;
+
+    latlngs = await _fetchRoadRoute(workerPt, customerPt);
+
+    // prevent race condition (map destroyed / re-init)
+    if(_trkState[bkId] !== st || !st.map) return;
+  }
+
+  // fallback straight line
+  if(!latlngs){
+    latlngs = [
+      [workerPt.lat, workerPt.lng],
+      [customerPt.lat, customerPt.lng]
+    ];
+  }
+
+  const isNewLine = !st.routeLine;
+
+  if(isNewLine){
+    st.routeLine = L.polyline(latlngs, {
+      color: '#2563eb',
+      weight: 4,
+      opacity: 0.85,
+      dashArray: latlngs.length === 2 ? '6,8' : null
+    }).addTo(st.map);
+  } else {
+    // IMPORTANT: ONLY update geometry, no style mutation
+    st.routeLine.setLatLngs(latlngs);
+  }
+}
+
 /* Only builds the map — never called unless panel is open.
    Called by toggleTracking and updateTrackingMaps (when panel is open). */
-function _buildTrackingMap(b){
+async function _buildTrackingMap(b){
   if(!b) return;
 
   if(_trkState[b.id]?.map){
@@ -2681,36 +2767,77 @@ function _buildTrackingMap(b){
   }).addTo(map);
 
   const workerIcon = L.divIcon({
-  className: "worker-marker",
-  html: `
-    <div style="
-      width:22px;
-      height:22px;
-      border-radius:50%;
-      background:#ff6b35;
-      border:3px solid white;
-      box-shadow:0 0 8px rgba(0,0,0,.35);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:12px;
-      color:#fff;
-    ">
-      🔧
-    </div>
-  `,
-  iconSize:[28,28],
-  iconAnchor:[14,14]
-});
+    className: "worker-marker",
+    html: `
+      <div style="
+        width:22px;height:22px;border-radius:50%;
+        background:#ff6b35;border:3px solid white;
+        box-shadow:0 0 8px rgba(0,0,0,.35);
+        display:flex;align-items:center;justify-content:center;
+        font-size:12px;color:#fff;
+      ">🔧</div>
+    `,
+    iconSize:[28,28],
+    iconAnchor:[14,14]
+  });
 
   const marker = L.marker([lat, lng],{ icon:workerIcon }).addTo(map);
-  _trkState[b.id] = { map, marker };
+
+  /* State exists BEFORE any await so a live update landing mid-flight
+     never races an uninitialised entry, and can always move the marker. */
+  _trkState[b.id] = { map, marker, customerMarker:null, routeLine:null, initialized:false, lastRouteFetch:0 };
 
   const msgEl = document.getElementById('trk-eta-'+b.id);
   if(msgEl) msgEl.textContent = '📍 Live worker location';
 
-  /* Container is open and has real dimensions — invalidate immediately */
   setTimeout(()=>{ map.invalidateSize(); }, 50);
+
+  /* ── Customer marker + route + ONE-TIME overview fit ──────────
+     Everything below runs once per map instance. Wrapped so a
+     network hiccup here can never break tracking (fallback #8). */
+  try{
+    const customer = await _resolveCustomerLatLng(b);
+    if(_trkState[b.id]?.map !== map) return; /* torn down while awaiting */
+
+    if(!customer){
+      /* No area on this booking — keep worker tracking working exactly
+         as before, just centred on the worker. */
+      _trkState[b.id].initialized = true;
+      return;
+    }
+
+    const customerIcon = L.divIcon({
+      className: "customer-marker",
+      html: `
+        <div style="
+          width:20px;height:20px;border-radius:50%;
+          background:#2f9e5c;border:3px solid white;
+          box-shadow:0 0 8px rgba(0,0,0,.35);
+          display:flex;align-items:center;justify-content:center;
+          font-size:11px;color:#fff;
+        ">🏠</div>
+      `,
+      iconSize:[26,26],
+      iconAnchor:[13,13]
+    });
+    const customerMarker = L.marker([customer.lat, customer.lng], { icon:customerIcon }).addTo(map);
+    _trkState[b.id].customerMarker = customerMarker;
+
+    await _drawOrUpdateRoute(b.id, {lat,lng}, customer);
+    if(_trkState[b.id]?.map !== map) return; /* torn down while awaiting */
+
+    const st = _trkState[b.id];
+    const bounds = st.routeLine
+      ? st.routeLine.getBounds().pad(0.25)
+      : L.latLngBounds([[lat,lng],[customer.lat,customer.lng]]).pad(0.35);
+
+    /* The ONLY fitBounds call in this map instance's lifetime. */
+    map.fitBounds(bounds, { maxZoom:16, padding:[40,40] });
+    st.initialized = true;
+  }catch(err){
+    console.error('_buildTrackingMap overview failed (worker tracking continues):', err);
+    if(_trkState[b.id]) _trkState[b.id].initialized = true;
+  }
 }
 
 /* Called by renderBookings() after every re-render.
@@ -2736,7 +2863,6 @@ function updateTrackingMaps(bookingList){
     if(_trkState[b.id]?.map){
       /* Map exists — move marker, never recreate */
       _trkState[b.id].marker.setLatLng([lat, lng]);
-      _trkState[b.id].map.panTo([lat, lng]);
       if(msgEl) msgEl.textContent = '📍 Live worker location';
       return;
     }
