@@ -2639,7 +2639,7 @@ const TRACKING_ZOOM = 15;
 /* bookingId → { map, marker, customerMarker, routeLine, initialized, lastRouteFetch } */
 const _trkState = {};
 
-function toggleTracking(bkId){
+async function toggleTracking(bkId){
   const btn  = document.getElementById('trk-btn-'+bkId);
   const wrap = document.getElementById('trk-wrap-'+bkId);
   if(!btn || !wrap) return;
@@ -2649,19 +2649,24 @@ function toggleTracking(bkId){
   btn.innerHTML = opening
     ? '📍 Track Worker <span class="trk-arr">▲</span>'
     : '📍 Track Worker <span class="trk-arr">▼</span>';
-  if(opening){
-    /* CSS transition takes ~400ms. After it finishes, either fix
-       an existing map's size or build the map fresh if not yet created. */
-    setTimeout(async ()=>{
-      if(_trkState[bkId]?.map){
+  if (opening) {
+
+    if (_trkState[bkId]?.map) {
+
         _trkState[bkId].map.invalidateSize();
-      } else {
-        /* Build map now — panel is open so container has real dimensions */
+
+    } else {
+
         const fresh = normalizeBookings(await DB.bookings());
-        _buildTrackingMap(fresh.find(b => b.id === bkId));
-      }
-    }, 450);
-  }
+        const booking = fresh.find(b => String(b.id) === String(bkId));
+
+        if (booking) {
+            await _buildTrackingMap(booking);
+        }
+
+    }
+
+}
 }
 
 /* Resolve a booking's customer destination from AREAS_CACHE only.
