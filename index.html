@@ -2639,7 +2639,7 @@ const TRACKING_ZOOM = 15;
 /* bookingId → { map, marker, customerMarker, routeLine, initialized, lastRouteFetch } */
 const _trkState = {};
 
-async function toggleTracking(bkId){
+function toggleTracking(bkId){
   const btn  = document.getElementById('trk-btn-'+bkId);
   const wrap = document.getElementById('trk-wrap-'+bkId);
   if(!btn || !wrap) return;
@@ -2649,24 +2649,20 @@ async function toggleTracking(bkId){
   btn.innerHTML = opening
     ? '📍 Track Worker <span class="trk-arr">▲</span>'
     : '📍 Track Worker <span class="trk-arr">▼</span>';
-  if (opening) {
-
-    if (_trkState[bkId]?.map) {
-
+  if(opening){
+    /* CSS transition takes ~400ms. After it finishes, either fix
+       an existing map's size or build the map fresh if not yet created. */
+    setTimeout(async ()=>{
+      if(_trkState[bkId]?.map){
+        _reattachTrackingDom(bkId);
         _trkState[bkId].map.invalidateSize();
-
-    } else {
-
+      } else {
+        /* Build map now — panel is open so container has real dimensions */
         const fresh = normalizeBookings(await DB.bookings());
-        const booking = fresh.find(b => String(b.id) === String(bkId));
-
-        if (booking) {
-            await _buildTrackingMap(booking);
-        }
-
-    }
-
-}
+        _buildTrackingMap(fresh.find(b => b.id === bkId));
+      }
+    }, 450);
+  }
 }
 
 /* Resolve a booking's customer destination from AREAS_CACHE only.
@@ -2742,6 +2738,17 @@ async function _drawOrUpdateRoute(bkId, workerPt, customerPt){
 
 /* Only builds the map — never called unless panel is open.
    Called by toggleTracking and updateTrackingMaps (when panel is open). */
+function _reattachTrackingDom(id){
+  const st = _trkState[id];
+  if(!st || !st.map || !st.container) return;
+  const slot = document.getElementById('trk-slot-'+id);
+  if(!slot) return;
+  if(st.container.parentNode !== slot){
+    slot.appendChild(st.container);
+    try{ st.map.invalidateSize(); }catch(e){}
+  }
+}
+
 async function _buildTrackingMap(b){
   if(!b) return;
 
@@ -2755,14 +2762,13 @@ async function _buildTrackingMap(b){
   const lng = b.worker_live_lng != null ? Number(b.worker_live_lng) : null;
   if(lat == null || lng == null || isNaN(lat) || isNaN(lng)) return;
 
-  const mapEl = document.getElementById('trk-map-'+b.id);
-  if(!mapEl) return;
+  const slot = document.getElementById('trk-slot-'+b.id);
+  if(!slot) return;
 
-  /* Clean up any stale Leaflet instance */
-  if(mapEl._leaflet_id != null){
-    try{ L.map(mapEl).remove(); }catch(_){}
-    delete _trkState[b.id];
-  }
+  const mapEl = document.createElement('div');
+  mapEl.className = 'trk-map';
+  mapEl.id = 'trk-map-live-'+b.id;
+  slot.appendChild(mapEl);
 
   const map = L.map(mapEl, { zoomControl:true, attributionControl:false })
                .setView([lat, lng], TRACKING_ZOOM);
@@ -2790,7 +2796,7 @@ async function _buildTrackingMap(b){
 
   /* State exists BEFORE any await so a live update landing mid-flight
      never races an uninitialised entry, and can always move the marker. */
-  _trkState[b.id] = { map, marker, customerMarker:null, routeLine:null, initialized:false, lastRouteFetch:0 };
+  _trkState[b.id] = { map, marker, container:mapEl, customerMarker:null, routeLine:null, initialized:false, lastRouteFetch:0 };
 
   const msgEl = document.getElementById('trk-eta-'+b.id);
   if(msgEl) msgEl.textContent = '📍 Live worker location';
@@ -2987,7 +2993,7 @@ const cancelBtn=canCancel
         <button class="trk-toggle" id="trk-btn-${b.id}" onclick="toggleTracking('${b.id}')">📍 Track Worker <span class="trk-arr">▼</span></button>
         <div class="trk-wrap" id="trk-wrap-${b.id}">
           <div class="trk-body">
-            <div class="trk-map" id="trk-map-${b.id}"></div>
+            <div class="trk-map" id="trk-slot-${b.id}"></div>
             <div class="trk-meta" id="trk-meta-${b.id}"><span class="trk-dot"></span><span id="trk-eta-${b.id}">Waiting for worker location...</span></div>
           </div>
         </div>`:''}
@@ -3020,36 +3026,13 @@ openTrks.forEach(id=>{
   btn.innerHTML='📍 Track Worker <span class="trk-arr">▲</span>';
 
   const booking = all.find(b => String(b.id) === String(id));
-if(!booking) return;
+  if(!booking) return;
 
-const currentContainer = document.getElementById('trk-map-'+id);
-const existing = _trkState[id];
-
-const stale =
-  existing &&
-  existing.map &&
-  existing.map.getContainer() !== currentContainer;
-
-/* Reuse the existing Leaflet instance when the panel DOM is refreshed.
-   This avoids tearing down and recreating the map on every booking re-render. */
-if(stale && currentContainer){
-  const oldContainer = existing.map.getContainer();
-  if(oldContainer && oldContainer.parentNode){
-    oldContainer.parentNode.removeChild(oldContainer);
+  if(_trkState[id]?.map){
+    _reattachTrackingDom(id);
+  } else {
+    setTimeout(()=>{ _buildTrackingMap(booking); }, 420);
   }
-  currentContainer.appendChild(oldContainer);
-  try{
-    existing.map.invalidateSize();
-  }catch(e){}
-}else if(!_trkState[id]){
-  setTimeout(()=>{
-    _buildTrackingMap(booking);
-  },420);
-}else{
-  setTimeout(()=>{
-    _trkState[id].map.invalidateSize();
-  },50);
-}
 });
   /* Pass full booking list so active bookings are always tracked
      regardless of which tab the user is currently viewing */
