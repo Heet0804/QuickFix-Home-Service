@@ -954,6 +954,8 @@ function normalizeBookings(raw){
     /* Live tracking columns — worker GPS from bookings table only */
     worker_live_lat: b.worker_live_lat != null ? Number(b.worker_live_lat) : null,
     worker_live_lng: b.worker_live_lng != null ? Number(b.worker_live_lng) : null,
+    customer_lat: b.customer_lat != null ? Number(b.customer_lat) : null,
+    customer_lng: b.customer_lng != null ? Number(b.customer_lng) : null,
     /* Customer destination — resolved later via AREAS_CACHE, never geocoded */
     areaId: b.areaId ?? b.area_id ?? null,
   }));
@@ -1091,6 +1093,8 @@ const DB = {
   time:           bk.time,
   address:        bk.address,
   area_id:        bk.areaId||null,
+  customer_lat:   bk.customer_lat != null ? bk.customer_lat : null,
+  customer_lng:   bk.customer_lng != null ? bk.customer_lng : null,
   notes:          bk.notes||'',
   price:          bk.price,
   base_price:     bk.basePrice,
@@ -2227,6 +2231,15 @@ async function startBroadcast(){
   const completionOtp = genOtp();
   const advance = isAdv(pendBk.date, pendBk.time);
 
+  const customerGeo = await new Promise(resolve=>{
+    if(!('geolocation' in navigator)){ resolve({lat:null,lng:null}); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat:pos.coords.latitude, lng:pos.coords.longitude }),
+      ()  => resolve({ lat:null, lng:null }),
+      { enableHighAccuracy:true, timeout:8000, maximumAge:0 }
+    );
+  });
+
   const bk = {
     id:           bkId,
     workerId:     pendBk.workerId,
@@ -2240,6 +2253,8 @@ async function startBroadcast(){
     time:         pendBk.time,
     address:      pendBk.address,
     areaId:       pendBk.areaId||null,
+    customer_lat: customerGeo.lat,
+    customer_lng: customerGeo.lng,
     price:        pendBk.price,
     basePrice:    pendBk.basePrice,
     notes:        pendBk.notes,
@@ -2663,9 +2678,13 @@ function toggleTracking(bkId){
   }
 }
 
-/* Resolve a booking's customer destination from AREAS_CACHE only.
-   No geolocation. No geocoding. Returns {lat,lng} or null. */
+/* Resolve a booking's customer destination.
+   Prefers exact GPS captured at booking time; falls back to
+   AREAS_CACHE when customer_lat/customer_lng are null. */
 async function _resolveCustomerLatLng(b){
+  if(b.customer_lat != null && b.customer_lng != null){
+    return { lat:Number(b.customer_lat), lng:Number(b.customer_lng) };
+  }
   if(b.areaId == null) return null;
   const areas = await loadAreas();
   const area = areas.find(a=>String(a.id)===String(b.areaId));
