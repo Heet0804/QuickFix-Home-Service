@@ -1536,22 +1536,63 @@ renderProfile=function(){
    booking completes/cancels or the worker goes offline. */
 let _gpsWatchId   = null;   /* navigator.geolocation watch handle */
 let _gpsBookingId = null;   /* booking currently receiving GPS updates */
+let _gpsRetryTimer = null;  /* retry timer for transient GPS failures */
 
 const GPS_ACTIVE_STATUSES = ['Accepted', 'Worker on Way', 'Arrived'];
+const GPS_STATUS_PRIORITY = { Arrived: 3, 'Worker on Way': 2, Accepted: 1 };
 
 function _getActiveBookingId(){
   /* bookings is the module-level array kept by loadBookings() */
-  const b = (bookings||[]).find(b => GPS_ACTIVE_STATUSES.includes(b.status));
-  return b ? b.id : null;
+  const activeBookings = (bookings||[]).filter(b => GPS_ACTIVE_STATUSES.includes(b.status));
+  if(!activeBookings.length) return null;
+
+  /* Keep the current target if it is still active. */
+  if(_gpsBookingId){
+    const current = activeBookings.find(b => b.id === _gpsBookingId);
+    if(current) return current.id;
+  }
+
+  /* Otherwise prefer the most relevant active booking:
+     more advanced statuses first, then the most recently updated one. */
+  return [...activeBookings]
+    .sort((a,b)=>{
+      const aPriority = GPS_STATUS_PRIORITY[a.status] || 0;
+      const bPriority = GPS_STATUS_PRIORITY[b.status] || 0;
+      if(bPriority !== aPriority) return bPriority - aPriority;
+
+      const aUpdated = new Date(a.updated_at || a.created_at || 0).getTime();
+      const bUpdated = new Date(b.updated_at || b.created_at || 0).getTime();
+      return bUpdated - aUpdated;
+    })[0]?.id || null;
+}
+
+function _clearGPSRetry(){
+  if(_gpsRetryTimer !== null){
+    clearTimeout(_gpsRetryTimer);
+    _gpsRetryTimer = null;
+  }
+}
+
+function _clearGPSWatch(){
+  if(_gpsWatchId !== null){
+    navigator.geolocation.clearWatch(_gpsWatchId);
+    _gpsWatchId = null;
+  }
+}
+
+function _scheduleGPSRetry(delay=5000){
+  _clearGPSRetry();
+  _gpsRetryTimer = setTimeout(()=>{
+    _gpsRetryTimer = null;
+    if(_gpsBookingId) _startGPS(_gpsBookingId);
+  }, delay);
 }
 
 function _stopGPS(){
-  if(_gpsWatchId !== null){
-    navigator.geolocation.clearWatch(_gpsWatchId);
-    console.log('GPS stopped');
-    _gpsWatchId   = null;
-    _gpsBookingId = null;
-  }
+  _clearGPSRetry();
+  _clearGPSWatch();
+  console.log('GPS stopped');
+  _gpsBookingId = null;
 }
 
 function _startGPS(bookingId){
@@ -1567,6 +1608,7 @@ function _startGPS(bookingId){
   }
   /* Set both together so duplicate-guard is always consistent */
   _gpsBookingId = bookingId;
+  _clearGPSRetry();
   _gpsWatchId   = navigator.geolocation.watchPosition(
     async (pos)=>{
       const { latitude, longitude } = pos.coords;
@@ -1584,13 +1626,17 @@ function _startGPS(bookingId){
       if(error) console.error('GPS publish error:', error.message);
     },
     (err)=>{
-      /* Permission denied or hardware error — stop cleanly, no crash */
-      console.warn('GPS error:', err.message);
-      showToast('Enable location permission');
-      _gpsWatchId   = null;
-      _gpsBookingId = null;
+      _clearGPSWatch();
+      if(err.code === 1){
+        console.warn('GPS permission denied:', err.message);
+        showToast('Enable location permission');
+        _stopGPS();
+        return;
+      }
+      console.warn('GPS error:', err.message, '(code', err.code, ')');
+      _scheduleGPSRetry();
     },
-    { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+    { enableHighAccuracy: false, maximumAge: 10000, timeout: 30000 }
   );
   console.log('GPS started', bookingId);
 }
