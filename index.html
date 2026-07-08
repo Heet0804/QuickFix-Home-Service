@@ -426,7 +426,7 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
   <div class="epulse"></div>
   <span>🚨 Emergency Hours — Only Electrician &amp; Plumber available</span>
   <span class="elt" id="emergTime"></span>
-  <span style="opacity:.75;font-size:.72rem;margin-left:4px">(9:45 PM – 8:30 AM IST)</span>
+  <span style="opacity:.75;font-size:.72rem;margin-left:4px">(8:30 PM – 8:30 AM IST)</span>
 </div>
 
 <nav>
@@ -596,7 +596,7 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
         <div class="fg"><label class="flabel">Select Service</label><select class="fselect" id="bkSvc" onchange="updatePrice()"></select></div>
         <div class="bk-date-time-row" style="display:grid;grid-template-columns:1fr 1fr;gap:.95rem">
           <div class="fg"><label class="flabel">Date</label><input type="date" class="finput" id="bkDate" onchange="onDateChange()"/></div>
-          <div class="fg" id="bkTimeGrp"><label class="flabel">Time (8:30 AM – 9:45 PM)</label><select class="fselect" id="bkTime" onchange="onTimeChange()"><option value="">Select time…</option></select></div>
+          <div class="fg" id="bkTimeGrp"><label class="flabel">Time (8:30 AM – 8:30 PM)</label><select class="fselect" id="bkTime" onchange="onTimeChange()"><option value="">Select time…</option></select></div>
         </div>
         <div class="fg"><label class="flabel">Your Address</label><input type="text" class="finput" id="bkAddr" placeholder="Enter your full address…"/></div>
         <div class="fg"><label class="flabel">Service Area</label><select class="fselect" id="bkArea" onchange="onAreaChange()"><option value="">Select your area…</option></select><div id="bkAreaNote" style="font-size:.74rem;color:var(--text3);margin-top:.35rem"></div></div>
@@ -1316,7 +1316,10 @@ async function bookCategoryService(serviceName, catId){
 }
 
 /* ── HOURS ────────────────────────────────────────────────── */
-const WS_H=8, WS_M=30, WE_H=21, WE_M=45;
+const WS_H = 8,
+      WS_M = 30,
+      WE_H = 20,
+      WE_M = 30;
 const EROLES = ['Electrician','Plumber'];
 
 /* ── AREA-BASED ASSIGNMENT ────────────────────────────────────
@@ -1682,7 +1685,7 @@ function renderHomeCats(){
     vis.map(c=>`<div class="catc" onclick="openCategory('${c.id}')"><div class="catic">${c.em}</div><div class="catlbl">${c.lb}</div></div>`).join('')+
     hhCard+
     mwCard+
-    (e?`<div style="grid-column:1/-1;text-align:center;font-size:.76rem;color:var(--emerg);font-weight:600;padding:.4rem .875rem;background:var(--emerg-light);border-radius:var(--radius-sm);border:1px solid var(--emerg-border)">🚨 Emergency hours — Only Electrician &amp; Plumber available (9:45 PM – 8:30 AM IST)</div>`:'');
+    (e?`<div style="grid-column:1/-1;text-align:center;font-size:.76rem;color:var(--emerg);font-weight:600;padding:.4rem .875rem;background:var(--emerg-light);border-radius:var(--radius-sm);border:1px solid var(--emerg-border)">🚨 Emergency hours — Only Electrician &amp; Plumber available (8:30 PM – 8:30 AM IST)</div>`:'');
 }
 async function renderHomeWorkers(){
   const e=isEmerg();
@@ -1758,7 +1761,7 @@ async function renderStep(step){
     const noW=pool.length===0;
     const nearest=pool[0];
     document.getElementById('ss3').innerHTML=
-      (e?`<div class="ebanner"><div class="ebi">🚨</div><div><h3>Emergency Hours (9:45 PM – 8:30 AM IST)</h3><p>Only 24/7 emergency workers shown. Nearest worker auto-assigned.</p></div></div>`:'')+
+      (e?`<div class="ebanner"><div class="ebi">🚨</div><div><h3>Emergency Hours (8:30 PM – 8:30 AM IST)</h3><p>Only 24/7 emergency workers shown. Nearest worker auto-assigned.</p></div></div>`:'')+
       (noW?`<div class="hnotice emerg"><span class="hi">⚠️</span><div><strong>No workers available right now</strong><br/>Please try again shortly or choose a different category.</div></div>`:'')+
       `<div class="ibox" style="margin-bottom:1rem">
         <div style="font-size:.79rem;color:var(--text2);margin-bottom:.4rem">Your request:</div>
@@ -1856,7 +1859,7 @@ async function renderServices(){
   if(filters.sort==='rating') ws.sort((a,b)=>b.rating-a.rating);
   if(filters.sort==='price-asc') ws.sort((a,b)=>a.price-b.price);
   if(filters.sort==='price-desc') ws.sort((a,b)=>b.price-a.price);
-  const note=e?`<div style="grid-column:1/-1;font-size:.78rem;color:var(--emerg);font-weight:600;background:var(--emerg-light);border:1px solid var(--emerg-border);border-radius:var(--radius-sm);padding:.5rem .875rem;margin-bottom:.875rem">🚨 Emergency Hours — Only Electrician &amp; Plumber (24/7) workers shown (9:45 PM – 8:30 AM IST)</div>`:'';
+  const note=e?`<div style="grid-column:1/-1;font-size:.78rem;color:var(--emerg);font-weight:600;background:var(--emerg-light);border:1px solid var(--emerg-border);border-radius:var(--radius-sm);padding:.5rem .875rem;margin-bottom:.875rem">🚨 Emergency Hours — Only Electrician &amp; Plumber (24/7) workers shown (8:30 PM – 8:30 AM IST)</div>`:'';
   document.getElementById('svcCount').textContent=`Showing ${ws.length} professional${ws.length!==1?'s':''}`;
   document.getElementById('svcGrid').innerHTML=note+(ws.length===0?`<div class="empty" style="grid-column:1/-1"><div class="emptyico">🔍</div><h3>No results</h3><p>Try different filters.</p></div>`:ws.map(wCard).join(''));
 }
@@ -2011,7 +2014,7 @@ async function openBooking(id){
   document.getElementById('bkAddr').value='';
   await populateAreaDropdown();
   document.getElementById('bkAreaNote').textContent='';
-  document.getElementById('bkNotice').innerHTML=e?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Emergency Hours Active (9:45 PM – 8:30 AM IST)</strong><br/>Worker dispatched immediately. Time set to now automatically.</div></div>`:'';
+  document.getElementById('bkNotice').innerHTML=e?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Emergency Hours Active (8:30 PM – 8:30 AM IST)</strong><br/>Worker dispatched immediately. Time set to now automatically.</div></div>`:'';
   setBkBtn(e); updatePrice(); goPage('booking');
 }
 
@@ -2079,8 +2082,8 @@ function onTimeChange(){
   const t=document.getElementById('bkTime').value, el=document.getElementById('bkNotice');
   if(!t){el.innerHTML='';return;}
   el.innerHTML=!inWork(t)
-    ?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Outside working hours (8:30 AM – 9:45 PM)</strong><br/>Request goes to 24/7 emergency workers only.</div></div>`
-    :`<div class="hnotice normal"><span class="hi">🕙</span><div>Working hours: <strong>8:30 AM – 9:45 PM</strong>. Slot is within working hours.</div></div>`;
+    ?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Outside working hours (8:30 AM – 8:30 PM)</strong><br/>Request goes to 24/7 emergency workers only.</div></div>`
+    :`<div class="hnotice normal"><span class="hi">🕙</span><div>Working hours: <strong>8:30 AM – 8:30 PM</strong>. Slot is within working hours.</div></div>`;
 }
 
 function updatePrice(){
@@ -2672,7 +2675,18 @@ function toggleTracking(bkId){
       } else {
         /* Build map now — panel is open so container has real dimensions */
         const fresh = normalizeBookings(await DB.bookings());
-        _buildTrackingMap(fresh.find(b => b.id === bkId));
+
+const booking = fresh.find(
+  b => String(b.id) === String(bkId)
+);
+
+console.log("TRACK DEBUG", {
+  bkId,
+  booking,
+  allIds: fresh.map(x=>x.id)
+});
+
+_buildTrackingMap(booking);
       }
     }, 450);
   }
@@ -2777,6 +2791,12 @@ async function _buildTrackingMap(b){
   }
   const lat = b.worker_live_lat != null ? Number(b.worker_live_lat) : null;
   const lng = b.worker_live_lng != null ? Number(b.worker_live_lng) : null;
+  console.log("MAP COORD DEBUG", {
+  id: b.id,
+  lat: b.worker_live_lat,
+  lng: b.worker_live_lng,
+  status: b.status
+});
   if(lat == null || lng == null || isNaN(lat) || isNaN(lng)) return;
 
   const slot = document.getElementById('trk-slot-'+b.id);
@@ -2884,9 +2904,11 @@ function updateTrackingMaps(bookingList){
     const isOpen = wrap?.classList.contains('open');
 
     if(!hasCoords){
-      if(msgEl) msgEl.textContent = 'Waiting for worker location...';
-      return;
-    }
+  if(msgEl) msgEl.textContent = 'Waiting for worker location...';
+
+  // If panel is open, keep checking when location arrives
+  return;
+}
 
     if(_trkState[b.id]?.map){
       /* Map exists — move marker, never recreate */
