@@ -1605,64 +1605,6 @@ function syncGPS(){
   }
   _startGPS();
 }
-  console.log('GPS stopped');
-  _gpsBookingId = null;
-}
-
-function _startGPS(bookingId){
-  if(!bookingId) return;
-  /* Never create a duplicate watcher for the same booking */
-  if(_gpsWatchId !== null && _gpsBookingId === bookingId) return;
-  /* Clear any watcher for a different booking before starting new one */
-  _stopGPS();
-  if(!navigator.geolocation){
-    console.warn('GPS: geolocation not supported by this browser');
-    showToast('Enable location permission');
-    return;
-  }
-  /* Set both together so duplicate-guard is always consistent */
-  _gpsBookingId = bookingId;
-  _clearGPSRetry();
-  _gpsWatchId   = navigator.geolocation.watchPosition(
-    async (pos)=>{
-      const { latitude, longitude } = pos.coords;
-      /* Stop if booking is no longer in an active status */
-      const stillActive = (bookings||[]).find(
-        b => b.id === _gpsBookingId && GPS_ACTIVE_STATUSES.includes(b.status)
-      );
-      if(!stillActive){ _stopGPS(); return; }
-      console.log('GPS update', latitude, longitude);
-      const { error } = await sb.from('bookings').update({
-        worker_live_lat:  latitude,
-        worker_live_lng:  longitude,
-        worker_last_seen: new Date().toISOString()
-      }).eq('id', _gpsBookingId);
-      if(error) console.error('GPS publish error:', error.message);
-    },
-    (err)=>{
-      _clearGPSWatch();
-      if(err.code === 1){
-        console.warn('GPS permission denied:', err.message);
-        showToast('Enable location permission');
-        _stopGPS();
-        return;
-      }
-      console.warn('GPS error:', err.message, '(code', err.code, ')');
-      _scheduleGPSRetry();
-    },
-    { enableHighAccuracy: false, maximumAge: 10000, timeout: 30000 }
-  );
-  console.log('GPS started', bookingId);
-}
-
-function syncGPS(){
-  const activeId = _getActiveBookingId();
-  if(!activeId){
-    _stopGPS();
-    return;
-  }
-  _startGPS(activeId);
-}
 
 /* ── Patch loadBookings to also refresh the new sections after bookings load ── */
 const _origLoadBookings=loadBookings;
