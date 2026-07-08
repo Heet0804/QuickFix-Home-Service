@@ -1514,35 +1514,16 @@ renderProfile=function(){
    restarts when a new booking becomes active, stops when the
    booking completes/cancels or the worker goes offline. */
 let _gpsWatchId   = null;   /* navigator.geolocation watch handle */
-let _gpsBookingId = null;   /* booking currently receiving GPS updates */
+let _gpsActive    = false;  /* whether the watcher is currently running */
 let _gpsRetryTimer = null;  /* retry timer for transient GPS failures */
 
 const GPS_ACTIVE_STATUSES = ['Accepted', 'Worker on Way', 'Arrived'];
-const GPS_STATUS_PRIORITY = { Arrived: 3, 'Worker on Way': 2, Accepted: 1 };
 
-function _getActiveBookingId(){
+function _getActiveBookingIds(){
   /* bookings is the module-level array kept by loadBookings() */
-  const activeBookings = (bookings||[]).filter(b => GPS_ACTIVE_STATUSES.includes(b.status));
-  if(!activeBookings.length) return null;
-
-  /* Keep the current target if it is still active. */
-  if(_gpsBookingId){
-    const current = activeBookings.find(b => b.id === _gpsBookingId);
-    if(current) return current.id;
-  }
-
-  /* Otherwise prefer the most relevant active booking:
-     more advanced statuses first, then the most recently updated one. */
-  return [...activeBookings]
-    .sort((a,b)=>{
-      const aPriority = GPS_STATUS_PRIORITY[a.status] || 0;
-      const bPriority = GPS_STATUS_PRIORITY[b.status] || 0;
-      if(bPriority !== aPriority) return bPriority - aPriority;
-
-      const aUpdated = new Date(a.updated_at || a.created_at || 0).getTime();
-      const bUpdated = new Date(b.updated_at || b.created_at || 0).getTime();
-      return bUpdated - aUpdated;
-    })[0]?.id || null;
+  return (bookings||[])
+    .filter(b => GPS_ACTIVE_STATUSES.includes(b.status))
+    .map(b => b.id);
 }
 
 function _clearGPSRetry(){
@@ -1563,13 +1544,67 @@ function _scheduleGPSRetry(delay=5000){
   _clearGPSRetry();
   _gpsRetryTimer = setTimeout(()=>{
     _gpsRetryTimer = null;
-    if(_gpsBookingId) _startGPS(_gpsBookingId);
+    if(_gpsActive) _startGPS();
   }, delay);
 }
 
 function _stopGPS(){
   _clearGPSRetry();
   _clearGPSWatch();
+  console.log('GPS stopped');
+  _gpsActive = false;
+}
+
+function _startGPS(){
+  /* Never create a duplicate watcher */
+  if(_gpsWatchId !== null) return;
+  if(!navigator.geolocation){
+    console.warn('GPS: geolocation not supported by this browser');
+    showToast('Enable location permission');
+    return;
+  }
+  _gpsActive = true;
+  _clearGPSRetry();
+  _gpsWatchId   = navigator.geolocation.watchPosition(
+    async (pos)=>{
+      const { latitude, longitude } = pos.coords;
+      /* Recompute the active booking list on every fix, so a newly
+         accepted booking starts receiving GPS on the very next update
+         without needing a new watcher. */
+      const activeIds = _getActiveBookingIds();
+      if(!activeIds.length){ _stopGPS(); return; }
+      console.log('GPS update', latitude, longitude, 'bookings:', activeIds);
+      const { error } = await sb.from('bookings').update({
+        worker_live_lat:  latitude,
+        worker_live_lng:  longitude,
+        worker_last_seen: new Date().toISOString()
+      }).in('id', activeIds);
+      if(error) console.error('GPS publish error:', error.message);
+    },
+    (err)=>{
+      _clearGPSWatch();
+      if(err.code === 1){
+        console.warn('GPS permission denied:', err.message);
+        showToast('Enable location permission');
+        _stopGPS();
+        return;
+      }
+      console.warn('GPS error:', err.message, '(code', err.code, ')');
+      _scheduleGPSRetry();
+    },
+    { enableHighAccuracy: false, maximumAge: 10000, timeout: 30000 }
+  );
+  console.log('GPS started for bookings:', _getActiveBookingIds());
+}
+
+function syncGPS(){
+  const activeIds = _getActiveBookingIds();
+  if(!activeIds.length){
+    _stopGPS();
+    return;
+  }
+  _startGPS();
+}
   console.log('GPS stopped');
   _gpsBookingId = null;
 }
