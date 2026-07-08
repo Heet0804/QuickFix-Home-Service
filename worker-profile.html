@@ -169,6 +169,37 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 }
 .fselect:focus{border-color:var(--brand);background-color:#fff;box-shadow:0 0 0 3px rgba(181,101,29,.08)}
 
+/* ── BADGES SECTION ── */
+.badges-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.35rem;box-shadow:var(--sh0);margin-bottom:1.25rem}
+.badges-hdr{font-size:.92rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:.5rem;margin-bottom:1rem}
+.badges-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem}
+.badge-card{background:var(--surface2);border:1.5px solid var(--border2);border-radius:var(--radius-sm);padding:.85rem .95rem;text-align:center;transition:var(--tr)}
+.badge-card.earned{border-color:var(--teal);background:var(--teal-light)}
+.badge-ico{font-size:2rem;display:block;margin-bottom:.35rem;line-height:1}
+.badge-name{font-size:.78rem;font-weight:700;color:var(--text);margin-bottom:.25rem;display:block}
+.badge-meta{font-size:.67rem;color:var(--text3);display:block}
+.badges-footer{display:flex;align-items:center;gap:.5rem;margin-top:1rem}
+.badges-more-btn{background:var(--brand);color:#fff;border:none;border-radius:var(--radius-sm);padding:.5rem 1rem;font-size:.78rem;font-weight:700;cursor:pointer;transition:var(--tr)}
+.badges-more-btn:hover{background:var(--brand-dark)}
+
+/* ── BADGES MODAL ── */
+.badges-modal-bg{display:none;position:fixed;inset:0;background:rgba(20,12,4,.5);z-index:500;align-items:center;justify-content:center;padding:1rem}
+.badges-modal-bg.on{display:flex}
+.badges-modal{background:var(--surface);border-radius:var(--radius);padding:1.5rem;max-width:520px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:var(--sh2)}
+.badges-modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem}
+.badges-modal-hdr h3{font-size:1.05rem;font-weight:800;margin:0}
+.badges-modal-close{background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text3);line-height:1}
+.badges-modal-close:hover{color:var(--text)}
+.badges-modal-section{margin-bottom:1.1rem}
+.badges-modal-section:last-child{margin-bottom:0}
+.badges-modal-title{font-size:.8rem;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.6rem}
+.badge-modal-item{background:var(--surface2);border:1.5px solid var(--teal);border-radius:var(--radius-sm);padding:.9rem;margin-bottom:.5rem;display:flex;align-items:flex-start;gap:.75rem}
+.badge-modal-ico{font-size:2rem;line-height:1;flex-shrink:0}
+.badge-modal-body{flex:1;min-width:0}
+.badge-modal-name{font-size:.85rem;font-weight:700;color:var(--text);margin-bottom:2px}
+.badge-modal-desc{font-size:.76rem;color:var(--text2);margin-bottom:.4rem;line-height:1.4}
+.badge-modal-unlock{font-size:.7rem;color:var(--teal);font-weight:600}
+
 /* ── RECENT EARNINGS ── */
 .earn-list{display:flex;flex-direction:column;gap:.5rem}
 .earn-item{display:flex;align-items:center;justify-content:space-between;padding:.65rem .9rem;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border2);transition:var(--tr)}
@@ -221,6 +252,10 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 
   /* Perf grid */
   .perf-grid{grid-template-columns:repeat(2,1fr)}
+
+  /* Badges */
+  .badges-grid{grid-template-columns:repeat(2,1fr)}
+  .badges-modal{max-width:100%;width:100%;max-height:85vh}
 
   /* Touch-friendly inputs */
   .finput,.fselect{min-height:48px;font-size:1rem}
@@ -316,6 +351,12 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
       <div class="perf-card" id="pCompletionCard"><strong id="pCompletion">—</strong><span>Completion Rate</span></div>
       <div class="perf-card" id="pActivityCard"><strong id="pActivity">—</strong><span>Activity Score</span></div>
       <div class="perf-card" id="pWorkerScoreCard"><strong id="pWorkerScore">—</strong><span>Worker Score</span></div>
+    </div>
+
+    <!-- ── BADGES SECTION ── -->
+    <div class="badges-section" id="badgesSection" style="display:none">
+      <div class="badges-hdr">🏅 Badges</div>
+      <div id="badgesContainer"></div>
     </div>
 
     <!-- ── PROFILE DETAILS SECTION ── -->
@@ -416,6 +457,17 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
   </div><!-- /profileContent -->
 </div>
 
+<!-- ── BADGES MODAL ── -->
+<div class="badges-modal-bg" id="badgesModal">
+  <div class="badges-modal">
+    <div class="badges-modal-hdr">
+      <h3>🏅 All Badges</h3>
+      <button class="badges-modal-close" onclick="closeBadgesModal()">×</button>
+    </div>
+    <div id="badgesModalBody"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -455,13 +507,13 @@ let completedBookings=[];
   W={...cached,...wp};
   sessionStorage.setItem('qf_user',JSON.stringify(W));
 
-  /* Load completed bookings to compute earnings */
+  /* Load completed bookings to compute earnings and badges */
   const {data:bks}=await sb.from('bookings')
-    .select('id,status,worker_earning,service,created_at,scheduled_date,scheduled_time')
+    .select('id,status,worker_earning,service,created_at,scheduled_date,scheduled_time,review_rating')
     .eq('worker_id',W.id)
     .eq('status','Completed')
     .order('created_at',{ascending:false})
-    .limit(20);
+    .limit(100);
   completedBookings=bks||[];
 
   document.getElementById('loadingState').style.display='none';
@@ -477,6 +529,7 @@ function renderAll(){
   renderHero();
   renderPerf();
   renderDetails();
+  renderBadges();
   renderEarnings();
 }
 
@@ -610,6 +663,134 @@ function renderEarnings(){
 
   c.innerHTML=`<div class="earn-list">${rows}</div>
     ${completedBookings.length>10?`<div class="mt-empty">Showing last 10 completed jobs</div>`:''}`;
+}
+
+/* ════════════════════════════════════════════════════════════
+   BADGES SYSTEM — compute earned badges from worker metrics
+   Uses same values displayed in performance metrics
+   ════════════════════════════════════════════════════════════ */
+function computeEarnedBadges(){
+  /* Use the exact same calculation as what renderPerf() displays */
+  const completedJobs=W.completed_jobs??0;
+  const ratedBookings=completedBookings.filter(b=>Number(b.review_rating||0)>0);
+  const rating=ratedBookings.length?ratedBookings.reduce((s,b)=>s+Number(b.review_rating),0)/ratedBookings.length:0;
+  const rel=Number(W.reliability_score)||0;
+  const act=Number(W.activity_score)||0;
+  const wsc=Number(W.worker_score)||0;
+  const has5Star=ratedBookings.some(b=>Number(b.review_rating)===5);
+
+  /* Badge catalog: {id,icon,name,desc,category,threshold,value} */
+  const allBadges=[
+    /* Worker Score (threshold-based) */
+    {id:'ws-bronze',icon:'🥉',name:'Bronze Worker',desc:'Worker score ≥ 40',cat:'Worker Score',threshold:40,value:wsc},
+    {id:'ws-silver',icon:'🥈',name:'Silver Worker',desc:'Worker score ≥ 60',cat:'Worker Score',threshold:60,value:wsc},
+    {id:'ws-gold',icon:'🥇',name:'Gold Worker',desc:'Worker score ≥ 80',cat:'Worker Score',threshold:80,value:wsc},
+    {id:'ws-plat',icon:'💎',name:'Platinum Worker',desc:'Worker score ≥ 95',cat:'Worker Score',threshold:95,value:wsc},
+    /* Rating (threshold-based) */
+    {id:'r-5star',icon:'⭐',name:'First 5★ Review',desc:'Earn your first perfect rating',cat:'Rating',threshold:1,value:has5Star?1:0},
+    {id:'r-45',icon:'🌟',name:'4.5+ Rated',desc:'Consistently excellent service',cat:'Rating',threshold:4.5,value:rating},
+    {id:'r-48',icon:'💫',name:'4.8+ Rated',desc:'Near-perfect performance',cat:'Rating',threshold:4.8,value:rating},
+    {id:'r-50',icon:'✨',name:'Perfect 5.0 Rating',desc:'The gold standard',cat:'Rating',threshold:5.0,value:rating},
+    /* Reliability (threshold-based) */
+    {id:'rel-90',icon:'🛡',name:'Reliable Worker',desc:'Reliability score ≥ 90',cat:'Reliability',threshold:90,value:rel},
+    {id:'rel-95',icon:'🔰',name:'Trusted Worker',desc:'Reliability score ≥ 95',cat:'Reliability',threshold:95,value:rel},
+    {id:'rel-100',icon:'💎',name:'Perfect Reliability',desc:'Reliability score of 100',cat:'Reliability',threshold:100,value:rel},
+    /* Jobs (threshold-based) */
+    {id:'j-1',icon:'🥇',name:'First Job',desc:'Complete your very first job',cat:'Jobs',threshold:1,value:completedJobs},
+    {id:'j-10',icon:'🏅',name:'10 Jobs Completed',desc:'A seasoned professional',cat:'Jobs',threshold:10,value:completedJobs},
+    {id:'j-25',icon:'🥈',name:'25 Jobs Completed',desc:'Making your mark',cat:'Jobs',threshold:25,value:completedJobs},
+    {id:'j-50',icon:'🥇',name:'50 Jobs Completed',desc:'Half a century of service',cat:'Jobs',threshold:50,value:completedJobs},
+    {id:'j-100',icon:'🏆',name:'100 Jobs Completed',desc:'A true QuickFix veteran',cat:'Jobs',threshold:100,value:completedJobs},
+    /* Activity (threshold-based) */
+    {id:'a-25',icon:'⚡',name:'Active Worker',desc:'Activity score ≥ 25',cat:'Activity',threshold:25,value:act},
+    {id:'a-50',icon:'🔥',name:'Super Active',desc:'Activity score ≥ 50',cat:'Activity',threshold:50,value:act},
+    {id:'a-75',icon:'💪',name:'Workaholic',desc:'Activity score ≥ 75',cat:'Activity',threshold:75,value:act},
+  ];
+
+  /* Filter earned badges (unlock condition: value >= threshold) */
+  const earned=allBadges.filter(b=>{
+    if(b.cat==='Rating'&&b.id==='r-5star') return b.value>=b.threshold; /* special: 5star is boolean */
+    return b.value>=b.threshold;
+  });
+
+  return {earned,allBadges};
+}
+
+function renderBadges(){
+  const {earned}=computeEarnedBadges();
+  const section=document.getElementById('badgesSection');
+  const container=document.getElementById('badgesContainer');
+
+  if(!earned.length){
+    section.style.display='none';
+    return;
+  }
+
+  section.style.display='block';
+
+  /* Show top 4 by category priority: Worker Score → Rating → Reliability → Jobs → Activity */
+  const catPriority=['Worker Score','Rating','Reliability','Jobs','Activity'];
+  const byCategory={};
+  earned.forEach(b=>{
+    if(!byCategory[b.cat]) byCategory[b.cat]=[];
+    byCategory[b.cat].push(b);
+  });
+
+  const top4=[];
+  for(const cat of catPriority){
+    if(byCategory[cat]&&byCategory[cat].length){
+      top4.push(byCategory[cat][byCategory[cat].length-1]); /* highest in category */
+      if(top4.length>=4) break;
+    }
+  }
+
+  const html=`<div class="badges-grid">
+    ${top4.map(b=>`
+      <div class="badge-card earned">
+        <span class="badge-ico">${b.icon}</span>
+        <span class="badge-name">${b.name}</span>
+        <span class="badge-meta">${b.cat}</span>
+      </div>
+    `).join('')}
+  </div>
+  ${earned.length>4?`<div class="badges-footer"><button class="badges-more-btn" onclick="openBadgesModal()">+${earned.length-4} More</button></div>`:''}`;
+
+  container.innerHTML=html;
+}
+
+function openBadgesModal(){
+  const {earned}=computeEarnedBadges();
+  const byCategory={};
+  earned.forEach(b=>{
+    if(!byCategory[b.cat]) byCategory[b.cat]=[];
+    byCategory[b.cat].push(b);
+  });
+
+  const catOrder=['Worker Score','Rating','Reliability','Jobs','Activity'];
+  const html=catOrder.map(cat=>{
+    if(!byCategory[cat]) return '';
+    const badges=byCategory[cat];
+    return `<div class="badges-modal-section">
+      <div class="badges-modal-title">${cat}</div>
+      ${badges.map(b=>`
+        <div class="badge-modal-item">
+          <div class="badge-modal-ico">${b.icon}</div>
+          <div class="badge-modal-body">
+            <div class="badge-modal-name">${b.name}</div>
+            <div class="badge-modal-desc">${b.desc}</div>
+            ${b.unlockDate?`<div class="badge-modal-unlock">Unlocked on: ${fmtDate(b.unlockDate)}</div>`:''}
+          </div>
+        </div>
+      `).join('')}
+    </div>`;
+  }).join('');
+
+  document.getElementById('badgesModalBody').innerHTML=html||'<p style="text-align:center;color:var(--text3);padding:2rem">No earned badges yet</p>';
+  document.getElementById('badgesModal').classList.add('on');
+}
+
+function closeBadgesModal(){
+  document.getElementById('badgesModal').classList.remove('on');
 }
 
 /* ════════════════════════════════════════════════════════════
