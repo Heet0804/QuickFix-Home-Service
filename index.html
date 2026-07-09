@@ -2247,14 +2247,37 @@ async function startBroadcast(){
   const completionOtp = genOtp();
   const advance = isAdv(pendBk.date, pendBk.time);
 
-  const customerGeo = await new Promise(resolve=>{
-    if(!('geolocation' in navigator)){ resolve({lat:null,lng:null}); return; }
-    navigator.geolocation.getCurrentPosition(
-      pos => resolve({ lat:pos.coords.latitude, lng:pos.coords.longitude }),
-      ()  => resolve({ lat:null, lng:null }),
-      { enableHighAccuracy:true, timeout:8000, maximumAge:0 }
-    );
-  });
+  navigator.geolocation.getCurrentPosition(
+  async (pos)=>{
+
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+
+    // Update current booking object immediately
+    bk.customer_lat = lat;
+    bk.customer_lng = lng;
+
+    if(pendBk?._bk){
+      pendBk._bk.customer_lat = lat;
+      pendBk._bk.customer_lng = lng;
+    }
+
+    const { error } = await sb.from('bookings').update({
+      customer_lat: lat,
+      customer_lng: lng
+    }).eq('id', String(bkId));
+
+    if(error){
+      console.error('Customer GPS update:', error.message);
+    }
+  },
+  ()=>{},
+  {
+    enableHighAccuracy:true,
+    timeout:8000,
+    maximumAge:0
+  }
+);
 
   const bk = {
     id:           bkId,
@@ -2269,9 +2292,9 @@ async function startBroadcast(){
     time:         pendBk.time,
     address:      pendBk.address,
     areaId:       pendBk.areaId||null,
-    customer_lat: customerGeo.lat,
-    customer_lng: customerGeo.lng,
-    price:        pendBk.price,
+  customer_lat: null,
+  customer_lng: null,
+  price:        pendBk.price,
     basePrice:    pendBk.basePrice,
     notes:        pendBk.notes,
     isEmergency:  pendBk.isEmergency,
