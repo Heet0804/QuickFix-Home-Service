@@ -1006,6 +1006,7 @@ if(error){
 
   showToast('✅ Job accepted! You are now Offline.');
   await loadBookings();
+  syncGPS(id); /* push current coords to this booking immediately */
   switchTab('accepted',document.querySelector('.tab[data-tab="accepted"]'));
 }
 
@@ -1634,13 +1635,33 @@ function _startGPS(){
   console.log('GPS started for bookings:', _getActiveBookingIds());
 }
 
-function syncGPS(){
+function syncGPS(immediateBookingId){
   const activeIds = _getActiveBookingIds();
   if(!activeIds.length){
     _stopGPS();
     return;
   }
   _startGPS();
+
+  /* If a specific booking just became active and the watcher was already
+     running (Booking #2, #3 …), the next watchPosition callback could be
+     up to maximumAge/timeout away. Push current coordinates immediately
+     so the customer map appears without delay. */
+  if(immediateBookingId && navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      async (pos)=>{
+        const { latitude, longitude } = pos.coords;
+        const { error } = await sb.from('bookings').update({
+          worker_live_lat:  latitude,
+          worker_live_lng:  longitude,
+          worker_last_seen: new Date().toISOString()
+        }).eq('id', immediateBookingId);
+        if(error) console.error('GPS immediate publish error:', error.message);
+      },
+      (err)=>{ console.warn('GPS immediate fix failed:', err.message); },
+      { enableHighAccuracy: false, maximumAge: 10000, timeout: 10000 }
+    );
+  }
 }
 
 /* ── Patch loadBookings to also refresh the new sections after bookings load ── */
