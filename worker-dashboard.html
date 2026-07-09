@@ -678,33 +678,44 @@ document.getElementById("statTotalJobs").textContent =
     .reduce((sum,b)=>sum+(Number(b.worker_earning)||0),0);
   document.getElementById('statEarnings').textContent='₹'+earned.toLocaleString('en-IN');
 
-  /* === READ FROM WORKERS TABLE (canonical source, not recalculated) ===
-     All statistics come from index.html's WorkerStats calculations,
-     persisted to workers table via recalc() on every booking event.
-     Dashboard and Profile now read the same source. */
-  const acceptedJobs = W.accepted_jobs ?? 0;
-  const completedJobs = W.completed_jobs ?? 0;
-  const cancelledJobs = W.cancelled_jobs ?? 0;
-  const noShows = Number(W.no_show_count) || 0;
-  const completionRate = W.completion_rate != null ? Number(W.completion_rate) * 100 : 0;
-  const rel = Number(W.reliability_score) || 100;
-  const activityScore = Number(W.activity_score) || 0;
-  const workerScore = Number(W.worker_score) || 0;
+  /* === STATS DERIVED LIVE FROM BOOKINGS (not stale workers table counters) ===
+     W.accepted_jobs / completed_jobs / cancelled_jobs / activity_score /
+     worker_score / completion_rate are running totals written by index.html's
+     WorkerStats.recalc() — but they can be stale or non-zero even when bookings
+     is empty. We recompute everything from the bookings array so the dashboard
+     always reflects the actual state of the database. */
+
+  const acceptedJobs  = bookings.filter(b => !['Pending','Rejected'].includes(b.status)).length;
+  const completedJobs = bookings.filter(b => b.status === 'Completed').length;
+  const cancelledJobs = bookings.filter(b => b.status === 'Cancelled').length;
+  const rejectedJobs  = bookings.filter(b => b.status === 'Rejected').length;
+  const noShows       = Number(W.no_show_count) || 0; /* no booking-status equivalent; keep from workers row */
+
+  /* Completion rate: completed / (completed + cancelled + no-shows) */
+  const closedTotal = completedJobs + cancelledJobs + noShows;
+  const comp = closedTotal > 0 ? Math.round((completedJobs / closedTotal) * 100) : 0;
+
+  /* Reliability score: use workers table value if set, but NEVER fall back to 100.
+     A null/missing value means unscored yet, show 0 instead of a fake 100. */
+  const rel = W.reliability_score != null ? Number(W.reliability_score) : null;
+
+  /* Activity score: completed / total bookings touched (× 100) */
+  const totalTouched = acceptedJobs + rejectedJobs;
+  const act = totalTouched > 0 ? Math.round((completedJobs / totalTouched) * 100) : 0;
+
+  /* Worker score: weighted composite same formula as index.html WorkerStats */
+  const acceptRate = totalTouched > 0 ? Math.round((acceptedJobs / totalTouched) * 100) : 0;
+  const wsc = Math.round(comp * 0.5 + acceptRate * 0.3 + act * 0.2);
 
   document.getElementById('pAccepted').textContent = acceptedJobs;
   document.getElementById('pCompleted').textContent = completedJobs;
   document.getElementById('pCancelled').textContent = cancelledJobs;
   document.getElementById('pNoShow').textContent = noShows;
 
-  const comp = completionRate;
-  const act = activityScore;
-  const wsc = workerScore;
-
-  document.getElementById('pReliability').textContent=rel!=null?rel.toFixed(0):'—';
-  document.getElementById('pCompletion').textContent=
-  comp!=null?comp.toFixed(0)+'%':'—';
-  document.getElementById('pActivity').textContent=act!=null?act.toFixed(0):'—';
-  document.getElementById('pWorkerScore').textContent=wsc!=null?wsc.toFixed(0):'—';
+  document.getElementById('pReliability').textContent = rel != null ? Number(rel).toFixed(0) : '—';
+  document.getElementById('pCompletion').textContent  = comp + '%';
+  document.getElementById('pActivity').textContent    = act;
+  document.getElementById('pWorkerScore').textContent = wsc;
 
   tagScoreCard('pReliabilityCard',rel);
   tagScoreCard('pCompletionCard',comp!=null?comp:null);
@@ -1225,16 +1236,29 @@ function renderAchievements(){
   /* All values derived from the canonical WorkerStats source in index.html,
      persisted to workers table via recalc() on every booking event.
      Uses same values as renderProfile() for consistency. */
-  const completedJobs = W.completed_jobs ?? 0;
-  const acceptedJobs  = W.accepted_jobs ?? 0;
+  /* All values derived live from the bookings array — same source as
+     renderProfile and renderWorkerRank — so achievements accurately
+     reflect the real database state even if workers table counters
+     are stale or non-zero when bookings is empty. */
+  const completedJobs = bookings.filter(b=>b.status==='Completed').length;
+  const cancelledJobs = bookings.filter(b=>b.status==='Cancelled').length;
+  const acceptedJobs  = bookings.filter(b=>!['Pending','Rejected'].includes(b.status)).length;
+  const rejectedJobs  = bookings.filter(b=>b.status==='Rejected').length;
+  const noShows       = Number(W.no_show_count)||0;
   const ratedBookings = bookings.filter(b=>b.status==='Completed'&&Number(b.review_rating||0)>0);
   const rating        = ratedBookings.length
     ? ratedBookings.reduce((s,b)=>s+Number(b.review_rating),0)/ratedBookings.length
     : 0;
-  const rel  = Number(W.reliability_score)||0;
-  const act  = Number(W.activity_score)||0;
-  const comp = W.completion_rate != null ? Number(W.completion_rate) * 100 : 0;
-  const wsc  = Number(W.worker_score)||0;
+  /* reliability_score has no booking-status equivalent; keep from workers row.
+     But NEVER fall back to a fake non-zero value if DB has null. */
+  const rel  = W.reliability_score!=null ? Number(W.reliability_score) : 0;
+  /* Compute act, comp, wsc live exactly as renderProfile does */
+  const closedTotal = completedJobs+cancelledJobs+noShows;
+  const comp = closedTotal>0 ? Math.round((completedJobs/closedTotal)*100) : 0;
+  const totalTouched = acceptedJobs+rejectedJobs;
+  const act  = totalTouched>0 ? Math.round((completedJobs/totalTouched)*100) : 0;
+  const accRate = totalTouched>0 ? Math.round((acceptedJobs/totalTouched)*100) : 0;
+  const wsc  = Math.round(comp*0.5+accRate*0.3+act*0.2);
   const has5Star = ratedBookings.some(b=>Number(b.review_rating)===5);
 
   /* Helper: build one achievement card.
@@ -1417,9 +1441,22 @@ function renderAcceptanceRate(){
    ════════════════════════════════════════════════════════════ */
 function renderWorkerRank(){
   const el=document.getElementById('workerRankBadge');
-  const score=W.worker_score!=null?Number(W.worker_score):null;
+  /* Compute live from bookings — same formula as renderProfile — so rank
+     reflects actual current activity, not a stale workers table counter. */
+  const completed = bookings.filter(b=>b.status==='Completed').length;
+  const cancelled = bookings.filter(b=>b.status==='Cancelled').length;
+  const accepted  = bookings.filter(b=>!['Pending','Rejected'].includes(b.status)).length;
+  const rejected  = bookings.filter(b=>b.status==='Rejected').length;
+  const noShows   = Number(W.no_show_count)||0;
+  const closedTotal = completed+cancelled+noShows;
+  const compRate  = closedTotal>0?Math.round((completed/closedTotal)*100):0;
+  const total     = accepted+rejected;
+  const accRate   = total>0?Math.round((accepted/total)*100):0;
+  const actScore  = total>0?Math.round((completed/total)*100):0;
+  const score     = Math.round(compRate*0.5+accRate*0.3+actScore*0.2);
+
   el.className='rank-badge';
-  if(score===null||score===0){
+  if(score===0){
     el.classList.add('rank-new');
     el.textContent='— Unranked';
   } else if(score>=80){

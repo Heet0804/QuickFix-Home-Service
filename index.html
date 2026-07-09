@@ -1688,10 +1688,23 @@ function renderHomeCats(){
     (e?`<div style="grid-column:1/-1;text-align:center;font-size:.76rem;color:var(--emerg);font-weight:600;padding:.4rem .875rem;background:var(--emerg-light);border-radius:var(--radius-sm);border:1px solid var(--emerg-border)">🚨 Emergency hours — Only Electrician &amp; Plumber available (8:30 PM – 8:30 AM IST)</div>`:'');
 }
 async function renderHomeWorkers(){
-  const e=isEmerg();
-  let ws=await DB.workers();
-  if(e) ws=ws.filter(w=>['Electrician','Plumber'].includes(w.role)&&w.ea);
-  document.getElementById('homeWorkers').innerHTML=ws.sort((a,b)=>b.rating-a.rating).slice(0,3).map(wCard).join('');
+  const container = document.getElementById('homeWorkers');
+  if(!container) return;
+
+  const e = isEmerg();
+  let ws = await DB.workers();
+
+  if(e){
+    ws = ws.filter(w =>
+      ['Electrician','Plumber'].includes(w.role) && w.ea
+    );
+  }
+
+  container.innerHTML = ws
+    .sort((a,b)=>b.rating-a.rating)
+    .slice(0,3)
+    .map(wCard)
+    .join('');
 }
 
 /* ── HOUSEHELP PICKER ──────────────────────────────────────── */
