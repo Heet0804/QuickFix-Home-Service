@@ -482,6 +482,8 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
 
 let W=null;
 let completedBookings=[];
+let Stats=null;               /* get_worker_stats RPC result — same as dashboard, never computed here */
+let UnlockedAchievements=[];  /* worker_achievements rows — profile never decides, only reads */
 
 /* ════════════════════════════════════════════════════════════
    BOOT — same dual-signal auth as worker-dashboard.html
@@ -507,7 +509,10 @@ let completedBookings=[];
   W={...cached,...wp};
   sessionStorage.setItem('qf_user',JSON.stringify(W));
 
-  /* Load completed bookings to compute earnings and badges */
+  /* Load completed bookings — used ONLY for the "recent jobs" list in
+     renderEarnings(). Every stat (accepted/completed/cancelled/no-show/
+     rating/completion/reliability/activity/worker score/earnings) comes
+     from the RPC below, not from this array. */
   const {data:bks}=await sb.from('bookings')
     .select('id,status,worker_earning,service,created_at,scheduled_date,scheduled_time,review_rating')
     .eq('worker_id',W.id)
@@ -516,11 +521,32 @@ let completedBookings=[];
     .limit(100);
   completedBookings=bks||[];
 
+  await loadStats();
+  await loadAchievements();
+
   document.getElementById('loadingState').style.display='none';
   document.getElementById('profileContent').style.display='block';
 
   renderAll();
 })();
+
+/* ════════════════════════════════════════════════════════════
+   Same RPC index.html and worker-dashboard.html call. This page
+   computes nothing — it only displays what the RPC returns.
+   ════════════════════════════════════════════════════════════ */
+async function loadStats(){
+  const {data,error}=await sb.rpc('get_worker_stats',{p_worker_id:W.id});
+  if(error){ console.error('get_worker_stats:',error.message); return; }
+  Stats=Array.isArray(data)?data[0]:data;
+}
+
+/* Profile NEVER evaluates achievements — this only reads what the
+   dashboard's achievement engine has already permanently unlocked. */
+async function loadAchievements(){
+  const {data,error}=await sb.from('worker_achievements').select('*').eq('worker_id',W.id);
+  if(error){ console.error('worker_achievements fetch:',error.message); UnlockedAchievements=[]; return; }
+  UnlockedAchievements=data||[];
+}
 
 /* ════════════════════════════════════════════════════════════
    RENDER ALL
@@ -582,32 +608,30 @@ function renderHero(){
     st.className='pc-status offline';
   }
 
-  /* Key stats */
-  document.getElementById('statRating').textContent=W.rating!=null?Number(W.rating).toFixed(1):'—';
-  document.getElementById('statTotalJobs').textContent=W.total_jobs??0;
-  document.getElementById('statCompleted').textContent=W.completed_jobs??0;
+  /* Key stats — all from Stats (get_worker_stats RPC), same as dashboard */
+  document.getElementById('statRating').textContent=Stats?.rating!=null?Number(Stats.rating).toFixed(1):'—';
+  document.getElementById('statTotalJobs').textContent=Stats?.accepted_jobs??0;
+  document.getElementById('statCompleted').textContent=Stats?.completed_jobs??0;
 
-  /* Earnings: sum from completed bookings (worker_earning column) */
-  const totalEarned=completedBookings.reduce((s,b)=>s+(Number(b.worker_earning)||0),0);
-  document.getElementById('statEarnings').textContent='₹'+totalEarned.toLocaleString('en-IN');
+  document.getElementById('statEarnings').textContent='₹'+Number(Stats?.total_earnings??0).toLocaleString('en-IN');
 }
 
 /* ── PERFORMANCE GRID ── */
 function renderPerf(){
-  document.getElementById('pAccepted').textContent=W.accepted_jobs??0;
-  document.getElementById('pCompleted').textContent=W.completed_jobs??0;
-  document.getElementById('pCancelled').textContent=W.cancelled_jobs??0;
-  document.getElementById('pNoShow').textContent=W.no_show_count??0;
+  document.getElementById('pAccepted').textContent=Stats?.accepted_jobs??0;
+  document.getElementById('pCompleted').textContent=Stats?.completed_jobs??0;
+  document.getElementById('pCancelled').textContent=Stats?.cancelled_jobs??0;
+  document.getElementById('pNoShow').textContent=Stats?.no_show_count??0;
 
-  const rel=W.reliability_score!=null?Number(W.reliability_score):null;
-  const comp=W.completion_rate!=null?Number(W.completion_rate):null;
-  const act=W.activity_score!=null?Number(W.activity_score):null;
-  const wsc=W.worker_score!=null?Number(W.worker_score):null;
+  const rel=Stats?.reliability_score??null;
+  const comp=Stats?.completion_rate!=null?Math.round(Stats.completion_rate*100):null;
+  const act=Stats?.activity_score??null;
+  const wsc=Stats?.worker_score??null;
 
-  document.getElementById('pReliability').textContent=rel!=null?rel.toFixed(0)+'%':'—';
-  document.getElementById('pCompletion').textContent=comp!=null?comp.toFixed(0)+'%':'—';
-  document.getElementById('pActivity').textContent=act!=null?act.toFixed(0):'—';
-  document.getElementById('pWorkerScore').textContent=wsc!=null?wsc.toFixed(0):'—';
+  document.getElementById('pReliability').textContent=rel!=null?Number(rel).toFixed(0)+'%':'—';
+  document.getElementById('pCompletion').textContent=comp!=null?comp+'%':'—';
+  document.getElementById('pActivity').textContent=act!=null?Number(act).toFixed(0):'—';
+  document.getElementById('pWorkerScore').textContent=wsc!=null?Number(wsc).toFixed(0):'—';
 
   tagCard('pReliabilityCard',rel);
   tagCard('pCompletionCard',comp);
@@ -636,9 +660,9 @@ function renderDetails(){
 
 /* ── RECENT EARNINGS ── */
 function renderEarnings(){
-  const totalEarned=completedBookings.reduce((s,b)=>s+(Number(b.worker_earning)||0),0);
+  const totalEarned=Stats?.total_earnings??0;
   document.getElementById('earnTotalLabel').textContent=
-    completedBookings.length?'Total: ₹'+totalEarned.toLocaleString('en-IN'):'';
+    completedBookings.length?'Total: ₹'+Number(totalEarned).toLocaleString('en-IN'):'';
 
   const c=document.getElementById('earnList');
   if(!completedBookings.length){
@@ -669,121 +693,69 @@ function renderEarnings(){
    BADGES SYSTEM — compute earned badges from worker metrics
    Uses same values displayed in performance metrics
    ════════════════════════════════════════════════════════════ */
-function computeEarnedBadges(){
-  /* Use the exact same calculation as what renderPerf() displays */
-  const completedJobs=W.completed_jobs??0;
-  const ratedBookings=completedBookings.filter(b=>Number(b.review_rating||0)>0);
-  const rating=ratedBookings.length?ratedBookings.reduce((s,b)=>s+Number(b.review_rating),0)/ratedBookings.length:0;
-  const rel=Number(W.reliability_score)||0;
-  const act=Number(W.activity_score)||0;
-  const wsc=Number(W.worker_score)||0;
-  const has5Star=ratedBookings.some(b=>Number(b.review_rating)===5);
-
-  /* Badge catalog: {id,icon,name,desc,category,threshold,value} */
-  const allBadges=[
-    /* Worker Score (threshold-based) */
-    {id:'ws-bronze',icon:'🥉',name:'Bronze Worker',desc:'Worker score ≥ 40',cat:'Worker Score',threshold:40,value:wsc},
-    {id:'ws-silver',icon:'🥈',name:'Silver Worker',desc:'Worker score ≥ 60',cat:'Worker Score',threshold:60,value:wsc},
-    {id:'ws-gold',icon:'🥇',name:'Gold Worker',desc:'Worker score ≥ 80',cat:'Worker Score',threshold:80,value:wsc},
-    {id:'ws-plat',icon:'💎',name:'Platinum Worker',desc:'Worker score ≥ 95',cat:'Worker Score',threshold:95,value:wsc},
-    /* Rating (threshold-based) */
-    {id:'r-5star',icon:'⭐',name:'First 5★ Review',desc:'Earn your first perfect rating',cat:'Rating',threshold:1,value:has5Star?1:0},
-    {id:'r-45',icon:'🌟',name:'4.5+ Rated',desc:'Consistently excellent service',cat:'Rating',threshold:4.5,value:rating},
-    {id:'r-48',icon:'💫',name:'4.8+ Rated',desc:'Near-perfect performance',cat:'Rating',threshold:4.8,value:rating},
-    {id:'r-50',icon:'✨',name:'Perfect 5.0 Rating',desc:'The gold standard',cat:'Rating',threshold:5.0,value:rating},
-    /* Reliability (threshold-based) */
-    {id:'rel-90',icon:'🛡',name:'Reliable Worker',desc:'Reliability score ≥ 90',cat:'Reliability',threshold:90,value:rel},
-    {id:'rel-95',icon:'🔰',name:'Trusted Worker',desc:'Reliability score ≥ 95',cat:'Reliability',threshold:95,value:rel},
-    {id:'rel-100',icon:'💎',name:'Perfect Reliability',desc:'Reliability score of 100',cat:'Reliability',threshold:100,value:rel},
-    /* Jobs (threshold-based) */
-    {id:'j-1',icon:'🥇',name:'First Job',desc:'Complete your very first job',cat:'Jobs',threshold:1,value:completedJobs},
-    {id:'j-10',icon:'🏅',name:'10 Jobs Completed',desc:'A seasoned professional',cat:'Jobs',threshold:10,value:completedJobs},
-    {id:'j-25',icon:'🥈',name:'25 Jobs Completed',desc:'Making your mark',cat:'Jobs',threshold:25,value:completedJobs},
-    {id:'j-50',icon:'🥇',name:'50 Jobs Completed',desc:'Half a century of service',cat:'Jobs',threshold:50,value:completedJobs},
-    {id:'j-100',icon:'🏆',name:'100 Jobs Completed',desc:'A true QuickFix veteran',cat:'Jobs',threshold:100,value:completedJobs},
-    /* Activity (threshold-based) */
-    {id:'a-25',icon:'⚡',name:'Active Worker',desc:'Activity score ≥ 25',cat:'Activity',threshold:25,value:act},
-    {id:'a-50',icon:'🔥',name:'Super Active',desc:'Activity score ≥ 50',cat:'Activity',threshold:50,value:act},
-    {id:'a-75',icon:'💪',name:'Workaholic',desc:'Activity score ≥ 75',cat:'Activity',threshold:75,value:act},
-  ];
-
-  /* Filter earned badges (unlock condition: value >= threshold) */
-  const earned=allBadges.filter(b=>{
-    if(b.cat==='Rating'&&b.id==='r-5star') return b.value>=b.threshold; /* special: 5star is boolean */
-    return b.value>=b.threshold;
-  });
-
-  return {earned,allBadges};
-}
+/* Icons aren't stored in worker_achievements (only id/category/name/
+   description/unlocked_at) — this lookup mirrors the icons in the
+   dashboard's ACHIEVEMENTS catalog, purely for display. Not a second
+   achievement engine: no thresholds, no conditions, no decisions. */
+const ACHIEVEMENT_ICONS={
+  'job-1':'🥇','job-10':'🏅','job-25':'🥈','job-50':'🥇','job-100':'🏆',
+  'rate-5first':'⭐','rate-45':'🌟','rate-48':'💫','rate-50':'✨',
+  'rel-90':'🛡','rel-95':'🔰','rel-100':'💎',
+  'act-25':'⚡','act-50':'🔥','act-75':'💪',
+  'wsc-40':'🥉','wsc-60':'🥈','wsc-80':'🥇','wsc-95':'💎'
+};
+function achievementIcon(id){ return ACHIEVEMENT_ICONS[id]||'🏅'; }
 
 function renderBadges(){
-  const {earned}=computeEarnedBadges();
   const section=document.getElementById('badgesSection');
   const container=document.getElementById('badgesContainer');
 
-  if(!earned.length){
+  if(!UnlockedAchievements.length){
     section.style.display='none';
     return;
   }
-
   section.style.display='block';
 
-  /* Show top 4 by category priority: Worker Score → Rating → Reliability → Jobs → Activity */
-  const catPriority=['Worker Score','Rating','Reliability','Jobs','Activity'];
+  /* One highest badge per category, max 5 (PART 10). "Highest" = most
+     recently unlocked in that category — every achievement in a
+     category is a strictly higher bar than the previous one, so the
+     latest unlock is always the highest tier reached. */
   const byCategory={};
-  earned.forEach(b=>{
-    if(!byCategory[b.cat]) byCategory[b.cat]=[];
-    byCategory[b.cat].push(b);
-  });
-
-  const top4=[];
-  for(const cat of catPriority){
-    if(byCategory[cat]&&byCategory[cat].length){
-      top4.push(byCategory[cat][byCategory[cat].length-1]); /* highest in category */
-      if(top4.length>=4) break;
+  UnlockedAchievements.forEach(a=>{
+    if(!byCategory[a.category] || new Date(a.unlocked_at)>new Date(byCategory[a.category].unlocked_at)){
+      byCategory[a.category]=a;
     }
-  }
+  });
+  const topBadges=Object.values(byCategory).slice(0,5);
 
   const html=`<div class="badges-grid">
-    ${top4.map(b=>`
+    ${topBadges.map(b=>`
       <div class="badge-card earned">
-        <span class="badge-ico">${b.icon}</span>
+        <span class="badge-ico">${achievementIcon(b.achievement_id)}</span>
         <span class="badge-name">${b.name}</span>
-        <span class="badge-meta">${b.cat}</span>
+        <span class="badge-meta">${b.category}</span>
       </div>
     `).join('')}
   </div>
-  ${earned.length>4?`<div class="badges-footer"><button class="badges-more-btn" onclick="openBadgesModal()">+${earned.length-4} More</button></div>`:''}`;
+  ${UnlockedAchievements.length>topBadges.length?`<div class="badges-footer"><button class="badges-more-btn" onclick="openBadgesModal()">+${UnlockedAchievements.length-topBadges.length} More</button></div>`:''}`;
 
   container.innerHTML=html;
 }
 
 function openBadgesModal(){
-  const {earned}=computeEarnedBadges();
-  const byCategory={};
-  earned.forEach(b=>{
-    if(!byCategory[b.cat]) byCategory[b.cat]=[];
-    byCategory[b.cat].push(b);
-  });
+  /* PART 10: All Badges, sorted by unlock date (newest first). */
+  const sorted=[...UnlockedAchievements].sort((a,b)=>new Date(b.unlocked_at)-new Date(a.unlocked_at));
 
-  const catOrder=['Worker Score','Rating','Reliability','Jobs','Activity'];
-  const html=catOrder.map(cat=>{
-    if(!byCategory[cat]) return '';
-    const badges=byCategory[cat];
-    return `<div class="badges-modal-section">
-      <div class="badges-modal-title">${cat}</div>
-      ${badges.map(b=>`
-        <div class="badge-modal-item">
-          <div class="badge-modal-ico">${b.icon}</div>
-          <div class="badge-modal-body">
-            <div class="badge-modal-name">${b.name}</div>
-            <div class="badge-modal-desc">${b.desc}</div>
-            ${b.unlockDate?`<div class="badge-modal-unlock">Unlocked on: ${fmtDate(b.unlockDate)}</div>`:''}
-          </div>
-        </div>
-      `).join('')}
-    </div>`;
-  }).join('');
+  const html=sorted.map(b=>`
+    <div class="badge-modal-item">
+      <div class="badge-modal-ico">${achievementIcon(b.achievement_id)}</div>
+      <div class="badge-modal-body">
+        <div class="badge-modal-name">${b.name}</div>
+        <div class="badge-modal-desc">${b.description}</div>
+        <div class="badge-modal-unlock">Unlocked on: ${fmtDate(b.unlocked_at)}</div>
+      </div>
+    </div>
+  `).join('');
 
   document.getElementById('badgesModalBody').innerHTML=html||'<p style="text-align:center;color:var(--text3);padding:2rem">No earned badges yet</p>';
   document.getElementById('badgesModal').classList.add('on');

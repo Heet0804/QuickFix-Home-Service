@@ -530,6 +530,17 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
   </div>
 </div>
 
+<!-- ACHIEVEMENT UNLOCK POPUP (Phase 5 / PART 7) -->
+<div class="modal-bg" id="achievementUnlockModal">
+  <div class="modal" style="max-width:360px;text-align:center">
+    <div id="unlockIco" style="font-size:2.6rem;margin-bottom:.5rem">🏆</div>
+    <h3 id="unlockTitle" style="margin:0 0 .35rem;font-size:1.05rem">—</h3>
+    <p id="unlockDesc" style="color:var(--text2);font-size:.85rem;margin:0 0 .4rem">—</p>
+    <p id="unlockDate" style="color:var(--text3);font-size:.72rem;margin:0 0 1rem">—</p>
+    <button onclick="closeModal('achievementUnlockModal')" style="background:var(--teal);color:#fff;border:none;border-radius:var(--radius-sm);padding:.6rem 1.4rem;font-weight:700;cursor:pointer">Dismiss</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -558,6 +569,89 @@ let curTab='pending';
 let pendAcceptId=null;
 let pendRejectId=null;
 let pendOtpId=null;
+
+/* ════════════════════════════════════════════════════════════
+   CANONICAL STATS — the ONLY stats source on this page. Same RPC
+   index.html and worker-profile.html call. Nothing below computes
+   completion/reliability/activity/worker score locally.
+   ════════════════════════════════════════════════════════════ */
+let Stats=null;
+async function loadStats(){
+  const {data,error}=await sb.rpc('get_worker_stats',{p_worker_id:W.id});
+  if(error){ console.error('get_worker_stats:',error.message); return; }
+  const s=Array.isArray(data)?data[0]:data;
+  if(!s) return;
+  Stats={...s, has5Star: bookings.some(b=>b.status==='Completed'&&Number(b.review_rating)===5)};
+}
+
+/* ════════════════════════════════════════════════════════════
+   ACHIEVEMENT ENGINE — the ONLY place achievements are decided.
+   Every achievement requires completed_jobs >= gate AND its own
+   condition. A brand-new worker (completed_jobs=0) satisfies none
+   of these — including the reliability ones, even though reliability
+   starts at 100 with zero jobs, because the gate blocks it.
+   ════════════════════════════════════════════════════════════ */
+const ACHIEVEMENTS = [
+  {id:'job-1',    category:'Jobs',         icon:'🥇', name:'First Job',           desc:'Complete your very first job.',    gate:1,   test:s=>s.completed_jobs>=1,     progress:s=>[s.completed_jobs,1]},
+  {id:'job-10',   category:'Jobs',         icon:'🏅', name:'10 Jobs Completed',   desc:'A seasoned professional.',         gate:10,  test:s=>s.completed_jobs>=10,    progress:s=>[s.completed_jobs,10]},
+  {id:'job-25',   category:'Jobs',         icon:'🥈', name:'25 Jobs Completed',   desc:'Making your mark.',                gate:25,  test:s=>s.completed_jobs>=25,    progress:s=>[s.completed_jobs,25]},
+  {id:'job-50',   category:'Jobs',         icon:'🥇', name:'50 Jobs Completed',   desc:'Half a century of service!',       gate:50,  test:s=>s.completed_jobs>=50,    progress:s=>[s.completed_jobs,50]},
+  {id:'job-100',  category:'Jobs',         icon:'🏆', name:'100 Jobs Completed',  desc:'A true QuickFix veteran.',         gate:100, test:s=>s.completed_jobs>=100,   progress:s=>[s.completed_jobs,100]},
+
+  {id:'rate-5first',category:'Rating',     icon:'⭐', name:'First 5★ Review',     desc:'Earn your first perfect rating.',  gate:1,   test:s=>s.has5Star,              progress:s=>[s.has5Star?1:0,1]},
+  {id:'rate-45',  category:'Rating',       icon:'🌟', name:'4.5+ Rated',          desc:'Consistently excellent service.',  gate:5,   test:s=>s.rating>=4.5,           progress:s=>[s.rating,4.5]},
+  {id:'rate-48',  category:'Rating',       icon:'💫', name:'4.8+ Rated',          desc:'Near-perfect performance.',        gate:5,   test:s=>s.rating>=4.8,           progress:s=>[s.rating,4.8]},
+  {id:'rate-50',  category:'Rating',       icon:'✨', name:'Perfect 5.0 Rating',  desc:'The gold standard.',               gate:5,   test:s=>s.rating>=5.0,           progress:s=>[s.rating,5.0]},
+
+  {id:'rel-90',   category:'Reliability',  icon:'🛡', name:'Reliable Worker',     desc:'Reliability score ≥ 90.',          gate:5,   test:s=>s.reliability_score>=90, progress:s=>[s.reliability_score,90]},
+  {id:'rel-95',   category:'Reliability',  icon:'🔰', name:'Trusted Worker',      desc:'Reliability score ≥ 95.',          gate:5,   test:s=>s.reliability_score>=95, progress:s=>[s.reliability_score,95]},
+  {id:'rel-100',  category:'Reliability',  icon:'💎', name:'Perfect Reliability', desc:'Reliability score of 100.',        gate:5,   test:s=>s.reliability_score>=100,progress:s=>[s.reliability_score,100]},
+
+  {id:'act-25',   category:'Activity',     icon:'⚡', name:'Active Worker',       desc:'Activity score ≥ 25.',             gate:5,   test:s=>s.activity_score>=25,    progress:s=>[s.activity_score,25]},
+  {id:'act-50',   category:'Activity',     icon:'🔥', name:'Super Active',        desc:'Activity score ≥ 50.',             gate:5,   test:s=>s.activity_score>=50,    progress:s=>[s.activity_score,50]},
+  {id:'act-75',   category:'Activity',     icon:'💪', name:'Workaholic',          desc:'Activity score ≥ 75.',             gate:5,   test:s=>s.activity_score>=75,    progress:s=>[s.activity_score,75]},
+
+  {id:'wsc-40',   category:'Worker Score', icon:'🥉', name:'Bronze Worker',       desc:'Worker score ≥ 40.',               gate:5,   test:s=>s.worker_score>=40,      progress:s=>[s.worker_score,40]},
+  {id:'wsc-60',   category:'Worker Score', icon:'🥈', name:'Silver Worker',       desc:'Worker score ≥ 60.',               gate:5,   test:s=>s.worker_score>=60,      progress:s=>[s.worker_score,60]},
+  {id:'wsc-80',   category:'Worker Score', icon:'🥇', name:'Gold Worker',         desc:'Worker score ≥ 80.',               gate:15,  test:s=>s.worker_score>=80,      progress:s=>[s.worker_score,80]},
+  {id:'wsc-95',   category:'Worker Score', icon:'💎', name:'Platinum Worker',     desc:'Worker score ≥ 95.',               gate:30,  test:s=>s.worker_score>=95,      progress:s=>[s.worker_score,95]},
+];
+function achievementUnlocked(a,stats){ return stats.completed_jobs>=a.gate && a.test(stats); }
+
+let UnlockedAchievements=[]; /* rows from worker_achievements — the persisted source of truth for "unlocked" */
+
+async function checkAndUnlockAchievements(){
+  if(!Stats||!W?.id) return;
+  const {data:rows,error}=await sb.from('worker_achievements').select('*').eq('worker_id',W.id);
+  if(error){ console.error('worker_achievements fetch:',error.message); return; }
+  UnlockedAchievements=rows||[];
+  const unlockedIds=new Set(UnlockedAchievements.map(r=>r.achievement_id));
+
+  const newlyUnlocked=[];
+  for(const a of ACHIEVEMENTS){
+    if(unlockedIds.has(a.id)) continue;
+    if(!achievementUnlocked(a,Stats)) continue;
+    const {data:inserted,error:ie}=await sb.from('worker_achievements')
+      .insert({worker_id:W.id, achievement_id:a.id, category:a.category, name:a.name, description:a.desc})
+      .select().single();
+    if(ie){
+      if(ie.code!=='23505') console.error('worker_achievements insert:',ie.message);
+      continue; /* 23505 = unique violation, e.g. two realtime events racing — safe to skip */
+    }
+    UnlockedAchievements.push(inserted);
+    newlyUnlocked.push(inserted);
+  }
+  newlyUnlocked.forEach(showAchievementUnlockPopup);
+}
+
+function showAchievementUnlockPopup(row){
+  const def=ACHIEVEMENTS.find(a=>a.id===row.achievement_id);
+  document.getElementById('unlockIco').textContent=def?.icon||'🏆';
+  document.getElementById('unlockTitle').textContent=row.name;
+  document.getElementById('unlockDesc').textContent=row.description;
+  document.getElementById('unlockDate').textContent='Unlocked '+new Date(row.unlocked_at).toLocaleString();
+  document.getElementById('achievementUnlockModal').classList.add('on');
+}
 
 /* ════════════════════════════════════════════════════════════
    BOOT — dual-signal authentication
@@ -647,15 +741,7 @@ function renderProfile(){
         Number(b.review_rating || 0) > 0
 );
 
-const dashboardRating =
-    ratedBookings.length
-        ? (
-            ratedBookings.reduce(
-                (sum, b) => sum + Number(b.review_rating),
-                0
-            ) / ratedBookings.length
-        ).toFixed(1)
-        : "0.0";
+const dashboardRating = Stats?.rating != null ? Number(Stats.rating).toFixed(1) : "0.0";
 
 const dashboardTotalJobs =
     bookings.filter(b =>
@@ -669,43 +755,19 @@ document.getElementById("statRating").textContent =
 document.getElementById("statTotalJobs").textContent =
     dashboardTotalJobs;
 
-  /* Earnings: no earnings/wallet column exists on workers per the schema
-     in scope, and bookings.worker_earning is only ever set by THIS page
-     when a job is marked Completed (see markCompleted). We sum it from
-     the worker's own completed bookings rather than inventing a column. */
-  const earned=bookings
-    .filter(b=>b.status==='Completed')
-    .reduce((sum,b)=>sum+(Number(b.worker_earning)||0),0);
-  document.getElementById('statEarnings').textContent='₹'+earned.toLocaleString('en-IN');
+  document.getElementById('statEarnings').textContent='₹'+Number(Stats?.total_earnings??0).toLocaleString('en-IN');
 
-  /* === STATS DERIVED LIVE FROM BOOKINGS (not stale workers table counters) ===
-     W.accepted_jobs / completed_jobs / cancelled_jobs / activity_score /
-     worker_score / completion_rate are running totals written by index.html's
-     WorkerStats.recalc() — but they can be stale or non-zero even when bookings
-     is empty. We recompute everything from the bookings array so the dashboard
-     always reflects the actual state of the database. */
-
-  const acceptedJobs  = bookings.filter(b => !['Pending','Rejected'].includes(b.status)).length;
-  const completedJobs = bookings.filter(b => b.status === 'Completed').length;
-  const cancelledJobs = bookings.filter(b => b.status === 'Cancelled').length;
-  const rejectedJobs  = bookings.filter(b => b.status === 'Rejected').length;
-  const noShows       = Number(W.no_show_count) || 0; /* no booking-status equivalent; keep from workers row */
-
-  /* Completion rate: completed / (completed + cancelled + no-shows) */
-  const closedTotal = completedJobs + cancelledJobs + noShows;
-  const comp = closedTotal > 0 ? Math.round((completedJobs / closedTotal) * 100) : 0;
-
-  /* Reliability score: use workers table value if set, but NEVER fall back to 100.
-     A null/missing value means unscored yet, show 0 instead of a fake 100. */
-  const rel = W.reliability_score != null ? Number(W.reliability_score) : null;
-
-  /* Activity score: completed / total bookings touched (× 100) */
-  const totalTouched = acceptedJobs + rejectedJobs;
-  const act = totalTouched > 0 ? Math.round((completedJobs / totalTouched) * 100) : 0;
-
-  /* Worker score: weighted composite same formula as index.html WorkerStats */
-  const acceptRate = totalTouched > 0 ? Math.round((acceptedJobs / totalTouched) * 100) : 0;
-  const wsc = Math.round(comp * 0.5 + acceptRate * 0.3 + act * 0.2);
+  /* === STATS — ALL come from Stats (get_worker_stats RPC result).
+     Same function index.html and worker-profile.html call. Nothing is
+     computed on this page anymore. === */
+  const acceptedJobs  = Stats?.accepted_jobs  ?? 0;
+  const completedJobs = Stats?.completed_jobs ?? 0;
+  const cancelledJobs = Stats?.cancelled_jobs ?? 0;
+  const noShows       = Stats?.no_show_count  ?? 0;
+  const rel  = Stats?.reliability_score ?? null;
+  const comp = Stats?.completion_rate != null ? Math.round(Stats.completion_rate * 100) : 0;
+  const act  = Stats?.activity_score ?? 0;
+  const wsc  = Stats?.worker_score ?? 0;
 
   document.getElementById('pAccepted').textContent = acceptedJobs;
   document.getElementById('pCompleted').textContent = completedJobs;
@@ -775,6 +837,9 @@ if(workerLive){
     JSON.stringify(W)
   );
 }
+
+await loadStats();
+await checkAndUnlockAchievements();
 
 updateTabCounts();
 
@@ -1234,105 +1299,43 @@ async function toggleEmergency(){
 
 /* ── ACHIEVEMENTS ──────────────────────────────────────────── */
 function renderAchievements(){
-  /* All values derived from the canonical WorkerStats source in index.html,
-     persisted to workers table via recalc() on every booking event.
-     Uses same values as renderProfile() for consistency. */
-  /* All values derived live from the bookings array — same source as
-     renderProfile and renderWorkerRank — so achievements accurately
-     reflect the real database state even if workers table counters
-     are stale or non-zero when bookings is empty. */
-  const completedJobs = bookings.filter(b=>b.status==='Completed').length;
-  const cancelledJobs = bookings.filter(b=>b.status==='Cancelled').length;
-  const acceptedJobs  = bookings.filter(b=>!['Pending','Rejected'].includes(b.status)).length;
-  const rejectedJobs  = bookings.filter(b=>b.status==='Rejected').length;
-  const noShows       = Number(W.no_show_count)||0;
-  const ratedBookings = bookings.filter(b=>b.status==='Completed'&&Number(b.review_rating||0)>0);
-  const rating        = ratedBookings.length
-    ? ratedBookings.reduce((s,b)=>s+Number(b.review_rating),0)/ratedBookings.length
-    : 0;
-  /* reliability_score has no booking-status equivalent; keep from workers row.
-     But NEVER fall back to a fake non-zero value if DB has null. */
-  const rel  = W.reliability_score!=null ? Number(W.reliability_score) : 0;
-  /* Compute act, comp, wsc live exactly as renderProfile does */
-  const closedTotal = completedJobs+cancelledJobs+noShows;
-  const comp = closedTotal>0 ? Math.round((completedJobs/closedTotal)*100) : 0;
-  const totalTouched = acceptedJobs+rejectedJobs;
-  const act  = totalTouched>0 ? Math.round((completedJobs/totalTouched)*100) : 0;
-  const accRate = totalTouched>0 ? Math.round((acceptedJobs/totalTouched)*100) : 0;
-  const wsc  = Math.round(comp*0.5+accRate*0.3+act*0.2);
-  const has5Star = ratedBookings.some(b=>Number(b.review_rating)===5);
+  if(!Stats) return;
+  const unlockedIds=new Set(UnlockedAchievements.map(r=>r.achievement_id));
 
-  /* Helper: build one achievement card.
-     current = actual value, target = threshold to unlock,
-     pct overrides the bar fill if you need custom scaling. */
-  function card(ico,title,desc,current,target,pct){
-    const unlocked = current>=target;
-    const fill     = pct!=null ? Math.min(pct,100) : Math.min(Math.round((current/target)*100),100);
+  function card(a){
+    const unlocked=unlockedIds.has(a.id);
+    const [current,target]=a.progress(Stats);
+    const fill=Math.max(0,Math.min(100,Math.round((Number(current)/Number(target))*100)));
+    const gateOk=Stats.completed_jobs>=a.gate;
     return `<div class="ach-card${unlocked?' unlocked':''}">
-      <div class="ach-ico">${ico}</div>
+      <div class="ach-ico">${a.icon}</div>
       <div class="ach-body">
-        <div class="ach-title">${title}</div>
-        <div class="ach-desc">${desc}</div>
+        <div class="ach-title">${a.name}</div>
+        <div class="ach-desc">${a.desc}</div>
         <div class="ach-prog-row">
           <span class="ach-prog-label">Progress</span>
           <span class="ach-prog-val">${Math.min(current,target)} / ${target}</span>
         </div>
-        <div class="ach-bar-track"><div class="ach-bar-fill" data-fill="${fill}"></div></div>
-        <div class="ach-badge">${unlocked?'✅ Unlocked':'🔒 Locked'}</div>
+        <div class="ach-bar-track"><div class="ach-bar-fill" data-fill="${unlocked?100:fill}"></div></div>
+        <div class="ach-badge">${unlocked?'✅ Unlocked':(gateOk?'🔒 Locked':`🔒 Needs ${a.gate}+ completed jobs`)}</div>
       </div>
     </div>`;
   }
 
-  function section(title,cards){
+  function section(title,items){
     return `<div class="ach-section">
       <div class="ach-section-title">${title}</div>
-      ${cards}
+      ${items.map(card).join('')}
     </div>`;
   }
 
-  const html = [
-    section('🔨 Jobs', [
-      card('🥇','First Job','Complete your very first job.',completedJobs,1),
-      card('🏅','10 Jobs Completed','A seasoned professional.',completedJobs,10),
-      card('🥈','25 Jobs Completed','Making your mark.',completedJobs,25),
-      card('🥇','50 Jobs Completed','Half a century of service!',completedJobs,50),
-      card('🏆','100 Jobs Completed','A true QuickFix veteran.',completedJobs,100),
-    ].join('')),
-
-    section('⭐ Rating', [
-      card('⭐','First 5★ Review','Earn your first perfect rating.',has5Star?1:0,1,has5Star?100:0),
-      card('🌟','4.5+ Rated','Consistently excellent service.',rating,4.5,Math.min(Math.round((rating/4.5)*100),100)),
-      card('💫','4.8+ Rated','Near-perfect performance.',rating,4.8,Math.min(Math.round((rating/4.8)*100),100)),
-      card('✨','Perfect 5.0 Rating','The gold standard.',rating,5.0,Math.min(Math.round((rating/5)*100),100)),
-    ].join('')),
-
-    section('🛡 Reliability', [
-      card('🛡','Reliable Worker','Reliability score ≥ 90.',rel,90),
-      card('🔰','Trusted Worker','Reliability score ≥ 95.',rel,95),
-      card('💎','Perfect Reliability','Reliability score of 100.',rel,100),
-    ].join('')),
-
-    section('⚡ Activity', [
-      card('⚡','Active Worker','Activity score ≥ 25.',act,25),
-      card('🔥','Super Active','Activity score ≥ 50.',act,50),
-      card('💪','Workaholic','Activity score ≥ 75.',act,75),
-    ].join('')),
-
-    section('🏅 Worker Score', [
-      card('🥉','Bronze Worker','Worker score ≥ 40.',wsc,40),
-      card('🥈','Silver Worker','Worker score ≥ 60.',wsc,60),
-      card('🥇','Gold Worker','Worker score ≥ 80.',wsc,80),
-      card('💎','Platinum Worker','Worker score ≥ 95.',wsc,95),
-    ].join('')),
-
-    section('🚨 Emergency', `<div class="ach-coming">🚧 Emergency achievements — Coming Soon</div>`),
-
-  ].join('');
+  const catTitles={Jobs:'🔨 Jobs',Rating:'⭐ Rating',Reliability:'🛡 Reliability',Activity:'⚡ Activity','Worker Score':'🏅 Worker Score'};
+  const html = Object.keys(catTitles).map(c=>section(catTitles[c], ACHIEVEMENTS.filter(a=>a.category===c))).join('')
+    + `<div class="ach-section"><div class="ach-section-title">🚨 Emergency</div><div class="ach-coming">🚧 Emergency achievements — Coming Soon</div></div>`;
 
   const body=document.getElementById('achievementsBody');
   body.innerHTML=html;
 
-  /* Animate progress bars on next frame */
   requestAnimationFrame(()=>{
     body.querySelectorAll('.ach-bar-fill').forEach(el=>{
       el.style.width=(el.dataset.fill||0)+'%';
@@ -1442,19 +1445,7 @@ function renderAcceptanceRate(){
    ════════════════════════════════════════════════════════════ */
 function renderWorkerRank(){
   const el=document.getElementById('workerRankBadge');
-  /* Compute live from bookings — same formula as renderProfile — so rank
-     reflects actual current activity, not a stale workers table counter. */
-  const completed = bookings.filter(b=>b.status==='Completed').length;
-  const cancelled = bookings.filter(b=>b.status==='Cancelled').length;
-  const accepted  = bookings.filter(b=>!['Pending','Rejected'].includes(b.status)).length;
-  const rejected  = bookings.filter(b=>b.status==='Rejected').length;
-  const noShows   = Number(W.no_show_count)||0;
-  const closedTotal = completed+cancelled+noShows;
-  const compRate  = closedTotal>0?Math.round((completed/closedTotal)*100):0;
-  const total     = accepted+rejected;
-  const accRate   = total>0?Math.round((accepted/total)*100):0;
-  const actScore  = total>0?Math.round((completed/total)*100):0;
-  const score     = Math.round(compRate*0.5+accRate*0.3+actScore*0.2);
+  const score = Stats?.worker_score ?? 0;
 
   el.className='rank-badge';
   if(score===0){
@@ -1478,7 +1469,7 @@ function renderWorkerRank(){
    ════════════════════════════════════════════════════════════ */
 function renderReliabilityPill(){
   const el=document.getElementById('reliabilityPill');
-  const rel=W.reliability_score!=null?Number(W.reliability_score):null;
+  const rel=Stats?.reliability_score!=null?Number(Stats.reliability_score):null;
   el.className='rel-pill';
   if(rel===null){el.textContent='Reliability: —';el.classList.add('rel-needs');return;}
   if(rel>=90){el.classList.add('rel-excellent');el.textContent='🟢 Excellent Reliability';}
