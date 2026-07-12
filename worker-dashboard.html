@@ -576,6 +576,7 @@ let pendOtpId=null;
    completion/reliability/activity/worker score locally.
    ════════════════════════════════════════════════════════════ */
 let Stats=null;
+const RELIABILITY_MIN_ACCEPTED_JOBS=1; /* below this, reliability_score/worker_score reflect an unqualified default, not earned performance — display 0, not the raw RPC value */
 async function loadStats(){
   const {data,error}=await sb.rpc('get_worker_stats',{p_worker_id:W.id});
   if(error){ console.error('get_worker_stats:',error.message); return; }
@@ -620,6 +621,8 @@ function achievementUnlocked(a,stats){ return stats.completed_jobs>=a.gate && a.
 
 let UnlockedAchievements=[]; /* rows from worker_achievements — the persisted source of truth for "unlocked" */
 
+const ACHIEVEMENT_POPUP_DELAY_MS=3000; /* worker sees the OTP-verified confirmation first, then the unlock popup a few seconds later — not both at once */
+
 async function checkAndUnlockAchievements(){
   if(!Stats||!W?.id) return;
   const {data:rows,error}=await sb.from('worker_achievements').select('*').eq('worker_id',W.id);
@@ -641,7 +644,7 @@ async function checkAndUnlockAchievements(){
     UnlockedAchievements.push(inserted);
     newlyUnlocked.push(inserted);
   }
-  newlyUnlocked.forEach(showAchievementUnlockPopup);
+  newlyUnlocked.forEach(a=>setTimeout(()=>showAchievementUnlockPopup(a), ACHIEVEMENT_POPUP_DELAY_MS));
 }
 
 function showAchievementUnlockPopup(row){
@@ -718,7 +721,7 @@ sb.channel('worker-bookings-' + W.id)
   }
 )
 
-.subscribe();
+.subscribe((status, err) => { console.log('channel status:', status, err); });
 
 })();
 
@@ -774,15 +777,19 @@ document.getElementById("statTotalJobs").textContent =
   document.getElementById('pCancelled').textContent = cancelledJobs;
   document.getElementById('pNoShow').textContent = noShows;
 
-  document.getElementById('pReliability').textContent = rel != null ? Number(rel).toFixed(0) : '—';
+  const qualified = acceptedJobs >= RELIABILITY_MIN_ACCEPTED_JOBS;
+  const relShown = rel == null ? null : (qualified ? rel : 0);
+  const wscShown = qualified ? wsc : 0;
+
+  document.getElementById('pReliability').textContent = relShown == null ? '—' : Number(relShown).toFixed(0);
   document.getElementById('pCompletion').textContent  = comp + '%';
   document.getElementById('pActivity').textContent    = act;
-  document.getElementById('pWorkerScore').textContent = wsc;
+  document.getElementById('pWorkerScore').textContent = wscShown;
 
-  tagScoreCard('pReliabilityCard',rel);
+  tagScoreCard('pReliabilityCard',relShown);
   tagScoreCard('pCompletionCard',comp!=null?comp:null);
   tagScoreCard('pActivityCard',act);
-  tagScoreCard('pWorkerScoreCard',wsc);
+  tagScoreCard('pWorkerScoreCard',wscShown);
 
   const isAvailable=Boolean(W.is_available);
   document.getElementById('availToggle').checked=isAvailable;
@@ -1445,7 +1452,8 @@ function renderAcceptanceRate(){
    ════════════════════════════════════════════════════════════ */
 function renderWorkerRank(){
   const el=document.getElementById('workerRankBadge');
-  const score = Stats?.worker_score ?? 0;
+  const qualified = (Stats?.accepted_jobs ?? 0) >= RELIABILITY_MIN_ACCEPTED_JOBS;
+  const score = qualified ? (Stats?.worker_score ?? 0) : 0;
 
   el.className='rank-badge';
   if(score===0){
@@ -1470,8 +1478,10 @@ function renderWorkerRank(){
 function renderReliabilityPill(){
   const el=document.getElementById('reliabilityPill');
   const rel=Stats?.reliability_score!=null?Number(Stats.reliability_score):null;
+  const qualified=(Stats?.accepted_jobs??0)>=RELIABILITY_MIN_ACCEPTED_JOBS;
   el.className='rel-pill';
   if(rel===null){el.textContent='Reliability: —';el.classList.add('rel-needs');return;}
+  if(!qualified){el.textContent='🆕 New Worker';el.classList.add('rel-needs');return;}
   if(rel>=90){el.classList.add('rel-excellent');el.textContent='🟢 Excellent Reliability';}
   else if(rel>=70){el.classList.add('rel-good');el.textContent='🟡 Good Reliability';}
   else{el.classList.add('rel-needs');el.textContent='🔴 Needs Improvement';}

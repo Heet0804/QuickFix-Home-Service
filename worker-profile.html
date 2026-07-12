@@ -483,6 +483,7 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
 let W=null;
 let completedBookings=[];
 let Stats=null;               /* get_worker_stats RPC result — same as dashboard, never computed here */
+const RELIABILITY_MIN_ACCEPTED_JOBS=1; /* below this, reliability_score/worker_score reflect an unqualified default, not earned performance — display 0, not the raw RPC value. Keep this value in sync with the same constant in worker-dashboard.html. */
 let UnlockedAchievements=[];  /* worker_achievements rows — profile never decides, only reads */
 
 /* ════════════════════════════════════════════════════════════
@@ -628,15 +629,19 @@ function renderPerf(){
   const act=Stats?.activity_score??null;
   const wsc=Stats?.worker_score??null;
 
-  document.getElementById('pReliability').textContent=rel!=null?Number(rel).toFixed(0)+'%':'—';
+  const qualified=(Stats?.accepted_jobs??0)>=RELIABILITY_MIN_ACCEPTED_JOBS;
+  const relShown=rel==null?null:(qualified?rel:0);
+  const wscShown=wsc==null?null:(qualified?wsc:0);
+
+  document.getElementById('pReliability').textContent=relShown==null?'—':Number(relShown).toFixed(0)+'%';
   document.getElementById('pCompletion').textContent=comp!=null?comp+'%':'—';
   document.getElementById('pActivity').textContent=act!=null?Number(act).toFixed(0):'—';
-  document.getElementById('pWorkerScore').textContent=wsc!=null?Number(wsc).toFixed(0):'—';
+  document.getElementById('pWorkerScore').textContent=wscShown==null?'—':Number(wscShown).toFixed(0);
 
-  tagCard('pReliabilityCard',rel);
+  tagCard('pReliabilityCard',relShown);
   tagCard('pCompletionCard',comp);
   tagCard('pActivityCard',act);
-  tagCard('pWorkerScoreCard',wsc);
+  tagCard('pWorkerScoreCard',wscShown);
 }
 
 function tagCard(id,val){
