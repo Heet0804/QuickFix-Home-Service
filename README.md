@@ -1,67 +1,103 @@
-# QuickFix – Smart Home Service Booking Platform
+# ⚡ QuickFix – Smart Home Service Booking Platform
 
-QuickFix is a full-stack home service marketplace that connects customers with nearby verified service professionals in real time.
-
-The platform provides a complete booking lifecycle—from service discovery to worker assignment, live tracking, OTP verification, payments, reviews, achievements, and worker analytics.
-
----
-
-# Features
-
-## Customer Features
-
-- User Authentication
-- Browse services by category
-- Search and filter services
-- Emergency booking support
-- Schedule bookings
-- Cash / Online payment options
-- Automatic nearest worker assignment
-- Real-time booking timeline
-- Live worker tracking using GPS
-- Arrival OTP verification
-- Completion OTP verification
-- Booking history
-- Rating & Review system
-- Achievement system
-- Real-time notifications
+<p align="center">
+  <b>Book trusted home service professionals in just a few clicks.</b><br>
+  A complete full-stack service marketplace built using HTML, CSS, JavaScript, Supabase and Firebase.
+</p>
 
 ---
 
-## Worker Features
+## 📖 About the Project
 
-- Worker Registration & Login
-- Worker Profile Management
-- Area-based availability
-- Accept / Reject bookings
-- Live GPS location sharing
-- Job Timeline
-- Earnings Dashboard
-- Acceptance Rate
-- Reliability Score
-- Worker Score
-- Achievement System
-- Profile statistics
-- Booking history
+QuickFix is a modern home service booking platform that connects customers with verified service professionals such as electricians, plumbers, carpenters, painters, cleaners, AC technicians, masons and many more.
+
+Unlike a simple booking website, QuickFix manages the complete service lifecycle—from booking creation to worker assignment, live tracking, OTP verification, reviews, achievements, analytics and worker performance scoring.
+
+The project was built as a major academic project with a focus on solving real-world service booking problems while implementing production-style workflows.
 
 ---
 
-# Service Categories
+# ✨ Features
 
-- Electrician
-- Plumber
-- Carpenter
-- Painter
-- Mason
-- Cleaner
-- AC Repair
-- Pest Control
-- House Help
-- Massage & Wellness
+## 👤 Customer Side
+
+- 🔐 User Authentication
+- 📍 Area-based worker matching
+- 🛠️ Multiple service categories
+- 📅 Date & Time slot booking
+- 🚨 Emergency booking mode
+- 💳 Cash & UPI payment options
+- 📜 Booking history
+- ⭐ Worker ratings & reviews
+- 📍 Live worker tracking using Leaflet Maps
+- 🔢 OTP based arrival & completion verification
+- 📊 Booking timeline
 
 ---
 
-# Tech Stack
+## 👷 Worker Side
+
+- 📥 Accept / Reject booking requests
+- 📅 Job management dashboard
+- 📍 Live GPS location sharing
+- 💰 Earnings dashboard
+- 📈 Worker performance statistics
+- 🏅 Achievement & badge system
+- ⭐ Dynamic rating calculation
+- 📊 Worker score calculation
+- 🔔 Real-time booking updates
+
+---
+
+# 🏆 Achievement System
+
+QuickFix contains a gamified achievement engine for workers.
+
+Examples include:
+
+- 🥇 First Job
+- 🔟 10 Jobs Completed
+- ⭐ Highly Rated Worker
+- 💯 Perfect Reliability
+- 💸 Earnings Milestones
+- 🔥 Booking Streaks
+
+Achievements unlock automatically after meeting the required conditions and are shown through animated popup notifications.
+
+---
+
+# 📊 Worker Analytics
+
+The platform automatically calculates:
+
+- ⭐ Rating
+- 📈 Worker Score
+- 🤝 Acceptance Rate
+- 🛡️ Reliability Score
+- 💵 Total Earnings
+- 📅 Jobs Completed
+- 🚫 Cancelled Jobs
+- ❌ No Shows
+
+All statistics are generated dynamically from booking history instead of relying on manually maintained counters.
+
+---
+
+# 🗺️ Live Worker Tracking
+
+QuickFix includes real-time location tracking using:
+
+- 📍 Leaflet Maps
+- 📡 Live GPS updates
+- 🚶 Worker movement
+- 📍 Customer location
+- 📌 Route visualization
+
+Customers can track workers after booking acceptance until service completion.
+
+---
+
+# ⚙️ Tech Stack
 
 ### Frontend
 
@@ -72,181 +108,115 @@ The platform provides a complete booking lifecycle—from service discovery to w
 ### Backend
 
 - Supabase
-  - PostgreSQL Database
   - Authentication
+  - PostgreSQL Database
   - Realtime
-  - Row Level Security (RLS)
-  - SQL Functions (RPC)
+  - RPC Functions
 
-### Other Technologies
+### Maps
 
 - Leaflet.js
 - OpenStreetMap
-- Firebase Realtime Database (Fire Safety Project Integration)
-- Browser Geolocation API
+
+### Notifications
+
+- Firebase Realtime Database
 
 ---
 
-# Major Functionalities
-
-## Booking Workflow
-
-Customer Books Service
-
-↓
-
-Nearest Available Worker Assigned
-
-↓
-
-Worker Accepts / Rejects
-
-↓
-
-Worker Travels
-
-↓
-
-Live GPS Tracking
-
-↓
-
-Arrival OTP Verification
-
-↓
-
-Service Starts
-
-↓
-
-Completion OTP Verification
-
-↓
-
-Payment
-
-↓
-
-Review & Rating
-
-↓
-
-Achievements Updated
-
----
-
-# Worker Performance System
-
-The application calculates worker statistics dynamically using PostgreSQL RPC functions.
-
-Metrics include:
-
-- Accepted Jobs
-- Completed Jobs
-- Cancelled Jobs
-- No Show Count
-- Average Rating
-- Completion Rate
-- Reliability Score
-- Activity Score
-- Worker Score
-- Total Earnings
-
-These statistics are generated directly from booking history instead of cached values.
-
----
-
-# Achievement System
-
-Both customers and workers can unlock achievements based on platform activity.
-
-Examples include:
-
-### Customer
-
-- First Booking
-- Repeat Customer
-- Emergency Booking
-- Multiple Reviews
-
-### Worker
-
-- First Job
-- 10 Jobs Completed
-- Highly Rated Worker
-- Reliable Worker
-- Top Performer
-
-Achievements unlock automatically after qualifying actions.
-
----
-
-# Project Structure
+# 📂 Project Structure
 
 ```
-QuickFix
+QuickFix/
 │
-├── index.html
-├── auth.html
-├── landing.html
-├── worker-dashboard.html
-├── worker-profile.html
-├── styles.css
-└── assets/
+├── index.html                 # Customer Application
+├── auth.html                  # Authentication
+├── landing.html               # Landing Page
+├── worker-dashboard.html      # Worker Dashboard
+├── worker-profile.html        # Worker Profile
+├── assets/
+├── images/
+└── README.md
 ```
 
 ---
 
-# Database
+# 🔄 Booking Workflow
 
-Supabase Tables
-
-- users
-- workers
-- bookings
-- reviews
-- worker_achievements
-- achievements
-- areas
-
-The project also uses PostgreSQL RPC functions for worker statistics.
-
----
-
-# Real-Time Features
-
-- Live booking updates
-- Worker location tracking
-- Booking status synchronization
-- Achievement unlock notifications
-
-Powered by Supabase Realtime.
-
----
-
-# Future Improvements
-
-- In-app chat
-- Push notifications
-- Razorpay integration
-- Admin dashboard
-- AI worker recommendation
-- Dynamic pricing
-- Route optimization
-- Multi-city support
+```
+Customer Login
+      │
+      ▼
+Select Service
+      │
+      ▼
+Choose Date & Time
+      │
+      ▼
+Worker Auto Matching
+      │
+      ▼
+Worker Accepts
+      │
+      ▼
+Live Tracking
+      │
+      ▼
+Arrival OTP
+      │
+      ▼
+Completion OTP
+      │
+      ▼
+Payment
+      │
+      ▼
+Rating & Review
+      │
+      ▼
+Achievement Unlock
+```
 
 ---
 
-# Developed By
+# 🚀 Highlights
+
+- ✅ Full service lifecycle management
+- ✅ Area-based worker allocation
+- ✅ Dynamic worker ranking
+- ✅ Live GPS tracking
+- ✅ OTP verification
+- ✅ Achievement engine
+- ✅ Worker analytics
+- ✅ Responsive UI
+- ✅ Real-time updates
+- ✅ Production-style workflow
+
+---
+
+# 🎯 Future Improvements
+
+- 💬 In-app chat between customer & worker
+- 📹 Video consultation support
+- 🤖 AI-powered worker recommendation
+- 💳 Online payment gateway integration
+- 📱 Progressive Web App (PWA)
+- 📊 Admin analytics dashboard
+- 🌍 Multi-city support
+- 🔔 Push notifications
+
+---
+
+# 👨‍💻 Developer
 
 **Heet Lakhani**
 
-B.Tech Computer Science
+B.Tech Computer Science Engineering
 
-Shah & Anchor Kutchhi Engineering College
+Developed as a major project to demonstrate full-stack web development, database management, real-time systems and modern service marketplace architecture.
 
 ---
 
-# License
+# ⭐ Support
 
-This project is developed for educational and portfolio purposes.
+If you like this project, consider giving it a ⭐ on GitHub!
