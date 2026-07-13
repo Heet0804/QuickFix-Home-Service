@@ -1,66 +1,252 @@
-# QuickFix Home Service
+# QuickFix – Smart Home Service Booking Platform
 
-A lightweight browser-based service booking app for home repair, cleaning, wellness, and worker booking.
+QuickFix is a full-stack home service marketplace that connects customers with nearby verified service professionals in real time.
 
-## Overview
+The platform provides a complete booking lifecycle—from service discovery to worker assignment, live tracking, OTP verification, payments, reviews, achievements, and worker analytics.
 
-`QuickFix` lets users browse home service categories, select a specific service, and book a nearby worker. The app supports categories such as:
+---
+
+# Features
+
+## Customer Features
+
+- User Authentication
+- Browse services by category
+- Search and filter services
+- Emergency booking support
+- Schedule bookings
+- Cash / Online payment options
+- Automatic nearest worker assignment
+- Real-time booking timeline
+- Live worker tracking using GPS
+- Arrival OTP verification
+- Completion OTP verification
+- Booking history
+- Rating & Review system
+- Achievement system
+- Real-time notifications
+
+---
+
+## Worker Features
+
+- Worker Registration & Login
+- Worker Profile Management
+- Area-based availability
+- Accept / Reject bookings
+- Live GPS location sharing
+- Job Timeline
+- Earnings Dashboard
+- Acceptance Rate
+- Reliability Score
+- Worker Score
+- Achievement System
+- Profile statistics
+- Booking history
+
+---
+
+# Service Categories
 
 - Electrician
 - Plumber
 - Carpenter
 - Painter
+- Mason
 - Cleaner
 - AC Repair
-- Mason
 - Pest Control
-- Househelp
+- House Help
 - Massage & Wellness
 
-The current project is built as a static HTML/CSS/JavaScript application in `index.html` with separate pages for authentication, landing, worker profile, and dashboard flows.
+---
 
-## Features
+# Tech Stack
 
-- Unified category picker UI for all service categories
-- Service selection with nearest-worker booking flow
-- Worker profile and booking pages
-- Search, filter, and sort support on the services page
-- Booking status and review flow
-- Basic local state management in plain JavaScript
+### Frontend
 
-## Files
+- HTML5
+- CSS3
+- Vanilla JavaScript
 
-- `index.html` - Main user-facing application and UI logic
-- `auth.html` - Authentication page
-- `landing.html` - Landing page for app entry
-- `worker-dashboard.html` - Worker dashboard and job management UI
-- `worker-profile.html` - Worker profile and account management UI
+### Backend
 
-## How to Run
+- Supabase
+  - PostgreSQL Database
+  - Authentication
+  - Realtime
+  - Row Level Security (RLS)
+  - SQL Functions (RPC)
 
-1. Open `index.html` in a web browser.
-2. Use the navigation menu to explore categories and book services.
+### Other Technologies
 
-> Note: This is a static client-side app and does not require a backend to view the UI. Some booking actions may be simulated in the code.
+- Leaflet.js
+- OpenStreetMap
+- Firebase Realtime Database (Fire Safety Project Integration)
+- Browser Geolocation API
 
-## How to Push Changes
+---
 
-```bash
-cd "c:/Users/Heet Lakhani/Documents/QuickFix"
-git add .
-git commit -m "Update QuickFix app"
-git push
+# Major Functionalities
+
+## Booking Workflow
+
+Customer Books Service
+
+↓
+
+Nearest Available Worker Assigned
+
+↓
+
+Worker Accepts / Rejects
+
+↓
+
+Worker Travels
+
+↓
+
+Live GPS Tracking
+
+↓
+
+Arrival OTP Verification
+
+↓
+
+Service Starts
+
+↓
+
+Completion OTP Verification
+
+↓
+
+Payment
+
+↓
+
+Review & Rating
+
+↓
+
+Achievements Updated
+
+---
+
+# Worker Performance System
+
+The application calculates worker statistics dynamically using PostgreSQL RPC functions.
+
+Metrics include:
+
+- Accepted Jobs
+- Completed Jobs
+- Cancelled Jobs
+- No Show Count
+- Average Rating
+- Completion Rate
+- Reliability Score
+- Activity Score
+- Worker Score
+- Total Earnings
+
+These statistics are generated directly from booking history instead of cached values.
+
+---
+
+# Achievement System
+
+Both customers and workers can unlock achievements based on platform activity.
+
+Examples include:
+
+### Customer
+
+- First Booking
+- Repeat Customer
+- Emergency Booking
+- Multiple Reviews
+
+### Worker
+
+- First Job
+- 10 Jobs Completed
+- Highly Rated Worker
+- Reliable Worker
+- Top Performer
+
+Achievements unlock automatically after qualifying actions.
+
+---
+
+# Project Structure
+
+```
+QuickFix
+│
+├── index.html
+├── auth.html
+├── landing.html
+├── worker-dashboard.html
+├── worker-profile.html
+├── styles.css
+└── assets/
 ```
 
-## Recommended Improvements
+---
 
-- Add a backend API for persistent booking and authentication
-- Use a front-end build tool or framework for scalability
-- Improve responsive layout and mobile experience
-- Add user login state and worker authentication
-- Move Supabase keys and auth logic to a server-side environment for security
-- Use Supabase or another database for workers, services, and booking persistence instead of hard-coded/local data
+# Database
 
-## License
+Supabase Tables
 
-Use this project freely for testing and learning.
+- users
+- workers
+- bookings
+- reviews
+- worker_achievements
+- achievements
+- areas
+
+The project also uses PostgreSQL RPC functions for worker statistics.
+
+---
+
+# Real-Time Features
+
+- Live booking updates
+- Worker location tracking
+- Booking status synchronization
+- Achievement unlock notifications
+
+Powered by Supabase Realtime.
+
+---
+
+# Future Improvements
+
+- In-app chat
+- Push notifications
+- Razorpay integration
+- Admin dashboard
+- AI worker recommendation
+- Dynamic pricing
+- Route optimization
+- Multi-city support
+
+---
+
+# Developed By
+
+**Heet Lakhani**
+
+B.Tech Computer Science
+
+Shah & Anchor Kutchhi Engineering College
+
+---
+
+# License
+
+This project is developed for educational and portfolio purposes.
