@@ -723,23 +723,6 @@ sb.channel('worker-bookings-' + W.id)
 
 .subscribe((status, err) => { console.log('channel status:', status, err); });
 
-/* ---------- FALLBACK SYNC (same strategy as index.html) ----------
-   postgres_changes only fires on row-level INSERT/UPDATE/DELETE.
-   It does NOT fire on TRUNCATE or certain bulk/dashboard resets, so
-   during dev testing the realtime event can simply never arrive.
-   index.html never has this problem because it re-fetches on a
-   timer regardless of whether an event fired. Mirroring that here
-   as a safety net — does not replace or alter the realtime channel
-   above, which still remains the primary way updates travel. */
-clearInterval(window._workerBookingPoll);
-window._workerBookingPoll = setInterval(async () => {
-  await loadBookings();
-}, 5000);
-
-window.addEventListener('focus', () => {
-  loadBookings();
-});
-
 })();
 
 /* ════════════════════════════════════════════════════════════
