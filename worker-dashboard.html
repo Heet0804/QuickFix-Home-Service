@@ -338,6 +338,58 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 .ach-badge{font-size:.67rem;font-weight:700;margin-top:.45rem;display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:99px;border:1.5px solid var(--border);color:var(--text3);background:var(--surface)}
 .ach-card.unlocked .ach-badge{border-color:var(--teal);color:var(--teal);background:var(--teal-light)}
 .ach-coming{font-size:.8rem;color:var(--text3);text-align:center;padding:.85rem;background:var(--surface2);border-radius:var(--radius-sm);border:1px dashed var(--border)}
+
+/* ── BOOKING CALENDAR (isolated feature) ── */
+.cal-modal-box{max-width:440px;width:100%;max-height:88vh;overflow-y:auto;padding:1.5rem 1.5rem 1.25rem}
+.cal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.cal-hdr h3{margin:0;font-size:1.1rem}
+.cal-close-btn{background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text3);line-height:1}
+.cal-nav{display:flex;align-items:center;justify-content:center;gap:.75rem;margin-bottom:1rem}
+.cal-nav-btn{background:var(--surface3);border:1px solid var(--border);border-radius:var(--radius-xs);width:30px;height:30px;font-size:.9rem;cursor:pointer;color:var(--text2);transition:var(--tr)}
+.cal-nav-btn:hover{background:var(--brand-light);color:var(--brand);border-color:var(--brand-mid)}
+.cal-month-lbl{font-family:'Sora',sans-serif;font-weight:700;font-size:.95rem;color:var(--text);min-width:140px;text-align:center}
+
+.cal-weekdays{display:grid;grid-template-columns:repeat(7,48px);gap:6px;justify-content:center;margin-bottom:6px}
+.cal-weekdays span{display:block;text-align:center;font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase}
+
+.cal-grid{display:grid;grid-template-columns:repeat(7,48px);gap:6px;justify-content:center;margin-bottom:1.1rem}
+.cal-cell{width:48px;height:48px}
+.cal-empty{background:transparent}
+.cal-day{
+  position:relative;width:100%;height:100%;border-radius:var(--radius-sm);
+  border:1.5px solid var(--border2);background:var(--surface2);cursor:pointer;
+  transition:var(--tr);display:flex;align-items:center;justify-content:center;
+  font-family:'DM Sans',sans-serif;
+}
+.cal-day:hover{transform:translateY(-2px);box-shadow:var(--sh1);border-color:var(--brand-mid)}
+.cal-daynum{font-size:.8rem;font-weight:600;color:var(--text)}
+.cal-day.cal-today{border-color:var(--brand);border-width:2px}
+.cal-day.cal-selected{outline:2px solid var(--brand);outline-offset:1px}
+
+.cal-day.cal-none{background:var(--online-light)}
+.cal-day.cal-mid{background:#fef3c7}
+.cal-day.cal-high{background:#fce8e8}
+
+.cal-badge{
+  position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 3px;
+  background:var(--brand);color:#fff;font-size:.6rem;font-weight:700;border-radius:50px;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.25);
+}
+
+.cal-list-title{font-size:.9rem;font-weight:700;color:var(--text);margin-bottom:.6rem;padding-top:.75rem;border-top:1px solid var(--border2)}
+.cal-booking-list{max-height:220px;overflow-y:auto;display:flex;flex-direction:column}
+.cal-booking-item{padding:.65rem .25rem;font-size:.8rem;color:var(--text2);display:flex;flex-direction:column;gap:3px}
+.cal-booking-sep{border-top:1px dashed var(--border2);margin:0}
+.cal-empty-list{font-size:.82rem;color:var(--text3);padding:.75rem .25rem}
+
+.modal-bg.on .cal-modal-box{animation:calPop .22s cubic-bezier(.34,1.56,.64,1)}
+@keyframes calPop{from{opacity:0;transform:scale(.95) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
+
+@media(max-width:480px){
+  .cal-weekdays{grid-template-columns:repeat(7,40px)}
+  .cal-grid{grid-template-columns:repeat(7,40px)}
+  .cal-cell{width:40px;height:40px}
+}
 </style>
 </head>
 <body>
@@ -374,6 +426,7 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
       </div>
       <button class="nav-profile-btn" onclick="window.location.href='worker-profile.html'">👤 My Profile</button>
       <button class="nav-profile-btn" onclick="openAchievements()" style="border-color:var(--teal);color:var(--teal)">🏆 Achievements</button>
+      <button class="nav-profile-btn" onclick="openCalendar()" style="border-color:var(--brand-mid);color:var(--brand)">📅 Calendar</button>
       <button class="nav-logout" onclick="logout()">Logout</button>
     </div>
   </div>
@@ -527,6 +580,27 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
       <button onclick="closeModal('achievementsModal')" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text3);line-height:1">×</button>
     </div>
     <div id="achievementsBody"></div>
+  </div>
+</div>
+
+<!-- BOOKING CALENDAR MODAL -->
+<div class="modal-bg" id="calendarModal">
+  <div class="modal cal-modal-box">
+    <div class="cal-hdr">
+      <h3>📅 Booking Calendar</h3>
+      <button class="cal-close-btn" onclick="closeModal('calendarModal')">×</button>
+    </div>
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="calChangeMonth(-1)">‹</button>
+      <span class="cal-month-lbl" id="calMonthLabel">—</span>
+      <button class="cal-nav-btn" onclick="calChangeMonth(1)">›</button>
+    </div>
+    <div class="cal-weekdays">
+      <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="cal-list-title" id="calListTitle">Select a date</div>
+    <div class="cal-booking-list" id="calBookingList"></div>
   </div>
 </div>
 
@@ -1693,8 +1767,117 @@ loadBookings=async function(){
   syncGPS();
 };
 
+/* ══════════════════════════════════════════════════════════════
+   BOOKING CALENDAR — isolated, read-only view of the existing
+   `bookings` array. Does not touch booking logic, Supabase calls,
+   GPS, achievements, stats, auth, earnings, or realtime.
+   Uses booking.date (NOT created_at) per spec, and booking.time
+   if present — confirm both columns exist in the bookings table.
+   ══════════════════════════════════════════════════════════════ */
+let calViewDate = new Date();
+let calSelectedDate = null;
+
+function toDateKey(d){
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+function openCalendar(){
+  calViewDate = new Date();
+  calSelectedDate = toDateKey(new Date());
+  renderCalendarMonth();
+  document.getElementById('calendarModal').classList.add('on');
+}
+
+function calChangeMonth(delta){
+  calViewDate = new Date(calViewDate.getFullYear(), calViewDate.getMonth()+delta, 1);
+  renderCalendarMonth();
+}
+
+function calBookingCountsByDate(){
+  const map={};
+  (bookings||[]).forEach(b=>{
+    if(!b.date) return;
+    const key=String(b.date).split('T')[0];
+    map[key]=(map[key]||0)+1;
+  });
+  return map;
+}
+
+function renderCalendarMonth(){
+  const y=calViewDate.getFullYear(), m=calViewDate.getMonth();
+  const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calMonthLabel').textContent=`${monthNames[m]} ${y}`;
+
+  const firstDay=new Date(y,m,1).getDay();
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const counts=calBookingCountsByDate();
+  const todayKey=toDateKey(new Date());
+
+  let html='';
+  for(let i=0;i<firstDay;i++){
+    html+=`<div class="cal-cell cal-empty"></div>`;
+  }
+  for(let d=1; d<=daysInMonth; d++){
+    const key=toDateKey(new Date(y,m,d));
+    const count=counts[key]||0;
+    let level='cal-none';
+    if(count>=3) level='cal-high';
+    else if(count>=1) level='cal-mid';
+    const isToday = key===todayKey ? ' cal-today':'';
+    const isSel = key===calSelectedDate ? ' cal-selected':'';
+    html+=`<div class="cal-cell">
+      <button type="button" class="cal-day ${level}${isToday}${isSel}" data-date="${key}" onclick="calSelectDate('${key}')">
+        <span class="cal-daynum">${d}</span>
+        ${count>0?`<span class="cal-badge">${count}</span>`:''}
+      </button>
+    </div>`;
+  }
+  document.getElementById('calGrid').innerHTML=html;
+  renderCalendarBookingList(calSelectedDate);
+}
+
+function calSelectDate(key){
+  calSelectedDate=key;
+  document.querySelectorAll('#calGrid .cal-day').forEach(el=>{
+    el.classList.toggle('cal-selected', el.dataset.date===key);
+  });
+  renderCalendarBookingList(key);
+}
+
+function calFormatDateLabel(key){
+  const [y,m,d]=key.split('-').map(Number);
+  const monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${d} ${monthNames[m-1]}`;
+}
+
+function renderCalendarBookingList(key){
+  const listEl=document.getElementById('calBookingList');
+  if(!key){ listEl.innerHTML=''; return; }
+
+  document.getElementById('calListTitle').textContent=`Bookings for ${calFormatDateLabel(key)}`;
+
+  const dayBookings=(bookings||[]).filter(b=> b.date && String(b.date).split('T')[0]===key);
+
+  if(!dayBookings.length){
+    listEl.innerHTML=`<div class="cal-empty-list">No bookings for this date.</div>`;
+    return;
+  }
+
+  listEl.innerHTML = dayBookings.map(b=>{
+    const time = b.time || '—';
+    const service = b.service_name || b.service || 'Service';
+    return `<div class="cal-booking-item">
+      <div>🕒 ${time}</div>
+      <div>🔧 ${service}</div>
+      ${b.address?`<div>🏠 ${b.address}</div>`:''}
+      <div>📍 ${b.status||'—'}</div>
+    </div>`;
+  }).join('<div class="cal-booking-sep"></div>');
+}
+
 /* ── BACKDROP CLOSE ── */
-['acceptModal','rejectModal','arrivalOtpModal','completionOtpModal'].forEach(id=>{
+['acceptModal','rejectModal','arrivalOtpModal','completionOtpModal','calendarModal'].forEach(id=>{
   document.getElementById(id).addEventListener('click',function(e){ if(e.target===this) closeModal(id); });
 });
 </script>
