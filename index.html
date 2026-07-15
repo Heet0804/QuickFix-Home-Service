@@ -1092,6 +1092,8 @@ const DB = {
   service:        bk.service,
   date:           bk.date,
   time:           bk.time,
+  scheduled_date: bk.date,
+  scheduled_time: bk.time,
   address:        bk.address,
   area_id:        bk.areaId||null,
   customer_lat:   bk.customer_lat != null ? bk.customer_lat : null,
@@ -3132,16 +3134,7 @@ async function submitReview(){
   showToast('⭐ Thank you for your review!');
 
   /* refresh latest booking state from DB */
-  await loadBookings();
-
-  renderBookings();
-
-  /* if worker dashboard is open anywhere,
-     force latest stats refresh */
-  try{
-    await loadBookings();
-    renderJobs();
-  }catch(e){}
+  await renderBookings();
 }
 
 /* ── AADHAAR UPLOAD ───────────────────────────────────────── */
