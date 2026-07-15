@@ -233,6 +233,11 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 .rel-good{background:#fef9c3;color:#713f12}
 .rel-needs{background:var(--danger-light);color:var(--danger)}
 
+/* ── CANCELLATION WARNING BANNER (informational only, never blocks) ── */
+.cancel-warn-banner{display:none;align-items:center;gap:.5rem;padding:.65rem .9rem;border-radius:var(--radius-sm);font-size:.8rem;font-weight:600;margin-bottom:1.25rem}
+.cancel-warn-mild{background:#fef9c3;color:#713f12}
+.cancel-warn-severe{background:var(--danger-light);color:var(--danger)}
+
 /* ── EARNINGS ROW ── */
 .earn-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem;margin-bottom:1.5rem}
 .earn-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.9rem 1rem;box-shadow:var(--sh0)}
@@ -471,6 +476,9 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
     <span id="reliabilityPill" class="rel-pill">—</span>
   </div>
 
+  <!-- CANCELLATION WARNING (informational only) -->
+  <div id="cancelWarnBanner" class="cancel-warn-banner"></div>
+
   <!-- EARNINGS DASHBOARD -->
   <div class="section-hdr">💰 Earnings</div>
   <div class="earn-grid">
@@ -542,6 +550,18 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
     <div class="modal-acts">
       <button class="mbtn-secondary" onclick="closeModal('rejectModal')">Cancel</button>
       <button class="mbtn-primary" style="background:var(--danger)" onclick="confirmReject()">Reject Job</button>
+    </div>
+  </div>
+</div>
+
+<!-- CANCEL ACCEPTED BOOKING CONFIRM MODAL -->
+<div class="modal-bg" id="cancelAcceptedModal">
+  <div class="modal">
+    <h3>Cancel this booking?</h3>
+    <p>Frequent cancellations reduce your reliability score.</p>
+    <div class="modal-acts">
+      <button class="mbtn-secondary" onclick="closeModal('cancelAcceptedModal')">Keep Booking</button>
+      <button class="mbtn-primary" style="background:var(--danger)" onclick="confirmCancelAccepted()">Cancel Booking</button>
     </div>
   </div>
 </div>
@@ -643,6 +663,7 @@ let curTab='pending';
 let pendAcceptId=null;
 let pendRejectId=null;
 let pendOtpId=null;
+let pendCancelAcceptedId=null;
 
 /* ════════════════════════════════════════════════════════════
    CANONICAL STATS — the ONLY stats source on this page. Same RPC
@@ -868,6 +889,8 @@ document.getElementById("statTotalJobs").textContent =
   document.getElementById('pCancelled').textContent = cancelledJobs;
   document.getElementById('pNoShow').textContent = noShows;
 
+  renderCancellationWarning(cancelledJobs);
+
   const qualified = acceptedJobs >= RELIABILITY_MIN_ACCEPTED_JOBS;
   const relShown = rel == null ? null : (qualified ? rel : 0);
   const wscShown = qualified ? wsc : 0;
@@ -1068,6 +1091,7 @@ function renderJobCard(b){
     actions=`
       <div class="job-acts">
         <button class="jbtn jbtn-arrive" onclick="markArrived('${b.id}')">📍 Mark Arrived</button>
+        <button class="jbtn jbtn-reject" onclick="promptCancelAccepted('${b.id}')">✖ Cancel Booking</button>
       </div>`;
   } else if(b.status==='Arrived'){
     /* Arrival OTP already verified (arrival_otp is null in DB at this point).
@@ -1196,6 +1220,38 @@ async function confirmReject(){
   }
 
   showToast('Job rejected.');
+  await loadBookings();
+}
+
+/* ════════════════════════════════════════════════════════════
+   CANCEL (Accepted bookings only). Pending jobs use Reject
+   above; this path is strictly for a booking the worker has
+   already accepted. Penalty accounting (cancelled_jobs count,
+   reliability score reduction) is assumed to happen in SQL when
+   status becomes 'Cancelled', same as it does for customer-side
+   cancellation — verify this string matches what that path writes.
+   ════════════════════════════════════════════════════════════ */
+function promptCancelAccepted(id){
+  pendCancelAcceptedId=id;
+  document.getElementById('cancelAcceptedModal').classList.add('on');
+}
+async function confirmCancelAccepted(){
+  closeModal('cancelAcceptedModal');
+  if(!pendCancelAcceptedId)return;
+  const id=pendCancelAcceptedId; pendCancelAcceptedId=null;
+
+  const {error}=await sb.from('bookings').update({
+    status:'Cancelled',
+    w_status:'Cancelled'
+  }).eq('id',id).eq('status','Accepted'); /* guard: only ever cancels a still-Accepted booking */
+
+  if(error){
+    console.error('confirmCancelAccepted:',error.message);
+    showToast('⚠️ Could not cancel job: '+error.message);
+    return;
+  }
+
+  showToast('Booking cancelled.');
   await loadBookings();
 }
 
@@ -1566,6 +1622,24 @@ function renderWorkerRank(){
    RELIABILITY STATUS PILL
    90–100 → Excellent, 70–89 → Good, <70 → Needs Improvement
    ════════════════════════════════════════════════════════════ */
+function renderCancellationWarning(cancelledJobs){
+  const el=document.getElementById('cancelWarnBanner');
+  if(!el) return;
+  if(!cancelledJobs || cancelledJobs<=0){
+    el.style.display='none';
+    el.textContent='';
+    return;
+  }
+  el.style.display='flex';
+  if(cancelledJobs>3){
+    el.className='cancel-warn-banner cancel-warn-severe';
+    el.textContent='🚫 Too many cancellations may affect future bookings.';
+  } else {
+    el.className='cancel-warn-banner cancel-warn-mild';
+    el.textContent='⚠ Frequent cancellations reduce your reliability score.';
+  }
+}
+
 function renderReliabilityPill(){
   const el=document.getElementById('reliabilityPill');
   const rel=Stats?.reliability_score!=null?Number(Stats.reliability_score):null;
@@ -1877,7 +1951,7 @@ function renderCalendarBookingList(key){
 }
 
 /* ── BACKDROP CLOSE ── */
-['acceptModal','rejectModal','arrivalOtpModal','completionOtpModal','calendarModal'].forEach(id=>{
+['acceptModal','rejectModal','arrivalOtpModal','completionOtpModal','calendarModal','cancelAcceptedModal'].forEach(id=>{
   document.getElementById(id).addEventListener('click',function(e){ if(e.target===this) closeModal(id); });
 });
 </script>
