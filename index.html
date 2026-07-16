@@ -2561,6 +2561,24 @@ const TRACKING_ZOOM = 15;
 /* bookingId → { map, marker, customerMarker, routeLine, initialized, lastRouteFetch } */
 const _trkState = {};
 
+/* Renders inside the existing trk-slot box — same element the live map
+   would otherwise occupy, so the container never resizes. Never touches
+   Leaflet. Safe to call repeatedly; only writes if not already showing. */
+function _showTrackingLockPlaceholder(b){
+  const slot = document.getElementById('trk-slot-'+b.id);
+  const msgEl = document.getElementById('trk-eta-'+b.id);
+  if(!slot) return;
+  if(!slot.querySelector('.trk-lock')){
+    slot.innerHTML = `
+      <div class="trk-lock" style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:.3rem;padding:.75rem">
+        <div style="font-size:1.5rem">🔒</div>
+        <div style="font-size:.8rem;font-weight:600;color:var(--text2)">Tracking unlocks<br>10 minutes before your booking.</div>
+        <div style="font-size:.74rem;color:var(--text3)">Unlocks at <strong>${revealAt(b.time)}</strong></div>
+      </div>`;
+  }
+  if(msgEl) msgEl.textContent = 'Locked until '+revealAt(b.time);
+}
+
 function toggleTracking(bkId){
   const btn  = document.getElementById('trk-btn-'+bkId);
   const wrap = document.getElementById('trk-wrap-'+bkId);
@@ -2689,6 +2707,13 @@ function _reattachTrackingDom(id){
 async function _buildTrackingMap(b){
   if(!b) return;
 
+  /* Tracking is a booking-sensitive feature too — never initialise
+     Leaflet, never touch worker location, before the reveal window. */
+  if(!shouldReveal(b)){
+    _showTrackingLockPlaceholder(b);
+    return;
+  }
+
   if(_trkState[b.id]?.map){
     try{
       _trkState[b.id].map.invalidateSize();
@@ -2708,6 +2733,7 @@ async function _buildTrackingMap(b){
   const slot = document.getElementById('trk-slot-'+b.id);
   if(!slot) return;
 
+  slot.innerHTML = ''; /* clear the lock placeholder if it was showing */
   const mapEl = document.createElement('div');
   mapEl.className = 'trk-map';
   mapEl.id = 'trk-map-live-'+b.id;
@@ -2802,6 +2828,11 @@ function updateTrackingMaps(bookingList){
   bookingList.forEach(b=>{
     if(!['Accepted','Worker on Way'].includes(b.status)) return;
 
+    if(!shouldReveal(b)){
+      _showTrackingLockPlaceholder(b);
+      return; /* never reach coordinate/map logic before reveal */
+    }
+
     const lat = b.worker_live_lat != null ? Number(b.worker_live_lat) : null;
     const lng = b.worker_live_lng != null ? Number(b.worker_live_lng) : null;
     const hasCoords = lat != null && lng != null && !isNaN(lat) && !isNaN(lng);
@@ -2858,10 +2889,14 @@ async function renderBookings(){
   const sMap={Scheduled:'bgb',Confirmed:'bgbr','Worker on Way':'bga',Arrived:'bgt',Completed:'bgn',Cancelled:'bgr',Pending:'bgg'};
   c.innerHTML=`<div class="bklist">${list.map(b=>{
     const cls=sMap[b.status]||'bgg';
+    /* ── SINGLE UNIFIED BOOKING-SENSITIVE REVEAL DECISION ──
+       Phone, worker details, Arrival OTP entry, and (once it exists)
+       profile photo all depend on this ONE flag. Do not add a
+       separate status check for any of them. */
     const rev=shouldReveal(b);
     const show =
-  ['Accepted','Confirmed','Worker on Way','Arrived','Completed'].includes(b.status)
-  || (b.status==='Scheduled'&&rev);
+  b.status==='Completed'
+  || (['Accepted','Confirmed','Worker on Way','Arrived','Scheduled'].includes(b.status)&&rev);
     const rf=b.isAdvance?revealAt(b.time):null;
     const payLabel=b.paymentMethod==='gpay'?'📱 GPay (Paid)':'💵 Cash on Arrival';
     const km = Number(b.workerDist || 0);
@@ -2917,7 +2952,7 @@ const contactHtml = show
     })():'';
     const payHtml=(show||b.status==='Scheduled')?`<div style="font-size:.72rem;color:var(--text2);margin-top:.3rem">${payLabel}</div>`:'';
     const schedNote=b.status==='Scheduled'&&!rev?`<div style="font-size:.76rem;color:var(--brand);font-weight:600;margin-top:.4rem">📅 Scheduled for ${fmt12(b.time)} · Worker assigned</div>`:'';
-    const trackBtn=['Accepted','Confirmed'].includes(b.status)?`<button class="btn bt" style="font-size:.72rem;padding:5px 10px" onclick="openArrival(${b.id})">🚗 Track</button>`:'';
+    const trackBtn=(['Accepted','Confirmed'].includes(b.status)&&show)?`<button class="btn bt" style="font-size:.72rem;padding:5px 10px" onclick="openArrival(${b.id})">🚗 Track</button>`:'';
     const compBtn=b.status==='Arrived'?`<button class="btn bt" style="font-size:.72rem;padding:5px 10px" onclick="triggerOtp('complete',${b.id})">✅ Complete</button>`:'';
     const canCancel=['Accepted','Confirmed','Scheduled'].includes(b.status)&&!rev;
 const cancelBtn=canCancel
