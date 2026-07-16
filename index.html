@@ -735,6 +735,14 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
   </div>
 </div>
 
+<!-- PHOTO LIGHTBOX (worker profile photo, enlarged view) -->
+<div class="overlay" id="photoLightbox" onclick="if(event.target===this)closeModal('photoLightbox')">
+  <div class="modal" style="max-width:340px;padding:1rem;text-align:center">
+    <img id="photoLightboxImg" src="" alt="Worker profile photo" style="width:100%;border-radius:14px;display:block;object-fit:cover">
+    <button class="btn bo bfull" style="margin-top:.85rem" onclick="closeModal('photoLightbox')">Close</button>
+  </div>
+</div>
+
 <!-- BROADCAST MODAL -->
 <div class="overlay" id="acceptModal">
   <div class="modal">
@@ -1033,6 +1041,18 @@ const DB = {
   .eq('hidden_by_user', false)
   .order('created_at',{ascending:false});
     if(error){console.error('DB.bookings:',error.message);return [];}
+
+    /* Profile photos live on `workers`, not `bookings` — fetch in one
+       bulk call, same pattern as get_worker_stats_bulk above. Never
+       fetches document_url; that column is never read outside auth.html. */
+    const workerIds=[...new Set((data||[]).map(b=>b.worker_id).filter(Boolean))];
+    let photoById={};
+    if(workerIds.length){
+      const {data:photoRows,error:pe}=await sb.from('workers').select('id,profile_photo_url').in('id',workerIds);
+      if(pe){ console.error('worker photo fetch:',pe.message); }
+      else { (photoRows||[]).forEach(w=>{ photoById[w.id]=w.profile_photo_url||''; }); }
+    }
+
     /* Normalise DB column names → JS camelCase the UI uses */
     return normalizeBookings((data||[]).map(b=>({
       ...b,
@@ -1040,6 +1060,7 @@ const DB = {
       workerPhone:   b.worker_phone,
       workerRole:    b.worker_role,
       workerEmoji:   b.worker_emoji,
+      workerPhotoUrl:photoById[b.worker_id]||'',
       workerDist:    0,
       areaId:        b.area_id,
       basePrice:     b.base_price,
@@ -1474,6 +1495,11 @@ setInterval(tickClock,1000); tickClock();
 function stars(r){ return Array.from({length:5},(_,i)=>`<span class="star${i<Math.round(r)?'':' empty'}">★</span>`).join(''); }
 function genOtp(){ return String(Math.floor(100000+Math.random()*900000)); }
 function closeModal(id){ document.getElementById(id).classList.remove('on'); }
+function openPhotoLightbox(url){
+  if(!url) return;
+  document.getElementById('photoLightboxImg').src=url;
+  document.getElementById('photoLightbox').classList.add('on');
+}
 let _tt;
 function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(_tt); _tt=setTimeout(()=>t.classList.remove('on'),3500); }
 function markErr(id){ const el=document.getElementById(id); if(!el)return; el.classList.add('err'); el.addEventListener('input',()=>el.classList.remove('err'),{once:true}); el.addEventListener('change',()=>el.classList.remove('err'),{once:true}); }
@@ -2850,15 +2876,18 @@ else eta = "35 mins";
 
 const contactHtml = show
   ? `
-    <div class="cbox">
-      <strong>👤 ${b.workerName}</strong>
-      &nbsp; 📞
-      <a href="tel:${b.workerPhone}"
-         style="color:#266049;font-weight:600;text-decoration:none">
-         ${b.workerPhone}
-      </a>
-      &nbsp; 📍 ${km.toFixed(1)} km
-      &nbsp; ⏱ ~${eta}
+    <div class="cbox" style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap">
+      ${b.workerPhotoUrl?`<img src="${b.workerPhotoUrl}" alt="Worker profile photo" onclick="openPhotoLightbox('${b.workerPhotoUrl}')" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:1.5px solid var(--teal);flex-shrink:0;cursor:pointer">`:''}
+      <span>
+        <strong>👤 ${b.workerName}</strong>
+        &nbsp; 📞
+        <a href="tel:${b.workerPhone}"
+           style="color:#266049;font-weight:600;text-decoration:none">
+           ${b.workerPhone}
+        </a>
+        &nbsp; 📍 ${km.toFixed(1)} km
+        &nbsp; ⏱ ~${eta}
+      </span>
     </div>`
   : b.isAdvance
     ? `

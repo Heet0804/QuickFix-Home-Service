@@ -203,6 +203,16 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
           <input type="file" id="swDocFile" accept=".jpg,.jpeg,.png,.pdf" onchange="handleDocUpload(this)"/>
         </label>
       </div>
+      <div class="fg" id="swPhotoGrp">
+        <label class="flabel">Profile Photo *</label>
+        <label class="file-upload-label" id="swPhotoLabel" for="swPhotoFile">
+          <span class="file-upload-icon">🙂</span>
+          <span class="file-upload-main">Click to upload or take a photo</span>
+          <span class="file-upload-sub">Accepted: JPG, JPEG, PNG · Max 5MB</span>
+          <span class="file-upload-name" id="swPhotoName" style="display:none"></span>
+          <input type="file" id="swPhotoFile" accept="image/*" capture="user" onchange="handlePhotoUpload(this)"/>
+        </label>
+      </div>
       <div class="fg"><label class="flabel">Password * <span style="font-size:.68rem;color:var(--text3)">(min 6 characters)</span></label><input type="password" class="finput" id="swPass" placeholder="Create a password"/></div>
       <button class="submit-btn" id="signupWorkerBtn" onclick="doSignup('worker')"><span id="swBtnTxt">Register as Worker →</span></button>
     </div>
@@ -433,6 +443,40 @@ function handleDocUpload(input){
   mainEl.textContent='File selected';
 }
 
+/* ── PROFILE PHOTO UPLOAD PREVIEW (separate from Government ID — same pattern) ── */
+function handlePhotoUpload(input){
+  const file=input.files[0];
+  const label=document.getElementById('swPhotoLabel');
+  const nameEl=document.getElementById('swPhotoName');
+  const mainEl=label.querySelector('.file-upload-main');
+  if(!file){
+    label.classList.remove('has-file');
+    nameEl.style.display='none';
+    nameEl.textContent='';
+    mainEl.textContent='Click to upload or take a photo';
+    return;
+  }
+  const allowed=['image/jpeg','image/jpg','image/png'];
+  if(!allowed.includes(file.type)){
+    showErr('Invalid file type. Please upload a JPG or PNG photo.');
+    input.value='';
+    label.classList.remove('has-file');
+    nameEl.style.display='none';
+    return;
+  }
+  if(file.size>5*1024*1024){
+    showErr('File too large. Maximum size is 5MB.');
+    input.value='';
+    label.classList.remove('has-file');
+    nameEl.style.display='none';
+    return;
+  }
+  label.classList.add('has-file');
+  nameEl.textContent='✅ '+file.name;
+  nameEl.style.display='block';
+  mainEl.textContent='Photo selected';
+}
+
 /* ── SIGNUP ── */
 async function doSignup(role){
   hideErr();
@@ -519,6 +563,11 @@ async function doSignup(role){
     const docFile=docInput&&docInput.files[0]?docInput.files[0]:null;
     if(!docFile){showErr('Please upload a valid government ID proof.');return;}
 
+    /* Profile photo validation — separate mandatory field */
+    const photoInput=document.getElementById('swPhotoFile');
+    const photoFile=photoInput&&photoInput.files[0]?photoInput.files[0]:null;
+    if(!photoFile){showErr('Please upload a profile photo.');return;}
+
     setBtn('signupWorkerBtn','swBtnTxt',true,'Registering…');
 
     /* Step 0: Upload document to Supabase Storage */
@@ -542,6 +591,25 @@ async function doSignup(role){
   setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
   return;
 }
+
+    /* Step 0b: Upload Profile Photo — separate, customer-visible bucket.
+       Deliberately NOT the same bucket as the Government ID document. */
+    let photoUrl='';
+    try{
+      const pext=photoFile.name.split('.').pop().toLowerCase();
+      const photoFileName='profile_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+pext;
+      const {data:photoUploadData,error:photoUploadErr}=await sb.storage
+        .from('worker-photos')
+        .upload(photoFileName,photoFile,{cacheControl:'3600',upsert:false});
+      if(photoUploadErr)throw photoUploadErr;
+      const {data:photoPublicData}=sb.storage.from('worker-photos').getPublicUrl(photoFileName);
+      photoUrl=photoPublicData.publicUrl||'';
+    }catch(photoUploadEx){
+      console.error("PHOTO UPLOAD ERROR:", photoUploadEx);
+      alert(photoUploadEx?.message || JSON.stringify(photoUploadEx,null,2));
+      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
+      return;
+    }
 
     /* Step 1: Create auth account */
     const {data:a,error:ae}=await sb.auth.signUp({
@@ -588,7 +656,8 @@ async function doSignup(role){
       lat:          selectedArea.lat,
       lng:          selectedArea.lng,
       document_url:  docUrl,
-      document_name: docFileName
+      document_name: docFileName,
+      profile_photo_url: photoUrl
     });
     if(we){
       setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
