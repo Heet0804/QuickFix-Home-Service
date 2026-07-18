@@ -438,6 +438,7 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
       <button class="nl" onclick="goPage('services')" data-pg="services">Services</button>
       <button class="nl" onclick="goPage('bookings')" data-pg="bookings">My Bookings</button>
       <button class="nl" onclick="openAccount()" data-pg="account">👤 Profile</button>
+      <button class="nl" onclick="openQuickWallet()">💰 Quick Wallet</button>
       <button class="nl ncta" onclick="goPage('services')">Book Now</button>
       <button class="nl" onclick="signOut()" style="color:var(--danger)">Sign Out</button>
     </div>
@@ -860,6 +861,40 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
     <div style="display:flex;gap:.65rem;justify-content:center">
       <button class="btn bo" onclick="closeModal('clrModal')">Cancel</button>
       <button class="btn bd" onclick="clrConfirmed()">Yes, Clear All</button>
+    </div>
+  </div>
+</div>
+
+<!-- QUICK WALLET MODAL -->
+<div class="overlay" id="walletModal">
+  <div class="modal" style="max-width:400px">
+    <div class="mico" style="background:#fef3d0">💰</div>
+    <h2>Quick Wallet</h2>
+    <div class="mdet" id="walletDet" style="text-align:center;padding-bottom:.5rem">
+      <div style="padding:.75rem 0">
+        <div style="font-size:.85rem;font-weight:600;letter-spacing:.2px;color:var(--text2);font-family:'Sora',sans-serif;margin-bottom:.5rem">Current Balance</div>
+        <div style="font-size:1.8rem;font-weight:800;color:var(--brand);font-family:'Sora',sans-serif" id="wBalance">0</div>
+      </div>
+      <div style="border-top:1.5px dashed var(--text2)"></div>
+      <div style="padding:.75rem 0">
+        <div style="font-size:.85rem;font-weight:600;letter-spacing:.2px;color:var(--text2);font-family:'Sora',sans-serif;margin-bottom:.5rem">Lifetime Earnings</div>
+        <div style="font-size:1.8rem;font-weight:800;color:var(--brand);font-family:'Sora',sans-serif" id="wEarned">0</div>
+      </div>
+      <div style="border-top:1.5px dashed var(--text2)"></div>
+      <div style="padding:.75rem 0">
+        <div style="font-size:.85rem;font-weight:600;letter-spacing:.2px;color:var(--text2);font-family:'Sora',sans-serif;margin-bottom:.5rem">Redeemed</div>
+        <div style="font-size:1.8rem;font-weight:800;color:var(--brand);font-family:'Sora',sans-serif" id="wRedeemed">0</div>
+      </div>
+      <div style="border-top:1.5px dashed var(--text2)"></div>
+      <div style="padding:.75rem 0">
+        <div style="font-size:.85rem;font-weight:600;letter-spacing:.2px;color:var(--text2);font-family:'Sora',sans-serif;margin-bottom:.5rem">Completed Bookings</div>
+        <div style="font-size:1.8rem;font-weight:800;color:var(--brand);font-family:'Sora',sans-serif" id="wBookings">0</div>
+      </div>
+    </div>
+    <p style="font-size:.8rem;color:var(--text2);font-weight:600;margin-bottom:.3rem;text-align:left">No offers for now. Keep collecting coins to avail future offers.</p>
+    <p style="font-size:.74rem;color:var(--text3);font-style:italic;margin-bottom:1.1rem">QuickCoins are virtual reward points earned by completing bookings. They are not real money and cannot be withdrawn.</p>
+    <div style="display:flex;justify-content:center">
+      <button class="btn bo" onclick="closeModal('walletModal')">Close</button>
     </div>
   </div>
 </div>
@@ -1830,6 +1865,22 @@ async function renderAccount(){
     </div>`).join('')}</div>`;
 }
 
+async function openQuickWallet(){
+  document.getElementById('walletModal').classList.add('on');
+
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session?.user) return;
+
+  const {data:u,error}=await sb.from('users').select('quickcoins_balance,quickcoins_earned,quickcoins_redeemed,total_completed_bookings').eq('id',session.user.id).single();
+  if(error||!u) return;
+
+  document.getElementById('wBalance').textContent=(u.quickcoins_balance ?? 0);
+  document.getElementById('wEarned').textContent=(u.quickcoins_earned ?? 0);
+  document.getElementById('wRedeemed').textContent=(u.quickcoins_redeemed ?? 0);
+  document.getElementById('wBookings').textContent=(u.total_completed_bookings ?? 0);
+}
+window.openQuickWallet = openQuickWallet;
+
 async function changeAccountPassword(){
   const pw=document.getElementById('acctNewPw').value;
   const cpw=document.getElementById('acctConfirmPw').value;
@@ -1957,13 +2008,12 @@ function buildSlots(){
   const dateVal=document.getElementById('bkDate').value;
   const ist=getIST(), isToday=(dateVal===istDateStr()), nowMins=ist.getHours()*60+ist.getMinutes();
   sel.innerHTML='<option value="">Select time…</option>';
-  for(let h=WS_H;h<=WE_H;h++){
-    const ms=h===WS_H?WS_M:0, me=h===WE_H?WE_M:60;
-    for(let m=ms;m<me;m+=15){
-      if(isToday&&h*60+m<=nowMins) continue;
-      const hh=String(h).padStart(2,'0'), mm=String(m).padStart(2,'0');
-      sel.innerHTML+=`<option value="${hh}:${mm}">${fmt12(`${hh}:${mm}`)}</option>`;
-    }
+  const startMins=WS_H*60+WS_M, endMins=WE_H*60+WE_M;
+  for(let t=startMins;t<=endMins;t+=15){
+    if(isToday&&t<=nowMins) continue;
+    const h=Math.floor(t/60), m=t%60;
+    const hh=String(h).padStart(2,'0'), mm=String(m).padStart(2,'0');
+    sel.innerHTML+=`<option value="${hh}:${mm}">${fmt12(`${hh}:${mm}`)}</option>`;
   }
   if(isToday&&sel.options.length===1) sel.innerHTML='<option value="">No more slots today — pick tomorrow</option>';
 }
