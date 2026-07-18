@@ -438,7 +438,6 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
       <button class="nl" onclick="goPage('services')" data-pg="services">Services</button>
       <button class="nl" onclick="goPage('bookings')" data-pg="bookings">My Bookings</button>
       <button class="nl" onclick="openAccount()" data-pg="account">👤 Profile</button>
-      <button class="nl" onclick="openQuickWallet()">💰 QuickWallet</button>
       <button class="nl ncta" onclick="goPage('services')">Book Now</button>
       <button class="nl" onclick="signOut()" style="color:var(--danger)">Sign Out</button>
     </div>
@@ -741,44 +740,6 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
   <div class="modal" style="max-width:340px;padding:1rem;text-align:center">
     <img id="photoLightboxImg" src="" alt="Worker profile photo" style="width:100%;border-radius:14px;display:block;object-fit:cover">
     <button class="btn bo bfull" style="margin-top:.85rem" onclick="closeModal('photoLightbox')">Close</button>
-  </div>
-</div>
-
-<!-- QUICKCOINS EARNED POPUP -->
-<div class="overlay" id="quickCoinsModal">
-  <div class="modal" style="max-width:340px">
-    <div style="font-size:2.2rem">🎉</div>
-    <h2 style="margin:.4rem 0 .2rem">Booking Completed!</h2>
-    <p id="qcPopupCoins" style="font-size:1.05rem;font-weight:700;color:var(--brand);margin:.3rem 0"></p>
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.75rem;margin:.75rem 0">
-      <div style="font-size:.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:.03em">Current Wallet</div>
-      <div id="qcPopupBalance" style="font-size:1.3rem;font-weight:800;color:var(--teal)"></div>
-    </div>
-    <button class="btn bo bfull" onclick="closeQuickCoinsPopup()">Nice!</button>
-  </div>
-</div>
-
-<!-- QUICKWALLET MODAL (Phase 1 foundation — no redemption/offers yet) -->
-<div class="overlay" id="quickWalletModal">
-  <div class="modal" style="max-width:360px">
-    <h2 style="margin-bottom:.9rem">💰 QuickWallet</h2>
-
-    <div style="border-top:1px solid var(--border2);padding:.85rem 0;text-align:center">
-      <div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.03em">Current Balance</div>
-      <div id="qwmBalance" style="font-size:1.5rem;font-weight:800;color:var(--brand);margin-top:.2rem">0 QC</div>
-    </div>
-    <div style="border-top:1px solid var(--border2);padding:.85rem 0;text-align:center">
-      <div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.03em">Lifetime Earned</div>
-      <div id="qwmEarned" style="font-size:1.15rem;font-weight:700;color:var(--teal);margin-top:.2rem">0 QC</div>
-    </div>
-    <div style="border-top:1px solid var(--border2);border-bottom:1px solid var(--border2);padding:.85rem 0;text-align:center">
-      <div style="font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.03em">Completed Bookings</div>
-      <div id="qwmCompleted" style="font-size:1.15rem;font-weight:700;color:var(--text);margin-top:.2rem">0</div>
-    </div>
-
-    <p style="font-size:.78rem;color:var(--text3);text-align:center;margin-top:1rem;line-height:1.5">No rewards available yet.<br>Keep earning QuickCoins to unlock future rewards.</p>
-
-    <button class="btn bo bfull" style="margin-top:.9rem" onclick="closeModal('quickWalletModal')">Close</button>
   </div>
 </div>
 
@@ -3185,134 +3146,7 @@ async function verifyOtp(){
     showToast('🎉 Service marked as Completed!');
 
     await renderBookings();
-
-    /* QuickCoins Phase 1: award only on this exact transition
-       (correct Completion OTP → status='Completed'). Review modal
-       opens after the coins popup is dismissed so the two never
-       overlap on screen. */
-    awardQuickCoins(b, ()=>openReview(String(pendBkId)));
   }
-}
-
-/* ════════════════════════════════════════════════════════════
-   QUICKCOINS — Phase 1 (earn + wallet view only, customer side).
-   Virtual in-app loyalty currency. Not real money, not withdrawable.
-   Only role='user' accounts ever receive coins — never workers.
-   Self-contained so later phases (redemption, offers, tiers,
-   expiry, referrals) can extend it without touching booking/OTP/
-   tracking/review code.
-   ════════════════════════════════════════════════════════════ */
-const QUICKCOINS_CONFIG = {
-  earnRate: 0.05,  /* 5% of booking price — change this one number to retune */
-  minCoins: 5,     /* floor so even a small booking feels rewarded */
-  maxCoins: 200    /* ceiling — adjust as pricing changes */
-};
-
-/* Isolated on purpose: swap this formula later without touching
-   anything that calls it. */
-function calcQuickCoinsForBooking(booking){
-  const amount = Number(booking.price || booking.basePrice || 0);
-  if(!amount || amount<=0) return QUICKCOINS_CONFIG.minCoins;
-  const raw = Math.round(amount * QUICKCOINS_CONFIG.earnRate);
-  return Math.min(QUICKCOINS_CONFIG.maxCoins, Math.max(QUICKCOINS_CONFIG.minCoins, raw));
-}
-
-let _qcPopupOnClose=null;
-
-/* onDone always fires — success, skip (worker/no session), or
-   error — so the caller (review-modal trigger) never gets stuck. */
-async function awardQuickCoins(booking, onDone){
-  const proceed=()=>{ if(typeof onDone==='function') onDone(); };
-  try{
-    /* Identity comes from the app's own session cache — the same
-       source every other working feature (bookings, OTP, reviews)
-       already trusts — not from Supabase Auth directly, which can
-       point at a different account than this tab believes it's using. */
-    let qfUser=null;
-    try{ qfUser=JSON.parse(sessionStorage.getItem('qf_user')||'null'); }catch(e){ qfUser=null; }
-    if(!qfUser||!qfUser.id){ proceed(); return; }
-
-    const {data:u,error:ue}=await sb.from('users')
-      .select('role,quickcoins_balance,quickcoins_earned,total_completed_bookings')
-      .eq('id',qfUser.id).single();
-    if(ue||!u){
-      console.error('QuickCoins: could not read user row',ue?.message);
-      showToast('⚠️ Could not credit QuickCoins — please check your wallet later');
-      proceed(); return;
-    }
-
-    /* Hard guard — workers never receive QuickCoins, even if this
-       function is ever called from somewhere unexpected later. */
-    if(u.role!=='user'){ proceed(); return; }
-
-    const coins = calcQuickCoinsForBooking(booking);
-    const newBalance   = (u.quickcoins_balance||0) + coins;
-    const newEarned    = (u.quickcoins_earned||0) + coins;
-    const newCompleted = (u.total_completed_bookings||0) + 1;
-
-    const {error:updErr}=await sb.from('users').update({
-      quickcoins_balance: newBalance,
-      quickcoins_earned: newEarned,
-      total_completed_bookings: newCompleted
-    }).eq('id',qfUser.id);
-
-    if(updErr){
-      console.error('QuickCoins: update failed',updErr.message);
-      showToast('⚠️ Could not credit QuickCoins — please check your wallet later');
-      proceed(); return;
-    }
-
-    /* Bug 4: if the wallet modal happens to already be open, paint the
-       new numbers into it immediately — no page refresh needed. */
-    if(document.getElementById('quickWalletModal').classList.contains('on')){
-      _paintQuickWallet({quickcoins_balance:newBalance, quickcoins_earned:newEarned, total_completed_bookings:newCompleted});
-    }
-
-    showQuickCoinsPopup(coins, newBalance, proceed);
-  }catch(e){
-    console.error('QuickCoins: unexpected error',e);
-    showToast('⚠️ Something went wrong crediting QuickCoins');
-    proceed();
-  }
-}
-
-function showQuickCoinsPopup(coinsEarned, newBalance, onClose){
-  document.getElementById('qcPopupCoins').textContent = '+'+coinsEarned+' QuickCoins Earned';
-  document.getElementById('qcPopupBalance').textContent = newBalance+' QC';
-  _qcPopupOnClose = typeof onClose==='function' ? onClose : null;
-  document.getElementById('quickCoinsModal').classList.add('on');
-}
-function closeQuickCoinsPopup(){
-  closeModal('quickCoinsModal');
-  if(_qcPopupOnClose){ const fn=_qcPopupOnClose; _qcPopupOnClose=null; fn(); }
-}
-
-/* Opens the QuickWallet modal — fetches fresh numbers each time,
-   so it's always current without needing a persistent on-page card. */
-async function openQuickWallet(){
-  /* Identity comes from the app's own session cache — same source the
-     rest of the app (bookings, OTP, reviews, worker dashboard) already
-     relies on — instead of a separate Supabase Auth lookup. */
-  let qfUser=null;
-  try{ qfUser=JSON.parse(sessionStorage.getItem('qf_user')||'null'); }catch(e){ qfUser=null; }
-  if(!qfUser||!qfUser.id){ showToast('⚠️ Please sign in to view your wallet'); return; }
-
-  const {data:u,error}=await sb.from('users')
-    .select('role,quickcoins_balance,quickcoins_earned,total_completed_bookings')
-    .eq('id',qfUser.id).single();
-
-  if(error||!u){ console.error('QuickWallet:',error?.message); showToast('⚠️ Could not load wallet'); return; }
-  if(u.role!=='user'){ showToast('QuickWallet is for customers only.'); return; }
-
-  _paintQuickWallet(u);
-
-  document.getElementById('quickWalletModal').classList.add('on');
-}
-
-function _paintQuickWallet(u){
-  document.getElementById('qwmBalance').textContent=(u.quickcoins_balance||0)+' QC';
-  document.getElementById('qwmEarned').textContent=(u.quickcoins_earned||0)+' QC';
-  document.getElementById('qwmCompleted').textContent=u.total_completed_bookings||0;
 }
 
 /* ── REVIEW ───────────────────────────────────────────────── */
@@ -3411,7 +3245,7 @@ async function submitReg(){
 }
 
 /* ── BACKDROP CLOSE ───────────────────────────────────────── */
-['payModal','confirmModal','noAcceptModal','otpModal','clrModal','reviewModal','quickCoinsModal','quickWalletModal'].forEach(id=>{
+['payModal','confirmModal','noAcceptModal','otpModal','clrModal','reviewModal'].forEach(id=>{
   document.getElementById(id).addEventListener('click',function(e){
     if(e.target===this){ if(id==='payModal') stopPoll(); closeModal(id); }
   });
