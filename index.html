@@ -902,12 +902,12 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
 <!-- REWARD MODAL (Phase 1.5 - QuickCoins, separate from Quick Wallet modal) -->
 <div class="overlay" id="rewardModal">
   <div class="modal" style="max-width:400px">
-    <div class="mico" style="background:#fef3d0">🎉</div>
+    <div class="mico reward-badge-glow" style="background:radial-gradient(circle at 30% 30%,#ffe6b8,#f0b429 70%)">🏆</div>
     <h2>Service Completed Successfully</h2>
     <p>Thank you for choosing QuickFix.</p>
     <div class="mdet" style="text-align:center;padding-bottom:.5rem">
       <div style="padding:.75rem 0">
-        <div style="font-size:1.05rem;font-weight:800;color:var(--brand);font-family:'Sora',sans-serif" id="rewardCoins">+0 QuickCoins Credited</div>
+        <div style="font-size:1.55rem;font-weight:800;background:linear-gradient(135deg,var(--brand-dark),var(--brand-mid));-webkit-background-clip:text;background-clip:text;color:transparent;font-family:'Sora',sans-serif" id="rewardCoins">+0 QuickCoins Credited</div>
       </div>
       <div style="border-top:1.5px dashed var(--text2)"></div>
       <div style="padding:.75rem 0">
@@ -916,10 +916,43 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
       </div>
     </div>
     <div style="display:flex;justify-content:center">
-      <button class="btn bp" onclick="closeRewardModal()">Continue</button>
+      <button class="btn bp reward-cta" onclick="closeRewardModal()">Continue</button>
     </div>
   </div>
 </div>
+
+<style>
+/* Reward popup — presentational polish only (Phase 1.5). Scoped to
+   #rewardModal / .reward-* so no other modal, button, or icon is affected. */
+#rewardModal{background:radial-gradient(ellipse at center,rgba(30,18,5,.35) 0%,rgba(20,12,4,.75) 100%)}
+
+.reward-badge-glow{animation:reward-badge-pulse 1.8s ease-in-out infinite}
+@keyframes reward-badge-pulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(212,137,10,.45);transform:scale(1)}
+  50%{box-shadow:0 0 0 14px rgba(212,137,10,0);transform:scale(1.05)}
+}
+
+.reward-cta{position:relative;overflow:hidden;box-shadow:0 4px 14px rgba(181,101,29,.28);transition:transform .18s ease,box-shadow .18s ease}
+.reward-cta:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(181,101,29,.4)}
+.reward-cta:active{transform:translateY(0)}
+.reward-cta::after{content:'';position:absolute;inset:0;border-radius:inherit;background:radial-gradient(circle,rgba(255,255,255,.55) 10%,transparent 60%);opacity:0;transform:scale(0);transition:transform .45s ease,opacity .6s ease}
+.reward-cta:active::after{opacity:1;transform:scale(2.6);transition:transform 0s,opacity 0s}
+
+.reward-confetti-layer,.reward-coin-layer{position:absolute;inset:0;overflow:hidden;pointer-events:none;border-radius:inherit}
+.reward-confetti-piece{position:absolute;bottom:0;width:7px;height:12px;border-radius:2px;opacity:0;animation:reward-confetti-burst 1.8s ease-out forwards}
+@keyframes reward-confetti-burst{
+  0%{opacity:1;transform:translate(0,0) rotate(0deg)}
+  100%{opacity:0;transform:translate(var(--tx),-62vh) rotate(540deg)}
+}
+.reward-coin-piece{position:absolute;top:-40px;font-size:1.35rem;opacity:0;animation:reward-coin-fall 2.1s ease-in forwards;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25))}
+@keyframes reward-coin-fall{
+  0%{opacity:0;transform:translateY(0) rotate(0deg)}
+  8%{opacity:1}
+  68%{transform:translateY(66vh) rotate(210deg)}
+  78%{transform:translateY(60vh) rotate(235deg)}
+  100%{opacity:0;transform:translateY(84vh) rotate(320deg)}
+}
+</style>
 
 <div class="toast" id="toast"></div>
 <footer><strong>QuickFix</strong> &nbsp;·&nbsp; Trusted local service booking &nbsp;·&nbsp; © 2025</footer>
@@ -3311,6 +3344,82 @@ async function awardQuickCoins(booking){
   if(rewardModalEl) rewardModalEl.classList.add('on');
 }
 function closeRewardModal(){ closeModal('rewardModal'); }
+
+/* ── REWARD POPUP UI ENHANCEMENTS (presentational only, Phase 1.5) ──
+   Does NOT call, wrap, or modify awardQuickCoins(). It only WATCHES
+   #rewardModal for the .on class that awardQuickCoins() already adds,
+   then reads the final text it already wrote and replays it as an
+   animation. Remove this whole block and the reward system behaves
+   identically to before — no coupling into reward/DB logic. */
+(function(){
+  const modalEl   = document.getElementById('rewardModal');
+  const coinsEl   = document.getElementById('rewardCoins');
+  const balanceEl = document.getElementById('rewardBalance');
+  if(!modalEl || !coinsEl || !balanceEl) return;
+
+  function animateCount(el, to, mode, duration){
+    const start = performance.now();
+    function tick(now){
+      const p = Math.min(1, (now-start)/duration);
+      const eased = 1 - Math.pow(1-p, 3);
+      const val = Math.round(to * eased);
+      el.textContent = mode==='coins' ? ('+'+val+' QuickCoins Credited') : (val+' QC');
+      if(p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function spawnConfetti(){
+    const layer = document.createElement('div');
+    layer.className = 'reward-confetti-layer';
+    const colors = ['#b5651d','#d4890a','#4a8b6e','#d4875a','#fdf6ee'];
+    for(let i=0;i<24;i++){
+      const p = document.createElement('span');
+      p.className = 'reward-confetti-piece';
+      const fromLeft = i % 2 === 0;
+      p.style.left = fromLeft ? (Math.random()*16)+'%' : (84+Math.random()*16)+'%';
+      p.style.background = colors[i % colors.length];
+      p.style.animationDelay = (Math.random()*0.3)+'s';
+      p.style.setProperty('--tx', ((fromLeft?1:-1)*(40+Math.random()*90))+'px');
+      layer.appendChild(p);
+    }
+    modalEl.appendChild(layer);
+    setTimeout(()=>layer.remove(), 2600);
+  }
+
+  function spawnCoins(){
+    const layer = document.createElement('div');
+    layer.className = 'reward-coin-layer';
+    for(let i=0;i<10;i++){
+      const c = document.createElement('span');
+      c.className = 'reward-coin-piece';
+      c.textContent = '🪙';
+      c.style.left = (5+Math.random()*90)+'%';
+      c.style.animationDelay = (Math.random()*0.6)+'s';
+      layer.appendChild(c);
+    }
+    modalEl.appendChild(layer);
+    setTimeout(()=>layer.remove(), 2600);
+  }
+
+  const observer = new MutationObserver(()=>{
+    if(!modalEl.classList.contains('on')) return;
+
+    const coinsMatch = coinsEl.textContent.match(/-?\d+/);
+    const balMatch   = balanceEl.textContent.match(/-?\d+/);
+    const finalCoins = coinsMatch ? parseInt(coinsMatch[0],10) : 0;
+    const finalBal   = balMatch ? parseInt(balMatch[0],10) : 0;
+
+    coinsEl.textContent   = '+0 QuickCoins Credited';
+    balanceEl.textContent = '0 QC';
+
+    spawnConfetti();
+    spawnCoins();
+    animateCount(coinsEl, finalCoins, 'coins', 800);
+    animateCount(balanceEl, finalBal, 'balance', 900);
+  });
+  observer.observe(modalEl, { attributes:true, attributeFilter:['class'] });
+})();
 
 /* ── REVIEW ───────────────────────────────────────────────── */
 async function openReview(bkId){
