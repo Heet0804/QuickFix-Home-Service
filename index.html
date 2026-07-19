@@ -899,6 +899,28 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
   </div>
 </div>
 
+<!-- REWARD MODAL (Phase 1.5 - QuickCoins, separate from Quick Wallet modal) -->
+<div class="overlay" id="rewardModal">
+  <div class="modal" style="max-width:400px">
+    <div class="mico" style="background:#fef3d0">🎉</div>
+    <h2>Service Completed Successfully</h2>
+    <p>Thank you for choosing QuickFix.</p>
+    <div class="mdet" style="text-align:center;padding-bottom:.5rem">
+      <div style="padding:.75rem 0">
+        <div style="font-size:1.05rem;font-weight:800;color:var(--brand);font-family:'Sora',sans-serif" id="rewardCoins">+0 QuickCoins Credited</div>
+      </div>
+      <div style="border-top:1.5px dashed var(--text2)"></div>
+      <div style="padding:.75rem 0">
+        <div style="font-size:.85rem;font-weight:600;letter-spacing:.2px;color:var(--text2);font-family:'Sora',sans-serif;margin-bottom:.5rem">Current Wallet Balance</div>
+        <div style="font-size:1.8rem;font-weight:800;color:var(--brand);font-family:'Sora',sans-serif" id="rewardBalance">0 QC</div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:center">
+      <button class="btn bp" onclick="closeRewardModal()">Continue</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 <footer><strong>QuickFix</strong> &nbsp;·&nbsp; Trusted local service booking &nbsp;·&nbsp; © 2025</footer>
 
@@ -2935,6 +2957,11 @@ async function renderBookings(){
       .map(el=>el.id.replace('trk-wrap-',''))
   );
   const all=normalizeBookings(await DB.bookings());
+  /* Customer-side QuickCoins trigger — runs on every renderBookings()
+     call (polling, tab switch, refresh, reopen), but only reacts on
+     the render where a booking's status is OBSERVED to flip from
+     Arrived -> Completed. See checkQuickCoinsRewards(). */
+  checkQuickCoinsRewards(all);
   let list=all;
   if(curTab==='upcoming') list=all.filter(b=>['Scheduled','Confirmed','Accepted','Worker on Way','Arrived'].includes(b.status));
   if(curTab==='completed') list=all.filter(b=>b.status==='Completed');
@@ -3201,6 +3228,89 @@ async function verifyOtp(){
     await renderBookings();
   }
 }
+
+/* ── QUICKCOINS REWARD (Phase 1.5) ───────────────────────────────
+   Customer-side ONLY, and fully independent of verifyOtp() — the
+   customer never verifies the Completion OTP, only the worker does.
+   Instead this watches the customer's own booking feed (already
+   refreshed by renderBookings() on every poll/tab-switch/reopen) and
+   reacts the moment a booking's status is OBSERVED to flip from
+   Arrived -> Completed. Updates ONLY existing users-table columns;
+   no new columns/tables; quickcoins_redeemed is never touched. */
+
+/* In-memory only (per the spec: no localStorage, no schema changes).
+   Both reset to empty on every page load/refresh.
+     qcLastStatus  : bookingId -> last status OBSERVED this session
+     qcRewardedIds : bookingId set already rewarded this session
+   Key trick for "refresh after already Completed shouldn't re-reward":
+   the FIRST time a booking is seen in a session we only record its
+   status as a baseline and return — we never reward on that first
+   sighting, even if the status is already 'Completed'. A reward only
+   fires when a booking we've already seen as 'Arrived' is next seen
+   as 'Completed' — i.e. an actual transition happening live while
+   the page is open, not just "it happens to be Completed already". */
+const qcLastStatus  = new Map();
+const qcRewardedIds = new Set();
+
+function checkQuickCoinsRewards(all){
+  all.forEach(b=>{
+    const prevStatus = qcLastStatus.get(b.id);
+
+    if(prevStatus===undefined){
+      // First sighting this session — establish baseline only, never reward here.
+      qcLastStatus.set(b.id, b.status);
+      return;
+    }
+
+    if(prevStatus==='Arrived' && b.status==='Completed' && !qcRewardedIds.has(b.id)){
+      // Mark rewarded BEFORE awaiting the DB call so an overlapping
+      // poll tick can never double-trigger the award for this booking.
+      qcRewardedIds.add(b.id);
+      awardQuickCoins(b);
+    }
+
+    qcLastStatus.set(b.id, b.status);
+  });
+}
+
+async function awardQuickCoins(booking){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session?.user) return; // safety guard; this path is customer-only anyway
+
+  // Price may not always be present on the same field — prefer
+  // `price`, fall back to `base_price`, never assume either exists.
+  const rawPrice = Number(booking.price || 0);
+  const coins = Math.round((Number(rawPrice)||0) * 0.05);
+
+  const {data:u,error:selErr}=await sb.from('users')
+    .select('quickcoins_balance,quickcoins_earned,total_completed_bookings')
+    .eq('id',session.user.id).single();
+  if(selErr||!u){ console.error('awardQuickCoins select:',selErr?.message); return; }
+
+  const newBalance  = (u.quickcoins_balance ?? 0) + coins;
+  const newEarned   = (u.quickcoins_earned ?? 0) + coins;
+  const newBookings = (u.total_completed_bookings ?? 0) + 1;
+
+  const {error:updErr}=await sb.from('users').update({
+    quickcoins_balance: newBalance,
+    quickcoins_earned:  newEarned,
+    total_completed_bookings: newBookings
+  }).eq('id',session.user.id);
+
+  if(updErr){ console.error('awardQuickCoins update:',updErr.message); return; }
+
+  // Popup shown ONLY after the DB update above succeeds.
+  // Continue button (existing markup) still only closes the modal —
+  // see closeRewardModal() below, untouched.
+  const rewardModalEl   = document.getElementById('rewardModal');
+  const rewardCoinsEl   = document.getElementById('rewardCoins');
+  const rewardBalanceEl = document.getElementById('rewardBalance');
+
+  if(rewardCoinsEl) rewardCoinsEl.textContent = '+'+coins+' QuickCoins Credited';
+  if(rewardBalanceEl) rewardBalanceEl.textContent = newBalance+' QC';
+  if(rewardModalEl) rewardModalEl.classList.add('on');
+}
+function closeRewardModal(){ closeModal('rewardModal'); }
 
 /* ── REVIEW ───────────────────────────────────────────────── */
 async function openReview(bkId){
