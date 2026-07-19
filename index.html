@@ -2997,7 +2997,7 @@ const contactHtml = show
          arrival_otp is nulled after verification; completion_otp only exists after Arrived. */
       if(b.status==='Arrived'&&b.completion_otp){
         return `<div class="otppair" style="grid-template-columns:1fr">
-          <div class="otpbox c2"><div class="otplbl">✅ Completion OTP — Share after service is done</div><div class="otpcode c2">${b.completion_otp}</div></div></div>`;
+          <div class="otpbox c2"><div class="otplbl">Completion OTP</div><div class="otpcode c2">${b.completion_otp}</div><div style="font-size:.72rem;color:var(--text2);margin-top:.3rem">Share this OTP with the worker after the service is completed.</div></div></div>`;
       }
       if(['Accepted','Confirmed','Worker on Way'].includes(b.status)&&b.arrival_otp){
         return `<div class="otppair" style="grid-template-columns:1fr">
@@ -3008,7 +3008,7 @@ const contactHtml = show
     const payHtml=(show||b.status==='Scheduled')?`<div style="font-size:.72rem;color:var(--text2);margin-top:.3rem">${payLabel}</div>`:'';
     const schedNote=b.status==='Scheduled'&&!rev?`<div style="font-size:.76rem;color:var(--brand);font-weight:600;margin-top:.4rem">📅 Scheduled for ${fmt12(b.time)} · Worker assigned</div>`:'';
     const trackBtn=(['Accepted','Confirmed'].includes(b.status)&&show)?`<button class="btn bt" style="font-size:.72rem;padding:5px 10px" onclick="openArrival(${b.id})">🚗 Track</button>`:'';
-    const compBtn=b.status==='Arrived'?`<button class="btn bt" style="font-size:.72rem;padding:5px 10px" onclick="triggerOtp('complete',${b.id})">✅ Complete</button>`:'';
+    const compBtn='';
     const canCancel=['Accepted','Confirmed','Scheduled'].includes(b.status)&&!rev;
 const cancelBtn=canCancel
   ?`<div><button class="btn bd" style="font-size:.72rem;padding:5px 10px" onclick="cancelBk(${b.id})">❌ Cancel</button><div style="font-size:.65rem;color:var(--text3);margin-top:3px">Free cancellation up to 10 min before</div></div>`
