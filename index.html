@@ -2645,29 +2645,32 @@ function toggleTracking(bkId){
     ? '📍 Track Worker <span class="trk-arr">▲</span>'
     : '📍 Track Worker <span class="trk-arr">▼</span>';
   if(opening){
-    /* CSS transition takes ~400ms. After it finishes, either fix
-       an existing map's size or build the map fresh if not yet created. */
-    setTimeout(async ()=>{
+    /* Build/reattach immediately — do not wait for the CSS panel
+       transition. Leaflet can measure a fixed-height child even while
+       the parent's max-height is still animating, so tiles start
+       loading right away. invalidateSize() is called again once the
+       transition genuinely ends, as a safety net in case sizing was
+       off during the animation. */
+    (async ()=>{
       if(_trkState[bkId]?.map){
         _reattachTrackingDom(bkId);
         _trkState[bkId].map.invalidateSize();
       } else {
-        /* Build map now — panel is open so container has real dimensions */
         const fresh = normalizeBookings(await DB.bookings());
-
-const booking = fresh.find(
-  b => String(b.id) === String(bkId)
-);
-
-console.log("TRACK DEBUG", {
-  bkId,
-  booking,
-  allIds: fresh.map(x=>x.id)
-});
-
-_buildTrackingMap(booking);
+        const booking = fresh.find(b => String(b.id) === String(bkId));
+        console.log("TRACK DEBUG", { bkId, booking, allIds: fresh.map(x=>x.id) });
+        _buildTrackingMap(booking);
       }
-    }, 450);
+    })();
+
+    const onTransitionEnd = (e)=>{
+      if(e.target !== wrap || e.propertyName !== 'max-height') return;
+      if(_trkState[bkId]?.map){
+        try{ _trkState[bkId].map.invalidateSize(); }catch(err){}
+      }
+      wrap.removeEventListener('transitionend', onTransitionEnd);
+    };
+    wrap.addEventListener('transitionend', onTransitionEnd);
   }
 }
 
