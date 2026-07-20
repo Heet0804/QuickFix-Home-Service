@@ -954,6 +954,115 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
 }
 </style>
 
+<!-- CAMPAIGN POPUP (Phase 2 - Part A). Hardcoded sample, no backend. -->
+<div class="overlay campaign-overlay" id="campaignModal">
+  <div class="modal campaign-modal">
+    <button class="campaign-close-x" onclick="closeCampaignModal()" aria-label="Close">✕</button>
+    <div class="campaign-badge">🎉 Limited Time Offer</div>
+    <div class="campaign-hero">
+      <div class="campaign-icon">⚡</div>
+      <h2 class="campaign-title" id="campaignTitle">Electrician Pass</h2>
+      <div class="campaign-price-amt" id="campaignPrice">₹199</div>
+    </div>
+    <ul class="campaign-perks" id="campaignPerks">
+      <li>✓ 3 Free Visits</li>
+      <li>✓ Emergency Charges Waived</li>
+      <li>✓ Priority Booking</li>
+    </ul>
+    <div class="campaign-countdown">
+      <div class="campaign-countdown-lbl">⏳ Offer Ends In</div>
+      <div class="campaign-countdown-units">
+        <div class="campaign-unit"><span id="cdDays">00</span><small>Days</small></div>
+        <div class="campaign-unit"><span id="cdHrs">00</span><small>Hrs</small></div>
+        <div class="campaign-unit"><span id="cdMin">00</span><small>Min</small></div>
+        <div class="campaign-unit"><span id="cdSec">00</span><small>Sec</small></div>
+      </div>
+    </div>
+    <div class="campaign-actions">
+      <button class="btn bp campaign-buy" onclick="campaignBuyPass()">⚡Buy Pass</button>
+      <button class="btn bo campaign-later" onclick="closeCampaignModal()">Maybe Later</button>
+    </div>
+  </div>
+</div>
+
+<style>
+/* Campaign Popup (Phase 2 - Part A) — scoped to #campaignModal / .campaign-* 
+   only. Does not modify .overlay, .modal, .btn, .bp, .bo, or any shared
+   class definition — reuses them as-is and adds on top. */
+#campaignModal .modal.campaign-modal{
+  max-width:380px;
+  text-align:center;
+  background:linear-gradient(160deg,#fffaf3 0%,#fff 55%);
+  border:1px solid rgba(212,137,10,.18);
+  position:relative;
+}
+.campaign-close-x{
+  position:absolute;top:.85rem;right:.85rem;
+  width:28px;height:28px;border:none;border-radius:50%;
+  background:rgba(0,0,0,.06);color:var(--text2);
+  font-size:.85rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s ease;
+}
+.campaign-close-x:hover{background:rgba(0,0,0,.12)}
+.campaign-badge{
+  display:inline-block;margin:0 auto 1rem;
+  padding:.35rem .9rem;border-radius:999px;
+  background:linear-gradient(135deg,#ff8a3d,#ff5f6d);
+  color:#fff;font-size:.72rem;font-weight:800;letter-spacing:.4px;
+  text-transform:uppercase;box-shadow:0 4px 14px rgba(255,95,109,.35);
+}
+.campaign-hero{margin-bottom:1.1rem}
+.campaign-icon{
+  width:64px;height:64px;margin:0 auto .6rem;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:1.9rem;
+  background:radial-gradient(circle at 30% 30%,#ffe6b8,#f0b429 70%);
+  box-shadow:0 8px 22px rgba(212,137,10,.35);
+  animation:campaign-icon-pulse 2.2s ease-in-out infinite;
+}
+@keyframes campaign-icon-pulse{ 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+.campaign-title{font-family:'Sora',sans-serif;font-size:1.3rem;font-weight:800;margin:0 0 .3rem;color:var(--text)}
+.campaign-price-amt{
+  font-family:'Sora',sans-serif;font-size:2.1rem;font-weight:800;
+  background:linear-gradient(135deg,var(--brand-dark),var(--brand-mid));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.campaign-perks{list-style:none;padding:.9rem 1.1rem;margin:1rem 0 1.2rem;text-align:left;
+  background:rgba(212,137,10,.07);border-radius:var(--radius-sm);
+  display:flex;flex-direction:column;gap:.5rem}
+.campaign-perks li{font-size:.86rem;font-weight:600;color:var(--text)}
+.campaign-countdown{margin-bottom:1.2rem}
+.campaign-countdown-lbl{font-size:.78rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;margin-bottom:.5rem}
+.campaign-countdown-units{display:flex;gap:.5rem;justify-content:center}
+.campaign-unit{
+  flex:1 1 0;max-width:64px;
+  background:linear-gradient(160deg,#fff,#fff4e6);
+  border:1px solid rgba(212,137,10,.22);
+  border-radius:10px;
+  padding:.5rem .3rem;
+  display:flex;flex-direction:column;align-items:center;
+  box-shadow:0 3px 10px rgba(181,101,29,.12);
+}
+.campaign-unit span{font-family:'Sora',sans-serif;font-size:1.1rem;font-weight:800;color:#d4650a;line-height:1}
+.campaign-unit small{font-size:.6rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;margin-top:.25rem}
+.campaign-actions{display:flex;flex-direction:row;align-items:stretch;gap:.6rem}
+.campaign-actions .btn{flex:1 1 0;justify-content:center;text-align:center}
+.campaign-buy{box-shadow:0 6px 18px rgba(181,101,29,.3);transition:transform .16s ease,box-shadow .16s ease}
+.campaign-buy:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(181,101,29,.4)}
+.campaign-later{opacity:.85;transition:transform .16s ease,opacity .16s ease}
+.campaign-later:hover{transform:translateY(-2px);opacity:1}
+@media(max-width:400px){
+  .campaign-actions .btn{font-size:.78rem;padding:8px 10px}
+}
+
+/* Reverse close animation — only this popup needs one, driven by JS
+   adding/removing .campaign-closing. Does not touch closeModal(). */
+#campaignModal.campaign-closing{ animation:campaign-fade-out .2s ease forwards }
+#campaignModal.campaign-closing .modal.campaign-modal{ animation:campaign-scale-out .2s ease forwards }
+@keyframes campaign-fade-out{ from{opacity:1} to{opacity:0} }
+@keyframes campaign-scale-out{ from{opacity:1;transform:scale(1)} to{opacity:0;transform:scale(.95)} }
+</style>
+
 <div class="toast" id="toast"></div>
 <footer><strong>QuickFix</strong> &nbsp;·&nbsp; Trusted local service booking &nbsp;·&nbsp; © 2025</footer>
 
@@ -992,6 +1101,16 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
     : {id:session.user.id, email:session.user.email, name:'', phone:'', role:'user'};
   sessionStorage.setItem('qf_user', JSON.stringify(profile));
   sessionStorage.setItem('qf_role', profile.role);
+
+  /* Campaign popup (Phase 2 - Part A): show once per login session only.
+     Flag lives in sessionStorage, which survives page refresh (so a
+     refresh never re-shows it) but is wiped by signOut()'s existing
+     sessionStorage.clear() and by the no-session branch above — so
+     logging out and back in shows it again, exactly as specified. */
+  if(profile.role === 'user' && CAMPAIGN_SAMPLE && !sessionStorage.getItem('qf_campaign_shown')){
+    sessionStorage.setItem('qf_campaign_shown','1');
+    setTimeout(openCampaignModal, 500);
+  }
 })();
 
 /* Sign out
@@ -1012,7 +1131,7 @@ async function signOut(){
     console.error('signOut: Supabase sign-out failed (continuing local cleanup):', err);
   }
   try{
-    sessionStorage.clear();
+    sessionStorage.clear(); /* also clears qf_campaign_shown, so the campaign popup shows again on next login */
     localStorage.removeItem('qf_bookings');
   }catch(err){
     console.error('signOut: storage cleanup failed:', err);
@@ -1585,6 +1704,92 @@ setInterval(tickClock,1000); tickClock();
 function stars(r){ return Array.from({length:5},(_,i)=>`<span class="star${i<Math.round(r)?'':' empty'}">★</span>`).join(''); }
 function genOtp(){ return String(Math.floor(100000+Math.random()*900000)); }
 function closeModal(id){ document.getElementById(id).classList.remove('on'); }
+
+/* ── CAMPAIGN POPUP (Phase 2 - Part A) ───────────────────────────
+   Hardcoded sample campaign, no backend, no purchasing. Only called
+   from the one-time login-session check above and its own two
+   buttons — never from renderBookings(), polling, or any refresh. */
+/* Campaign pool — future compatibility only, per Phase 2 Part A scope.
+   Right now this always resolves to the single seeded Electrician Pass.
+   Later phases will add Plumbing/Painter/Carpenter passes, "no active
+   campaign some weeks", and backend-driven selection here — none of
+   that is implemented yet, this is just the shape the code is ready for. */
+const CAMPAIGN_POOL = [
+  {
+    id: 'electrician-pass',
+    title: 'Electrician Pass',
+    price: '₹199',
+    perks: ['3 Visits (Includes Emergency Bookings)', 'Emergency Charges Waived', 'Priority Booking']
+  }
+  // Future entries: plumbing-pass, painter-pass, carpenter-pass.
+];
+
+/* Picks the single active campaign. For now: always the one entry in
+   the pool. Later: at most one active campaign, or none, from the
+   backend — this function is the only place that logic will need to
+   change. */
+function _getActiveCampaign(){
+  return CAMPAIGN_POOL[0] || null;
+}
+
+/* Testing constraint: offer window is always 3-5 days, never longer. */
+function _randomOfferDays(){
+  const options = [3, 4, 5];
+  return options[Math.floor(Math.random() * options.length)];
+}
+
+const CAMPAIGN_SAMPLE = (()=>{
+  const active = _getActiveCampaign();
+  if(!active) return null;
+  return { ...active, endsAt: new Date(Date.now() + _randomOfferDays() * 86400000) };
+})();
+
+function openCampaignModal(){
+  if(!CAMPAIGN_SAMPLE) return; /* future: no active campaign this week */
+  const el = document.getElementById('campaignModal');
+  if(!el) return;
+  document.getElementById('campaignTitle').textContent = CAMPAIGN_SAMPLE.title;
+  document.getElementById('campaignPrice').textContent = CAMPAIGN_SAMPLE.price;
+  document.getElementById('campaignPerks').innerHTML =
+    CAMPAIGN_SAMPLE.perks.map(p=>`<li>✓ ${p}</li>`).join('');
+  el.classList.remove('campaign-closing');
+  el.classList.add('on');
+  _updateCampaignCountdown();
+  clearInterval(window._campaignCountdownTimer);
+  window._campaignCountdownTimer = setInterval(_updateCampaignCountdown, 1000);
+}
+
+function closeCampaignModal(){
+  const el = document.getElementById('campaignModal');
+  if(!el || !el.classList.contains('on')) return;
+  el.classList.add('campaign-closing');
+  clearInterval(window._campaignCountdownTimer);
+  setTimeout(()=>{ el.classList.remove('on','campaign-closing'); }, 200);
+}
+
+function campaignBuyPass(){
+  showToast('🚧 Pass purchase will be available in Phase 2 Part C.');
+}
+
+function _updateCampaignCountdown(){
+  if(!CAMPAIGN_SAMPLE) return;
+  const dEl=document.getElementById('cdDays'), hEl=document.getElementById('cdHrs'),
+        mEl=document.getElementById('cdMin'), sEl=document.getElementById('cdSec');
+  if(!dEl || !hEl || !mEl || !sEl) return;
+
+  const diff = CAMPAIGN_SAMPLE.endsAt.getTime() - Date.now();
+  const pad = n => String(Math.max(n,0)).padStart(2,'0');
+
+  if(diff <= 0){
+    dEl.textContent='00'; hEl.textContent='00'; mEl.textContent='00'; sEl.textContent='00';
+    clearInterval(window._campaignCountdownTimer);
+    return;
+  }
+  dEl.textContent = pad(Math.floor(diff / 86400000));
+  hEl.textContent = pad(Math.floor((diff % 86400000) / 3600000));
+  mEl.textContent = pad(Math.floor((diff % 3600000) / 60000));
+  sEl.textContent = pad(Math.floor((diff % 60000) / 1000));
+}
 function openPhotoLightbox(url){
   if(!url) return;
   document.getElementById('photoLightboxImg').src=url;
