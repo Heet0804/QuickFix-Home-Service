@@ -437,6 +437,8 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
       <button class="nl on" onclick="goPage('home')" data-pg="home">Home</button>
       <button class="nl" onclick="goPage('services')" data-pg="services">Services</button>
       <button class="nl" onclick="goPage('bookings')" data-pg="bookings">My Bookings</button>
+      <button class="nl" onclick="goPage('offers')" data-pg="offers">🎁 Offers</button>
+      <button class="nl" onclick="goPage('passes')" data-pg="passes">🎫 My Passes</button>
       <button class="nl" onclick="openAccount()" data-pg="account">👤 Profile</button>
       <button class="nl" onclick="openQuickWallet()">💰 Quick Wallet</button>
       <button class="nl ncta" onclick="goPage('services')">Book Now</button>
@@ -633,6 +635,31 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
       <button class="tab" onclick="switchTab('cancelled',this)">Cancelled</button>
     </div>
     <div id="bkList"></div>
+  </div>
+</div>
+
+<!-- OFFERS (Phase 2B) — reads the same campaigns table as the login popup -->
+<div class="page" id="page-offers">
+  <div class="wrap">
+    <div class="pghdr"><h2>🎁 Offers</h2><p>Limited-time service passes — grab one before it's gone.</p></div>
+    <div class="offers-grid" id="offersGrid"></div>
+    <div class="offers-empty" id="offersEmpty">
+      <div class="offers-empty-icon">🕒</div>
+      <p class="offers-empty-title">No offers available right now.</p>
+      <p class="offers-empty-sub">Check back soon!</p>
+    </div>
+  </div>
+</div>
+
+<!-- MY PASSES (Phase 2D placeholder) — static only, no logic, no database -->
+<div class="page" id="page-passes">
+  <div class="wrap">
+    <div class="pghdr"><h2>🎫 My Passes</h2></div>
+    <div class="offers-empty" style="display:flex">
+      <div class="offers-empty-icon">🚧</div>
+      <p class="offers-empty-title">My Passes</p>
+      <p class="offers-empty-sub">Coming in Phase 2D</p>
+    </div>
   </div>
 </div>
 
@@ -1055,6 +1082,38 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
   .campaign-actions .btn{font-size:.78rem;padding:8px 10px}
 }
 
+/* Offers page (Phase 2B). Inner elements reuse .campaign-* classes
+   unchanged. .offers-empty is also reused as-is for My Passes. */
+.offers-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+  gap:1.4rem;
+}
+.offer-card{
+  background:linear-gradient(160deg,#fffaf3 0%,#fff 55%);
+  border:1px solid rgba(212,137,10,.18);
+  border-radius:18px;
+  padding:2rem 1.5rem;
+  box-shadow:0 20px 56px rgba(30,18,5,.22);
+  text-align:center;
+  display:flex;flex-direction:column;
+}
+.offer-card .campaign-desc{font-size:.8rem;color:var(--text2);margin:-.4rem 0 .8rem}
+.offer-card .campaign-actions{margin-top:auto}
+@media(max-width:900px){
+  .offers-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:640px){
+  .offers-grid{grid-template-columns:1fr}
+}
+.offers-empty{
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:3.5rem 1rem;color:var(--text2);
+}
+.offers-empty-icon{font-size:2.2rem;margin-bottom:.75rem}
+.offers-empty-title{font-size:1rem;font-weight:700;color:var(--text);margin-bottom:.25rem}
+.offers-empty-sub{font-size:.85rem}
+
 /* Reverse close animation — only this popup needs one, driven by JS
    adding/removing .campaign-closing. Does not touch closeModal(). */
 #campaignModal.campaign-closing{ animation:campaign-fade-out .2s ease forwards }
@@ -1102,14 +1161,18 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
   sessionStorage.setItem('qf_user', JSON.stringify(profile));
   sessionStorage.setItem('qf_role', profile.role);
 
-  /* Campaign popup (Phase 2 - Part A): show once per login session only.
+  /* Campaign popup (Phase 2A): show once per login session only, and
+     only if an active campaign actually exists in the campaigns table.
      Flag lives in sessionStorage, which survives page refresh (so a
      refresh never re-shows it) but is wiped by signOut()'s existing
      sessionStorage.clear() and by the no-session branch above — so
      logging out and back in shows it again, exactly as specified. */
-  if(profile.role === 'user' && CAMPAIGN_SAMPLE && !sessionStorage.getItem('qf_campaign_shown')){
-    sessionStorage.setItem('qf_campaign_shown','1');
-    setTimeout(openCampaignModal, 500);
+  if(profile.role === 'user' && !sessionStorage.getItem('qf_campaign_shown')){
+    await _loadActiveCampaignForPopup();
+    if(CAMPAIGN_SAMPLE){
+      sessionStorage.setItem('qf_campaign_shown','1');
+      setTimeout(openCampaignModal, 500);
+    }
   }
 })();
 
@@ -1705,44 +1768,62 @@ function stars(r){ return Array.from({length:5},(_,i)=>`<span class="star${i<Mat
 function genOtp(){ return String(Math.floor(100000+Math.random()*900000)); }
 function closeModal(id){ document.getElementById(id).classList.remove('on'); }
 
-/* ── CAMPAIGN POPUP (Phase 2 - Part A) ───────────────────────────
-   Hardcoded sample campaign, no backend, no purchasing. Only called
-   from the one-time login-session check above and its own two
-   buttons — never from renderBookings(), polling, or any refresh. */
-/* Campaign pool — future compatibility only, per Phase 2 Part A scope.
-   Right now this always resolves to the single seeded Electrician Pass.
-   Later phases will add Plumbing/Painter/Carpenter passes, "no active
-   campaign some weeks", and backend-driven selection here — none of
-   that is implemented yet, this is just the shape the code is ready for. */
-const CAMPAIGN_POOL = [
-  {
-    id: 'electrician-pass',
-    title: 'Electrician Pass',
-    price: '₹199',
-    perks: ['3 Visits (Includes Emergency Bookings)', 'Emergency Charges Waived', 'Priority Booking']
+/* ── CAMPAIGN SYSTEM (Phase 2A popup + Phase 2B Offers page) ─────
+   SINGLE SOURCE OF TRUTH: both the login popup and the Offers page
+   read from the same `campaigns` table through fetchActiveCampaigns()
+   below. The popup takes the first (highest-priority) result; the
+   Offers page renders all of them. No hardcoded data, no second
+   query path. */
+function _formatPrice(p){
+  const n = Number(p);
+  if(isNaN(n)) return '';
+  return '₹' + (Number.isInteger(n) ? n : n.toFixed(2));
+}
+
+function _buildPerks(row){
+  const visits = row.number_of_visits ?? 1;
+  const perks = [`${visits} Visit${visits===1?'':'s'}${row.emergency_included ? ' (Includes Emergency Bookings)' : ''}`];
+  if(row.priority_booking) perks.push('Priority Booking');
+  return perks;
+}
+
+function _mapCampaignRow(row){
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description || '',
+    icon: (CATS.find(c => c.id.toLowerCase() === String(row.service||'').toLowerCase()) || {}).em || '🎫',
+    price: _formatPrice(row.price),
+    perks: _buildPerks(row),
+    endsAt: new Date(row.offer_end_date)
+  };
+}
+
+async function fetchActiveCampaigns(){
+  const nowIso = new Date().toISOString();
+  const {data, error} = await sb.from('campaigns')
+    .select('*')
+    .eq('status', 'active')
+    .lte('offer_start_date', nowIso)
+    .gt('offer_end_date', nowIso)
+    .order('priority', {ascending:true})
+    .order('offer_end_date', {ascending:true});
+
+  if(error){
+    console.error('fetchActiveCampaigns:', error.message);
+    return [];
   }
-  // Future entries: plumbing-pass, painter-pass, carpenter-pass.
-];
-
-/* Picks the single active campaign. For now: always the one entry in
-   the pool. Later: at most one active campaign, or none, from the
-   backend — this function is the only place that logic will need to
-   change. */
-function _getActiveCampaign(){
-  return CAMPAIGN_POOL[0] || null;
+  return (data||[]).map(_mapCampaignRow);
 }
 
-/* Testing constraint: offer window is always 3-5 days, never longer. */
-function _randomOfferDays(){
-  const options = [3, 4, 5];
-  return options[Math.floor(Math.random() * options.length)];
+/* Resolves the single campaign the login popup should show, or null
+   if none is currently active — in which case the popup never opens. */
+let CAMPAIGN_SAMPLE = null;
+async function _loadActiveCampaignForPopup(){
+  const list = await fetchActiveCampaigns();
+  CAMPAIGN_SAMPLE = list[0] || null;
+  return CAMPAIGN_SAMPLE;
 }
-
-const CAMPAIGN_SAMPLE = (()=>{
-  const active = _getActiveCampaign();
-  if(!active) return null;
-  return { ...active, endsAt: new Date(Date.now() + _randomOfferDays() * 86400000) };
-})();
 
 function openCampaignModal(){
   if(!CAMPAIGN_SAMPLE) return; /* future: no active campaign this week */
@@ -1790,6 +1871,85 @@ function _updateCampaignCountdown(){
   mEl.textContent = pad(Math.floor((diff % 3600000) / 60000));
   sEl.textContent = pad(Math.floor((diff % 60000) / 1000));
 }
+let _offerCountdownTimers = {};
+
+async function renderOffers(){
+  const grid = document.getElementById('offersGrid');
+  const empty = document.getElementById('offersEmpty');
+  if(!grid || !empty) return;
+
+  Object.values(_offerCountdownTimers).forEach(t=>clearInterval(t));
+  _offerCountdownTimers = {};
+
+  empty.style.display = 'none';
+  grid.innerHTML = '<p style="color:var(--text2);font-size:.85rem;grid-column:1/-1">Loading offers…</p>';
+
+  const campaigns = await fetchActiveCampaigns();
+
+  if(!campaigns.length){
+    grid.innerHTML = '';
+    empty.style.display = 'flex';
+    return;
+  }
+
+  grid.innerHTML = campaigns.map(c => `
+    <div class="offer-card" id="offer-card-${c.id}">
+      <div class="campaign-badge">🎉 Limited Time Offer</div>
+      <div class="campaign-hero">
+        <div class="campaign-icon">${c.icon}</div>
+        <h2 class="campaign-title">${c.title}</h2>
+        ${c.description ? `<p class="campaign-desc">${c.description}</p>` : ''}
+        <div class="campaign-price-amt">${c.price}</div>
+      </div>
+      <ul class="campaign-perks">
+        ${c.perks.map(p=>`<li>✓ ${p}</li>`).join('')}
+      </ul>
+      <div class="campaign-countdown">
+        <div class="campaign-countdown-lbl">⏳ Offer Ends In</div>
+        <div class="campaign-countdown-units">
+          <div class="campaign-unit"><span id="offer-d-${c.id}">00</span><small>Days</small></div>
+          <div class="campaign-unit"><span id="offer-h-${c.id}">00</span><small>Hrs</small></div>
+          <div class="campaign-unit"><span id="offer-m-${c.id}">00</span><small>Min</small></div>
+          <div class="campaign-unit"><span id="offer-s-${c.id}">00</span><small>Sec</small></div>
+        </div>
+      </div>
+      <div class="campaign-actions">
+        <button class="btn bp campaign-buy" onclick="campaignBuyPass()">⚡Buy Pass</button>
+      </div>
+    </div>
+  `).join('');
+
+  campaigns.forEach(c=>{
+    _updateOfferCountdown(c);
+    _offerCountdownTimers[c.id] = setInterval(()=>_updateOfferCountdown(c), 1000);
+  });
+}
+
+function _updateOfferCountdown(c){
+  const dEl=document.getElementById('offer-d-'+c.id), hEl=document.getElementById('offer-h-'+c.id),
+        mEl=document.getElementById('offer-m-'+c.id), sEl=document.getElementById('offer-s-'+c.id);
+  if(!dEl){ clearInterval(_offerCountdownTimers[c.id]); return; }
+
+  const diff = c.endsAt.getTime() - Date.now();
+  const pad = n => String(Math.max(n,0)).padStart(2,'0');
+
+  if(diff <= 0){
+    clearInterval(_offerCountdownTimers[c.id]);
+    delete _offerCountdownTimers[c.id];
+    const card = document.getElementById('offer-card-'+c.id);
+    if(card) card.remove();
+    const grid = document.getElementById('offersGrid');
+    if(grid && !grid.children.length){
+      document.getElementById('offersEmpty').style.display = 'flex';
+    }
+    return;
+  }
+  dEl.textContent = pad(Math.floor(diff / 86400000));
+  hEl.textContent = pad(Math.floor((diff % 86400000) / 3600000));
+  mEl.textContent = pad(Math.floor((diff % 3600000) / 60000));
+  sEl.textContent = pad(Math.floor((diff % 60000) / 1000));
+}
+
 function openPhotoLightbox(url){
   if(!url) return;
   document.getElementById('photoLightboxImg').src=url;
@@ -1819,6 +1979,11 @@ function goPage(id){
   if(id==='bookings') renderBookings();
   if(id==='account') renderAccount();
   if(id==='househelp') renderHousehelp();
+  if(id==='offers') renderOffers();
+  if(id!=='offers'){
+    Object.values(_offerCountdownTimers).forEach(t=>clearInterval(t));
+    _offerCountdownTimers = {};
+  }
 
   clearInterval(window._bookingPoll);
 
