@@ -611,6 +611,7 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
           <div class="prow"><span class="lb">Service</span><span class="vl" id="pSvc">—</span></div>
           <div class="prow"><span class="lb">Service Price</span><span class="vl" id="pBase">—</span></div>
           <div class="prow"><span class="lb">Handling Fee<span class="tip" data-tip="Covers platform support &amp; booking assistance"> ℹ️</span></span><span class="vl" id="pFee">—</span></div>
+          <div class="prow" id="pPayMethodRow" style="display:none"><span class="lb">Payment Method</span><span class="vl" id="pPayMethod">—</span></div>
           <hr class="pdiv"/>
           <div class="prow ptotal"><span class="lb">Total</span><span class="vl" id="pTotal">—</span></div>
           <div style="margin-top:1.1rem"><button class="btn bp bfull blg" id="bkBtn" onclick="initiateBooking()">📡 Book &amp; Pay</button></div>
@@ -2724,7 +2725,36 @@ function onTimeChange(){
     :`<div class="hnotice normal"><span class="hi">🕙</span><div>Working hours: <strong>8:30 AM – 8:30 PM</strong>. Slot is within working hours.</div></div>`;
 }
 
-function updatePrice(){
+/* Phase 2D.1: resolves whether the logged-in user holds an active,
+   unexpired, unused-up Service Pass for the current booking's
+   category. Read by initiateBooking() at click time. No new columns:
+   reads only status/visits_remaining/expiry_date/campaign_id from the
+   existing user_passes table, and service from the existing campaigns
+   table. */
+let activeServicePass = null;
+
+async function _checkActivePassForService(category){
+  const {data:{session}} = await sb.auth.getSession();
+  if(!session?.user || !category) return null;
+
+  const nowIso = new Date().toISOString();
+  const {data, error} = await sb.from('user_passes')
+    .select('*')
+    .eq('user_id', session.user.id)
+    .eq('status', 'active')
+    .gt('visits_remaining', 0)
+    .gt('expiry_date', nowIso);
+  if(error || !data || !data.length) return null;
+
+  const campaignIds = [...new Set(data.map(p=>p.campaign_id))];
+  const {data:campaignRows} = await sb.from('campaigns').select('id,service').in('id', campaignIds);
+  const serviceById = {};
+  (campaignRows||[]).forEach(c=>{ serviceById[c.id] = c.service; });
+
+  return data.find(p => String(serviceById[p.campaign_id]||'').toLowerCase() === category.toLowerCase()) || null;
+}
+
+async function updatePrice(){
   const sel=document.getElementById('bkSvc'), opt=sel.options[sel.selectedIndex];
   const fixedBase=parseInt(sel.value)||0;
   const e=isEmerg();
@@ -2733,6 +2763,21 @@ function updatePrice(){
   const base=e&&fixedBase?Math.round(fixedBase*1.5):fixedBase;
   const fee=base?Math.min(50,Math.max(20,Math.round(base*.1))):0;
   document.getElementById('pSvc').textContent=opt?opt.dataset.sname:'—';
+
+  activeServicePass = base ? await _checkActivePassForService(curW.role) : null;
+
+  const payRow = document.getElementById('pPayMethodRow');
+  const payVal = document.getElementById('pPayMethod');
+
+  if(activeServicePass){
+    document.getElementById('pBase').textContent = '₹0 — Covered by Service Pass';
+    document.getElementById('pFee').textContent = '₹0';
+    document.getElementById('pTotal').textContent = '₹0';
+    if(payRow){ payRow.style.display=''; payVal.textContent='⚡ Service Pass'; }
+    return;
+  }
+
+  if(payRow) payRow.style.display='none';
   document.getElementById('pBase').textContent=base?`₹${base}${e?' (incl. 1.5× emergency)':''}`:'—';
   document.getElementById('pFee').textContent=base?`₹${fee}`:'—';
   document.getElementById('pTotal').textContent=base?`₹${base+fee}`:'—';
@@ -2785,6 +2830,21 @@ async function initiateBooking(){
     isEmergency:e||!inWork(time),
     areaId, areaName:area.name, areaLat:area.lat, areaLng:area.lng
   };
+
+  /* Phase 2D.1: pass-covered booking — skip the payment screen
+     entirely and go straight to the existing broadcast flow.
+     basePrice is left exactly as calculated above (the true service
+     price), so whatever the existing system derives worker earning
+     from is completely unaffected. Only price and paymentMethod are
+     overridden — no new booking fields, no schema changes, no visit
+     deduction here. */
+  if(activeServicePass){
+    pendBk.price = 0;
+    paymentMethod = 'Service Pass';
+    startBroadcast();
+    return;
+  }
+
   paymentMethod=null;
   ['pGpay','pCash'].forEach(id=>document.getElementById(id).classList.remove('sel'));
   document.getElementById('gpaySection').style.display='none';
@@ -3951,9 +4011,10 @@ async function awardQuickCoins(booking){
   const {data:{session}}=await sb.auth.getSession();
   if(!session?.user) return; // safety guard; this path is customer-only anyway
 
-  // Price may not always be present on the same field — prefer
-  // `price`, fall back to `base_price`, never assume either exists.
-  const rawPrice = Number(booking.price || 0);
+  // QuickCoins must always be earned on the ORIGINAL service value,
+  // never on the discounted/payable amount (e.g. ₹0 Service Pass bookings).
+  // Prefer base_price/basePrice; only fall back to price if base_price is absent.
+  const rawPrice = Number(booking.base_price ?? booking.basePrice ?? booking.price ?? 0);
   const coins = Math.round((Number(rawPrice)||0) * 0.05);
 
   const {data:u,error:selErr}=await sb.from('users')
