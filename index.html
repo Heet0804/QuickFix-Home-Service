@@ -1259,6 +1259,8 @@ function normalizeBookings(raw){
     workerPhone: b.workerPhone || b.worker_phone || '',
     workerEmoji: b.workerEmoji || b.worker_emoji || '🔧',
     paymentMethod: b.paymentMethod || b.payment_method || 'cash',
+    passUsed: Boolean(b.passUsed ?? b.pass_used),
+    passId: b.passId ?? b.pass_id ?? null,
     isEmergency: Boolean(b.isEmergency ?? b.is_emergency),
     isAdvance: Boolean(b.isAdvance ?? b.is_advance),
     rated: Boolean(b.rated),
@@ -1432,6 +1434,9 @@ const DB = {
   price:          bk.price,
   base_price:     bk.basePrice,
   payment_method: bk.paymentMethod,
+  pass_used:      bk.passUsed || false,
+  pass_id:        bk.passId || null,
+  worker_earning: bk.workerEarning ?? bk.basePrice ?? 0,
   status:         bk.status,
   w_status:       bk.wStatus||'Pending',
   arrival_otp:    bk.arrivalOtp,
@@ -2840,6 +2845,8 @@ async function initiateBooking(){
      deduction here. */
   if(activeServicePass){
     pendBk.price = 0;
+    pendBk.passUsed = true;
+    pendBk.passId = activeServicePass.id;
     paymentMethod = 'Service Pass';
     startBroadcast();
     return;
@@ -2985,6 +2992,11 @@ async function startBroadcast(){
     isEmergency:  pendBk.isEmergency,
     isAdvance:    advance,
     paymentMethod,
+    passUsed:     pendBk.passUsed || false,
+    passId:       pendBk.passId || null,
+    // Same basePrice already computed in initiateBooking() for every
+    // booking (normal or pass-covered) — reused as-is, never recalculated.
+    workerEarning: pendBk.basePrice,
     status:       'Pending',
     wStatus:      'Pending',
     arrivalOtp,
@@ -3696,6 +3708,7 @@ async function renderBookings(){
      the render where a booking's status is OBSERVED to flip from
      Arrived -> Completed. See checkQuickCoinsRewards(). */
   checkQuickCoinsRewards(all);
+  checkServicePassConsumption(all);
   let list=all;
   if(curTab==='upcoming') list=all.filter(b=>['Scheduled','Confirmed','Accepted','Worker on Way','Arrived'].includes(b.status));
   if(curTab==='completed') list=all.filter(b=>b.status==='Completed');
@@ -4046,6 +4059,50 @@ async function awardQuickCoins(booking){
   if(rewardModalEl) rewardModalEl.classList.add('on');
 }
 function closeRewardModal(){ closeModal('rewardModal'); }
+
+const spLastStatus  = new Map();
+const spConsumedIds = new Set();
+
+function checkServicePassConsumption(all){
+  all.forEach(b=>{
+    const prevStatus = spLastStatus.get(b.id);
+
+    if(prevStatus===undefined){
+      spLastStatus.set(b.id, b.status);
+      return;
+    }
+
+    if(prevStatus==='Arrived' && b.status==='Completed' && !spConsumedIds.has(b.id)){
+      spConsumedIds.add(b.id);
+      if(b.pass_used && b.pass_id) consumeServicePassVisit(b);
+    }
+
+    spLastStatus.set(b.id, b.status);
+  });
+}
+
+async function consumeServicePassVisit(booking){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session?.user) return;
+
+  const {data:pass, error:passErr} = await sb.from('user_passes')
+    .select('*')
+    .eq('id', booking.pass_id)
+    .single();
+  if(passErr || !pass) return;
+
+  const newVisits = Math.max(0, (pass.visits_remaining ?? 0) - 1);
+  const newStatus = newVisits<=0 ? 'expired' : pass.status;
+
+  const {error} = await sb.from('user_passes').update({
+    visits_remaining: newVisits,
+    status: newStatus
+  }).eq('id', pass.id);
+
+  if(error){ console.error('consumeServicePassVisit update:', error.message); return; }
+
+  if(document.getElementById('page-passes')?.classList.contains('active')) renderMyPasses();
+}
 
 /* ── REWARD POPUP UI ENHANCEMENTS (presentational only, Phase 1.5) ──
    Does NOT call, wrap, or modify awardQuickCoins(). It only WATCHES
