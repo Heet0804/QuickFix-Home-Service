@@ -651,14 +651,15 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
   </div>
 </div>
 
-<!-- MY PASSES (Phase 2D placeholder) — static only, no logic, no database -->
+<!-- MY PASSES (Phase 2C) — reads user_passes + campaigns, both existing tables -->
 <div class="page" id="page-passes">
   <div class="wrap">
     <div class="pghdr"><h2>🎫 My Passes</h2></div>
-    <div class="offers-empty" style="display:flex">
-      <div class="offers-empty-icon">🚧</div>
-      <p class="offers-empty-title">My Passes</p>
-      <p class="offers-empty-sub">Coming in Phase 2D</p>
+    <div class="offers-grid" id="passesGrid"></div>
+    <div class="offers-empty" id="passesEmpty">
+      <div class="offers-empty-icon">🎫</div>
+      <p class="offers-empty-title">You haven't purchased any passes yet.</p>
+      <p class="offers-empty-sub">Browse Offers to get started!</p>
     </div>
   </div>
 </div>
@@ -1114,6 +1115,14 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
 .offers-empty-title{font-size:1rem;font-weight:700;color:var(--text);margin-bottom:.25rem}
 .offers-empty-sub{font-size:.85rem}
 
+/* Phase 2C additions — small, scoped, everything else reused as-is */
+.payment-status{font-size:.85rem;font-weight:600;color:var(--text2);text-align:center;margin-top:.6rem}
+.payment-status.payment-expired{color:var(--danger)}
+.pass-status{display:inline-block;padding:.2rem .7rem;border-radius:999px;font-size:.7rem;font-weight:800;letter-spacing:.3px;margin:.3rem 0 .8rem;background:rgba(74,139,110,.15);color:var(--teal)}
+.pass-status-expired,.pass-status-used{background:rgba(184,50,50,.12);color:var(--danger)}
+.pass-row{display:flex;justify-content:space-between;font-size:.82rem;color:var(--text2);padding:.35rem 0;border-bottom:1px dashed rgba(0,0,0,.06)}
+.pass-row strong{color:var(--text)}
+
 /* Reverse close animation — only this popup needs one, driven by JS
    adding/removing .campaign-closing. Does not touch closeModal(). */
 #campaignModal.campaign-closing{ animation:campaign-fade-out .2s ease forwards }
@@ -1121,6 +1130,33 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
 @keyframes campaign-fade-out{ from{opacity:1} to{opacity:0} }
 @keyframes campaign-scale-out{ from{opacity:1;transform:scale(1)} to{opacity:0;transform:scale(.95)} }
 </style>
+
+<!-- PASS PAYMENT MODAL (Phase 2C) — GPay-only demo payment, no real
+     gateway. Fully independent of the booking payModal/selectPay/
+     drawQR/startPoll code: separate id, separate state, separate
+     functions. Reuses the same QRCode library and the same
+     .qrwrap/.qramt/.qrnote/.qrexpiry/.gpayok/.goi visual classes as
+     the booking payment UI for a consistent look — none of that
+     booking-flow code is touched. -->
+<div class="overlay" id="paymentModal">
+  <div class="modal" style="max-width:420px">
+    <div class="mico" style="background:#e8f4ef">💳</div>
+    <h2 id="payTitle">Service Pass</h2>
+    <p>Passes are GPay only — prepaid digital product.</p>
+
+    <div id="paySection">
+      <div class="qrwrap">
+        <div id="payQrCont" style="display:flex;flex-direction:column;align-items:center;min-height:210px;justify-content:center"></div>
+        <div class="qrexpiry" id="payExpiry">⏱ Time Remaining <span id="payTimer">02:00</span></div>
+      </div>
+      <p class="payment-status" id="payStatus">Waiting for payment...</p>
+    </div>
+
+    <div class="gpayok" id="payOk"><div class="goi">✅</div><h3>Payment Successful</h3><p>Activating Pass...</p></div>
+
+    <div style="margin-top:.75rem"><button class="btn bo bfull" onclick="closePaymentModal()">Close</button></div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 <footer><strong>QuickFix</strong> &nbsp;·&nbsp; Trusted local service booking &nbsp;·&nbsp; © 2025</footer>
@@ -1787,6 +1823,8 @@ function _buildPerks(row){
   return perks;
 }
 
+let _campaignCache = {}; /* id -> mapped campaign, populated on every fetch, used by campaignBuyPass() */
+
 function _mapCampaignRow(row){
   return {
     id: row.id,
@@ -1794,8 +1832,13 @@ function _mapCampaignRow(row){
     description: row.description || '',
     icon: (CATS.find(c => c.id.toLowerCase() === String(row.service||'').toLowerCase()) || {}).em || '🎫',
     price: _formatPrice(row.price),
+    priceValue: Number(row.price),
     perks: _buildPerks(row),
-    endsAt: new Date(row.offer_end_date)
+    endsAt: new Date(row.offer_end_date),
+    validityDays: row.validity_days,
+    totalVisits: row.number_of_visits ?? 1,
+    emergencyIncluded: !!row.emergency_included,
+    priorityBooking: !!row.priority_booking
   };
 }
 
@@ -1813,7 +1856,9 @@ async function fetchActiveCampaigns(){
     console.error('fetchActiveCampaigns:', error.message);
     return [];
   }
-  return (data||[]).map(_mapCampaignRow);
+  const mapped = (data||[]).map(_mapCampaignRow);
+  mapped.forEach(c => { _campaignCache[c.id] = c; });
+  return mapped;
 }
 
 /* Resolves the single campaign the login popup should show, or null
@@ -1848,8 +1893,215 @@ function closeCampaignModal(){
   setTimeout(()=>{ el.classList.remove('on','campaign-closing'); }, 200);
 }
 
-function campaignBuyPass(){
-  showToast('🚧 Pass purchase will be available in Phase 2 Part C.');
+function campaignBuyPass(id){
+  const campaign = id ? _campaignCache[id] : CAMPAIGN_SAMPLE;
+  openPaymentModal(campaign);
+}
+
+/* ── PASS PAYMENT (Phase 2C) ──────────────────────────────────────
+   DEMO MODE: _simulatePaymentProvider() is the ONLY function a real
+   gateway (Razorpay/PhonePe/Stripe) needs to replace later. It takes
+   one callback, onSuccess, and calls it once payment is confirmed —
+   everything downstream (activatePass, UI states, timers) stays
+   exactly the same regardless of how payment was actually confirmed. */
+let _paymentState = { campaign:null, countdownTimer:null, demoTimer:null, expired:false, succeeded:false, secondsLeft:120 };
+
+function openPaymentModal(campaign){
+  if(!campaign) return;
+  const el = document.getElementById('paymentModal');
+  if(!el) return;
+
+  _clearPaymentTimers();
+  _paymentState = { campaign, countdownTimer:null, demoTimer:null, expired:false, succeeded:false, secondsLeft:120 };
+
+  document.getElementById('payTitle').textContent = campaign.title;
+  document.getElementById('paySection').style.display = '';
+  document.getElementById('payOk').classList.remove('on');
+
+  const statusEl = document.getElementById('payStatus');
+  statusEl.textContent = 'Waiting for payment...';
+  statusEl.classList.remove('payment-expired');
+  document.getElementById('payExpiry').style.display = '';
+
+  drawPassQR(campaign);
+  el.classList.add('on');
+
+  _updatePaymentTimerDisplay();
+  _paymentState.countdownTimer = setInterval(()=>{
+    _paymentState.secondsLeft--;
+    _updatePaymentTimerDisplay();
+    if(_paymentState.secondsLeft <= 0) _onPaymentExpired();
+  }, 1000);
+
+  _simulatePaymentProvider(_onPaymentSuccess);
+}
+
+function _updatePaymentTimerDisplay(){
+  const t = Math.max(_paymentState.secondsLeft, 0);
+  const mm = String(Math.floor(t/60)).padStart(2,'0');
+  const ss = String(t%60).padStart(2,'0');
+  const el = document.getElementById('payTimer');
+  if(el) el.textContent = `${mm}:${ss}`;
+}
+
+/* Same QRCode library and lazy-load pattern as the booking flow's
+   drawQR() — reused, not modified. Pass-specific amount/title/UPI id. */
+function drawPassQR(campaign){
+  const upi = `upi://pay?pa=quickfix@test&pn=${encodeURIComponent('QuickFix')}&am=${campaign.priceValue}&cu=INR&tn=${encodeURIComponent(campaign.title)}`;
+  const cont = document.getElementById('payQrCont');
+  cont.innerHTML = '';
+  function render(){
+    try{
+      new QRCode(cont,{text:upi, width:190, height:190, colorDark:'#1a1a1a', colorLight:'#fff', correctLevel:QRCode.CorrectLevel.M});
+      const d = document.createElement('div');
+      d.innerHTML = `<div class="qramt">${campaign.price}</div><div class="qrnote">quickfix@test · Scan with GPay</div>`;
+      cont.appendChild(d);
+    } catch(e){ showFallback(); }
+  }
+  function showFallback(){
+    cont.innerHTML = `<div style="padding:1rem;text-align:center"><div style="font-size:.78rem;color:var(--text2);margin-bottom:.5rem">Open in GPay:</div><a href="${upi}" style="color:var(--brand);font-weight:600;font-size:.78rem;word-break:break-all">${upi}</a><div class="qramt" style="margin-top:.75rem">${campaign.price}</div></div>`;
+  }
+  if(typeof QRCode !== 'undefined'){ render(); }
+  else {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    s.onload = render;
+    s.onerror = showFallback;
+    s.setAttribute('crossorigin','anonymous');
+    document.head.appendChild(s);
+  }
+}
+
+function _simulatePaymentProvider(onSuccess){
+  _paymentState.demoTimer = setTimeout(()=>{
+    if(_paymentState.expired || _paymentState.succeeded) return;
+    onSuccess();
+  }, 10000);
+}
+
+function _clearPaymentTimers(){
+  clearInterval(_paymentState.countdownTimer);
+  clearTimeout(_paymentState.demoTimer);
+}
+
+async function _onPaymentSuccess(){
+  if(_paymentState.expired || _paymentState.succeeded) return;
+  _paymentState.succeeded = true;
+  _clearPaymentTimers();
+
+  document.getElementById('paySection').style.display = 'none';
+  document.getElementById('payOk').classList.add('on');
+
+  await new Promise(r=>setTimeout(r, 1000));
+
+  const ok = await activatePass(_paymentState.campaign);
+  if(ok){
+    showToast('🎉 Pass activated! Check My Passes.');
+    _removeOfferCardFromGrid(_paymentState.campaign.id);
+  }
+  setTimeout(closePaymentModal, 1200);
+}
+
+/* Removes a card the moment its pass is bought — same cleanup the
+   countdown-expiry path already does, reused here rather than
+   duplicated. */
+function _removeOfferCardFromGrid(campaignId){
+  clearInterval(_offerCountdownTimers[campaignId]);
+  delete _offerCountdownTimers[campaignId];
+  const card = document.getElementById('offer-card-'+campaignId);
+  if(card) card.remove();
+  const grid = document.getElementById('offersGrid');
+  if(grid && !grid.children.length){
+    const empty = document.getElementById('offersEmpty');
+    if(empty) empty.style.display = 'flex';
+  }
+}
+
+function _onPaymentExpired(){
+  if(_paymentState.succeeded) return;
+  _paymentState.expired = true;
+  _clearPaymentTimers();
+  const statusEl = document.getElementById('payStatus');
+  statusEl.textContent = 'Payment Session Expired — Please try again.';
+  statusEl.classList.add('payment-expired');
+  document.getElementById('payExpiry').style.display = 'none';
+}
+
+function closePaymentModal(){
+  _clearPaymentTimers();
+  document.getElementById('paymentModal').classList.remove('on');
+}
+
+async function activatePass(campaign){
+  const {data:{session}} = await sb.auth.getSession();
+  if(!session?.user) return false;
+
+  const purchaseDate = new Date();
+  const expiryDate = new Date(purchaseDate.getTime() + (campaign.validityDays || 30) * 86400000);
+
+  const {error} = await sb.from('user_passes').insert({
+    user_id: session.user.id,
+    campaign_id: campaign.id,
+    purchase_date: purchaseDate.toISOString(),
+    expiry_date: expiryDate.toISOString(),
+    visits_remaining: campaign.totalVisits,
+    total_visits: campaign.totalVisits,
+    emergency_included: campaign.emergencyIncluded,
+    priority_booking: campaign.priorityBooking,
+    status: 'active'
+  });
+
+  if(error){
+    console.error('activatePass:', error.message);
+    showToast('⚠️ Could not activate pass — please contact support.');
+    return false;
+  }
+  return true;
+}
+
+async function renderMyPasses(){
+  const grid = document.getElementById('passesGrid');
+  const empty = document.getElementById('passesEmpty');
+  if(!grid || !empty) return;
+
+  empty.style.display = 'none';
+  grid.innerHTML = '<p style="color:var(--text2);font-size:.85rem;grid-column:1/-1">Loading your passes…</p>';
+
+  const {data:{session}} = await sb.auth.getSession();
+  if(!session?.user){ grid.innerHTML=''; empty.style.display='flex'; return; }
+
+  const {data, error} = await sb.from('user_passes')
+    .select('*')
+    .eq('user_id', session.user.id)
+    .order('purchase_date', {ascending:false});
+
+  if(error || !data || !data.length){
+    if(error) console.error('renderMyPasses:', error.message);
+    grid.innerHTML = '';
+    empty.style.display = 'flex';
+    return;
+  }
+
+  const campaignIds = [...new Set(data.map(p=>p.campaign_id))];
+  const {data:campaignRows} = await sb.from('campaigns').select('id,title').in('id', campaignIds);
+  const titleById = {};
+  (campaignRows||[]).forEach(c=>{ titleById[c.id] = c.title; });
+
+  const fmtDate = d => new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short'});
+
+  grid.innerHTML = data.map(p => `
+    <div class="offer-card">
+      <h2 class="campaign-title">${titleById[p.campaign_id] || 'Service Pass'}</h2>
+      <div class="pass-status pass-status-${p.status}">${String(p.status).toUpperCase()}</div>
+      <div class="pass-row"><span>Purchased</span><strong>${fmtDate(p.purchase_date)}</strong></div>
+      <div class="pass-row"><span>Expires</span><strong>${fmtDate(p.expiry_date)}</strong></div>
+      <div class="pass-row"><span>Visits Remaining</span><strong>${p.visits_remaining} / ${p.total_visits}</strong></div>
+      <ul class="campaign-perks">
+        ${p.emergency_included ? '<li>✓ Emergency Included</li>' : ''}
+        ${p.priority_booking ? '<li>✓ Priority Booking</li>' : ''}
+      </ul>
+    </div>
+  `).join('');
 }
 
 function _updateCampaignCountdown(){
@@ -1873,6 +2125,20 @@ function _updateCampaignCountdown(){
 }
 let _offerCountdownTimers = {};
 
+async function _getOwnedActiveCampaignIds(){
+  const {data:{session}} = await sb.auth.getSession();
+  if(!session?.user) return new Set();
+  const {data, error} = await sb.from('user_passes')
+    .select('campaign_id')
+    .eq('user_id', session.user.id)
+    .eq('status', 'active');
+  if(error){
+    console.error('_getOwnedActiveCampaignIds:', error.message);
+    return new Set();
+  }
+  return new Set((data||[]).map(r=>r.campaign_id));
+}
+
 async function renderOffers(){
   const grid = document.getElementById('offersGrid');
   const empty = document.getElementById('offersEmpty');
@@ -1884,7 +2150,11 @@ async function renderOffers(){
   empty.style.display = 'none';
   grid.innerHTML = '<p style="color:var(--text2);font-size:.85rem;grid-column:1/-1">Loading offers…</p>';
 
-  const campaigns = await fetchActiveCampaigns();
+  const [allCampaigns, ownedIds] = await Promise.all([
+    fetchActiveCampaigns(),
+    _getOwnedActiveCampaignIds()
+  ]);
+  const campaigns = allCampaigns.filter(c => !ownedIds.has(c.id));
 
   if(!campaigns.length){
     grid.innerHTML = '';
@@ -1914,7 +2184,7 @@ async function renderOffers(){
         </div>
       </div>
       <div class="campaign-actions">
-        <button class="btn bp campaign-buy" onclick="campaignBuyPass()">⚡Buy Pass</button>
+        <button class="btn bp campaign-buy" onclick="campaignBuyPass('${c.id}')">⚡Buy Pass</button>
       </div>
     </div>
   `).join('');
@@ -1980,6 +2250,7 @@ function goPage(id){
   if(id==='account') renderAccount();
   if(id==='househelp') renderHousehelp();
   if(id==='offers') renderOffers();
+  if(id==='passes') renderMyPasses();
   if(id!=='offers'){
     Object.values(_offerCountdownTimers).forEach(t=>clearInterval(t));
     _offerCountdownTimers = {};
