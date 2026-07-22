@@ -275,15 +275,13 @@ console.log('AUTH PAGE LOADED');
 
   if(session && cachedUser){
     console.log('SESSION FOUND');
-    const {data:p,error:pe}=await sb
-      .from('users')
-      .select('role')
-      .eq('id',session.user.id)
-      .single();
+    let cachedRole=null;
+    try{ cachedRole=JSON.parse(cachedUser).role; }catch(e){}
+    const role=cachedRole||session.user.user_metadata?.role;
 
-    if(p && !pe){
+    if(role){
       console.log('REDIRECTING TO INDEX');
-      redirect(p.role);
+      redirect(role);
     } else {
       console.log('NO SESSION FOUND');
     }
@@ -370,7 +368,10 @@ async function doLogin(){
     return;
   }
 
-  const {data:profile,error:pe}=await sb.from('users').select('*').eq('id',data.user.id).single();
+  const authRole=data.user.user_metadata?.role||'user';
+  const {data:profile,error:pe}=authRole==='worker'
+    ? await sb.from('workers').select('*').eq('id',data.user.id).single()
+    : await sb.from('users').select('*').eq('id',data.user.id).single();
   if(pe||!profile){
     setBtn('loginBtn','loginBtnTxt',false,'Sign In →');
     showErr('Profile not found. Please sign up.');
@@ -382,31 +383,28 @@ async function doLogin(){
     email: profile.email||email,
     name:  profile.name||'',
     phone: profile.phone||'',
-    role:  profile.role||'user'
+    role:  authRole
   };
 
-  if(profile.role==='worker'){
-    const {data:wp}=await sb.from('workers').select('*').eq('id',data.user.id).single();
-    if(wp){
-      Object.assign(sess,{
-        skill:        wp.skill||'',
-        radius:       wp.radius||10,
-        exp:          wp.exp||0,
-        price:        wp.price||'',
-        bio:          wp.bio||'',
-        is_available: wp.is_available||false,
-        emergency_available: wp.emergency_available||false,
-        area:         wp.area||'',
-        lat:          wp.lat||null,
-        lng:          wp.lng||null
-      });
-    }
+  if(authRole==='worker'){
+    Object.assign(sess,{
+      skill:        profile.skill||'',
+      radius:       profile.radius||10,
+      exp:          profile.exp||0,
+      price:        profile.price||'',
+      bio:          profile.bio||'',
+      is_available: profile.is_available||false,
+      emergency_available: profile.emergency_available||false,
+      area:         profile.area||'',
+      lat:          profile.lat||null,
+      lng:          profile.lng||null
+    });
   }
 
   sessionStorage.setItem('qf_user',JSON.stringify(sess));
-  sessionStorage.setItem('qf_role',profile.role);
+  sessionStorage.setItem('qf_role',authRole);
   showToast('✅ Signed in! Redirecting…');
-  setTimeout(()=>redirect(profile.role),800);
+  setTimeout(()=>redirect(authRole),800);
 }
 
 /* ── DOCUMENT UPLOAD PREVIEW ── */
@@ -625,22 +623,7 @@ async function doSignup(role){
 
     const uid=a.user.id;
 
-    /* Step 2: Insert into users table */
-    const {error:ue}=await sb.from('users').insert({
-      id:    uid,
-      email: email,
-      name:  name,
-      phone: phone,
-      role:  'worker'
-    });
-    if(ue){
-      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
-      showErr('Account created but profile save failed: '+ue.message);
-      await sb.auth.signOut();
-      return;
-    }
-
-    /* Step 3: Insert into workers table — name, phone, skill, radius, exp, area/lat/lng all explicit */
+    /* Step 2: Insert into workers table ONLY — name, phone, skill, radius, exp, area/lat/lng all explicit */
     const {error:we}=await sb.from('workers').insert({
       id:           uid,
       name:         name,
@@ -662,7 +645,7 @@ async function doSignup(role){
     if(we){
       setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
       showErr('Worker profile save failed: '+we.message);
-      await sb.from('users').delete().eq('id',uid);
+      await sb.from('workers').delete().eq('id',uid);
       await sb.auth.signOut();
       return;
     }
