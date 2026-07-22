@@ -75,6 +75,7 @@ h1,h2,h3,h4{font-family:'Sora',sans-serif;letter-spacing:-.01em}
 @media(max-width:860px){ #gate{grid-template-columns:1fr} #gate .left{display:none} #gate .right{padding:1.5rem} #gate .card{box-shadow:none;border:none;padding:1rem} }
 
 /* ── App shell ─────────────────────────────────────────────── */
+#gate{display:none}
 #app{display:none}
 nav{background:rgba(255,255,255,.85);backdrop-filter:saturate(180%) blur(10px);border-bottom:1px solid var(--border);padding:0 1.75rem;display:flex;align-items:center;justify-content:space-between;height:64px;position:sticky;top:0;z-index:50}
 .logo{font-family:'Sora',sans-serif;font-weight:800;font-size:1.15rem;color:var(--brand-dark);display:flex;align-items:center;gap:.4rem}
@@ -340,6 +341,7 @@ let _editingId = null;
 })();
 
 function showLoginForm(){
+  document.getElementById('gate').style.display = '';
   document.getElementById('gateMsg').textContent = 'Sign in with an admin account.';
   document.getElementById('gateLoginForm').style.display = '';
 }
@@ -357,6 +359,7 @@ async function checkAdminRole(email){
 }
     
 function denyAccess(){
+  document.getElementById('gate').style.display = '';
   document.getElementById('gateLoginForm').style.display = 'none';
   document.getElementById('gateErr').textContent = '';
   document.getElementById('gateMsg').textContent = '🚫 Access Denied — this account is not an authorized admin.';
