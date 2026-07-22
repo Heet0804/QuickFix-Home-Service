@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>QuickFix — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* Theme tokens copied from index.html:root for visual consistency.
+   This is a standalone file, so it can't literally share index.html's
+   <style> block — these are the same values, not new ones.
+   Palette refreshed to the QuickFix primary (#C46B1D) with a softer,
+   more premium supporting scale — values only, same variable names. */
+:root{
+  --brand:#C46B1D;--brand-dark:#8a4a12;--brand-light:#fdf3e9;--brand-mid:#dd9256;
+  --brand-soft:#f6e2c9;
+  --bg:#f9f8f5;--surface:#fff;--surface2:#fdf9f4;--surface3:#f7f3ec;
+  --border:#eae3d6;--border2:#efe8dc;--text:#20160b;--text2:#6c5947;--text3:#a8917c;
+  --teal:#25936a;--teal-light:#e7f6ef;--amber:#d4890a;--danger:#c23b3b;--danger-light:#fbeaea;
+  --blue:#3568c9;--blue-light:#eaf0fc;--gray:#6b7280;--gray-light:#eef0f2;
+  --radius-sm:10px;--radius:16px;--radius-lg:20px;
+  --tr:.2s cubic-bezier(.4,0,.2,1);
+  --shadow-sm:0 1px 2px rgba(32,22,11,.05),0 1px 3px rgba(32,22,11,.06);
+  --shadow-md:0 4px 14px rgba(32,22,11,.07),0 1px 3px rgba(32,22,11,.05);
+  --shadow-lg:0 20px 48px rgba(32,22,11,.16),0 6px 16px rgba(32,22,11,.08);
+  --shadow-brand:0 4px 14px rgba(196,107,29,.28);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:'Sora',sans-serif;letter-spacing:-.01em}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--brand-mid);border-radius:99px}
+::-webkit-scrollbar-thumb:hover{background:var(--brand)}
+:focus-visible{outline:2px solid var(--brand-mid);outline-offset:2px;border-radius:4px}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:600;transition:var(--tr);font-family:'DM Sans',sans-serif;letter-spacing:.01em;white-space:nowrap;min-height:38px}
+.btn:active{transform:translateY(1px) scale(.98)}
+.bp{background:var(--brand);color:#fff;padding:9px 20px;font-size:.85rem;box-shadow:var(--shadow-brand)}
+.bp:hover{background:var(--brand-dark);box-shadow:0 6px 18px rgba(196,107,29,.36);transform:translateY(-1px)}
+.bo{background:var(--surface);color:var(--brand);padding:9px 19px;font-size:.85rem;border:1.5px solid var(--border)}
+.bo:hover{background:var(--brand-light);border-color:var(--brand-mid);color:var(--brand-dark);transform:translateY(-1px)}
+.bd{background:var(--surface);color:var(--danger);padding:7px 15px;font-size:.78rem;border:1.5px solid var(--danger-light)}
+.bd:hover{background:var(--danger-light);border-color:var(--danger);transform:translateY(-1px)}
+.bt{background:var(--surface);color:var(--teal);padding:7px 15px;font-size:.78rem;border:1.5px solid var(--teal-light)}
+.bt:hover{background:var(--teal-light);border-color:var(--teal);transform:translateY(-1px)}
+.bs{padding:6px 13px;font-size:.74rem;min-height:32px}
+.btn:disabled{opacity:.6;cursor:progress;transform:none !important}
+
+/* ── Auth gate — split-screen, matching auth.html's dark hero + white
+   form layout (same gradient/blob treatment, not a new style). ───── */
+#gate{min-height:100vh;display:grid;grid-template-columns:1fr 1fr;position:relative;background:var(--surface)}
+#gate::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 70% at 0% 50%,rgba(196,107,29,.06),transparent 60%);pointer-events:none;z-index:0}
+#gate .left{position:relative;z-index:1;background:linear-gradient(160deg,#1a0f04 0%,#33200c 46%,#241407 100%);display:flex;flex-direction:column;justify-content:center;padding:4rem 3.5rem;overflow:hidden;color:#fff}
+#gate .left::before{content:'';position:absolute;top:-120px;right:-120px;width:440px;height:440px;border-radius:50%;background:radial-gradient(circle,rgba(196,107,29,.30),transparent 70%);pointer-events:none;animation:floatSlow 12s ease-in-out infinite}
+#gate .left::after{content:'';position:absolute;bottom:-90px;left:-70px;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(37,147,106,.16),transparent 70%);pointer-events:none;animation:floatSlow 14s ease-in-out infinite reverse}
+@keyframes floatSlow{0%,100%{transform:translate(0,0)}50%{transform:translate(-12px,14px)}}
+#gate .logo-mark{width:46px;height:46px;background:linear-gradient(135deg,var(--brand),var(--brand-dark));border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Sora',sans-serif;font-weight:900;font-size:1.3rem;box-shadow:0 6px 18px rgba(196,107,29,.45),inset 0 1px 0 rgba(255,255,255,.2);margin-bottom:2rem;position:relative;z-index:1}
+#gate .left h1{font-family:'Sora',sans-serif;font-size:2.3rem;font-weight:800;line-height:1.28;margin-bottom:1.1rem;position:relative;z-index:1;letter-spacing:-.02em}
+#gate .left h1 span{background:linear-gradient(90deg,var(--brand-mid),#f0b878);-webkit-background-clip:text;background-clip:text;color:transparent}
+#gate .left p{font-size:.94rem;color:rgba(255,255,255,.68);max-width:360px;line-height:1.7;position:relative;z-index:1}
+#gate .left .badgepill{position:relative;z-index:1;display:inline-flex;align-items:center;gap:8px;margin-top:2.2rem;padding:8px 14px;border-radius:99px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);font-size:.78rem;color:rgba(255,255,255,.75);width:fit-content}
+#gate .right{display:flex;align-items:center;justify-content:center;padding:2.5rem;background:var(--surface);position:relative;z-index:1}
+#gate .card{max-width:380px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:2.4rem 2.2rem;box-shadow:var(--shadow-lg)}
+#gate h2{margin-bottom:.5rem;font-size:1.55rem;display:flex;align-items:center;gap:.5rem}
+#gate p#gateMsg{color:var(--text2);font-size:.87rem;margin-bottom:1.6rem;line-height:1.5}
+#gate input{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.89rem;margin-bottom:.8rem;font-family:'DM Sans',sans-serif;background:var(--surface2);transition:var(--tr)}
+#gate input::placeholder{color:var(--text3)}
+#gate input:hover{border-color:var(--brand-mid)}
+#gate input:focus{outline:none;border-color:var(--brand);background:var(--surface);box-shadow:0 0 0 4px rgba(196,107,29,.1)}
+#gateErr{color:var(--danger);font-size:.8rem;min-height:1.2em;margin-bottom:.5rem;font-weight:500}
+#gate .btn.bp{width:100%;justify-content:center;padding:12px 18px;font-size:.9rem;margin-top:.3rem}
+@media(max-width:860px){ #gate{grid-template-columns:1fr} #gate .left{display:none} #gate .right{padding:1.5rem} #gate .card{box-shadow:none;border:none;padding:1rem} }
+
+/* ── App shell ─────────────────────────────────────────────── */
+#app{display:none}
+nav{background:rgba(255,255,255,.85);backdrop-filter:saturate(180%) blur(10px);border-bottom:1px solid var(--border);padding:0 1.75rem;display:flex;align-items:center;justify-content:space-between;height:64px;position:sticky;top:0;z-index:50}
+.logo{font-family:'Sora',sans-serif;font-weight:800;font-size:1.15rem;color:var(--brand-dark);display:flex;align-items:center;gap:.4rem}
+.wrap{max-width:1240px;margin:0 auto;padding:2rem 1.5rem 4rem}
+.pghdr{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.9rem;margin-bottom:1.8rem}
+.pghdr h1{font-size:1.55rem;font-weight:800;letter-spacing:-.02em}
+.pghdr p{color:var(--text2);font-size:.87rem;margin-top:4px}
+
+/* ── Tabs ──────────────────────────────────────────────────── */
+.tabs{display:flex;gap:.25rem;margin-bottom:1.5rem;border-bottom:1.5px solid var(--border);position:relative}
+.tab{padding:11px 18px;font-size:.86rem;font-weight:600;color:var(--text2);cursor:pointer;border-bottom:2.5px solid transparent;background:none;border-left:none;border-right:none;border-top:none;transition:var(--tr);position:relative;border-radius:6px 6px 0 0}
+.tab:hover{color:var(--brand-dark);background:var(--brand-light)}
+.tab.on{color:var(--brand-dark);border-bottom-color:var(--brand)}
+
+.tabpane{display:none;animation:fadeIn .25s ease}
+.tabpane.on{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Filter bar ────────────────────────────────────────────── */
+.fbar{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1.3rem;align-items:center}
+.fbar input,.fbar select{padding:9px 13px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.82rem;font-family:'DM Sans',sans-serif;background:var(--surface);transition:var(--tr);color:var(--text)}
+.fbar input{min-width:220px}
+.fbar input:hover,.fbar select:hover{border-color:var(--brand-mid)}
+.fbar input:focus,.fbar select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 4px rgba(196,107,29,.1)}
+
+/* ── Tables ────────────────────────────────────────────────── */
+.tablewrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm)}
+.tablewrap>table{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.83rem;min-width:900px;display:block;overflow-x:auto}
+thead,tbody{display:table;width:100%;table-layout:auto}
+th{text-align:left;padding:13px 16px;background:var(--surface3);color:var(--text2);font-weight:700;font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;border-bottom:1px solid var(--border)}
+td{padding:13px 16px;border-top:1px solid var(--border);vertical-align:middle;color:var(--text)}
+tbody tr{transition:background var(--tr)}
+tbody tr:nth-child(even){background:rgba(247,243,236,.45)}
+tbody tr:hover td{background:var(--brand-light)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:4px 11px;border-radius:50px;font-size:.68rem;font-weight:700;letter-spacing:.3px}
+.badge::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.badge-active{background:var(--teal-light);color:var(--teal)}
+.badge-inactive{background:var(--gray-light);color:var(--gray)}
+.badge-expired{background:var(--danger-light);color:var(--danger)}
+.badge-upcoming{background:var(--blue-light);color:var(--blue)}
+.actionrow{display:flex;gap:.45rem;flex-wrap:wrap}
+
+/* ── Stat cards ────────────────────────────────────────────── */
+.statgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1.1rem;margin-bottom:1.8rem}
+.statcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.4rem 1.5rem;box-shadow:var(--shadow-sm);transition:var(--tr)}
+.statcard:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);border-color:var(--brand-mid)}
+.statcard .lb{font-size:.74rem;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.statcard .vl{font-family:'Sora',sans-serif;font-size:1.75rem;font-weight:800;color:var(--brand-dark);margin-top:.4rem}
+
+/* ── Empty state ───────────────────────────────────────────── */
+.empty{text-align:center;padding:4rem 1.5rem;color:var(--text2)}
+.empty .empty-ic{width:52px;height:52px;margin:0 auto 1rem;border-radius:50%;background:var(--brand-light);display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:var(--brand)}
+.empty .empty-title{font-family:'Sora',sans-serif;font-weight:700;color:var(--text);font-size:.98rem;margin-bottom:.3rem}
+.empty .empty-sub{font-size:.83rem;color:var(--text3);max-width:320px;margin:0 auto}
+
+/* ── Modal ─────────────────────────────────────────────────── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(26,15,4,.55);backdrop-filter:blur(5px);z-index:500;align-items:center;justify-content:center;padding:1.25rem}
+.overlay.on{display:flex;animation:fadeIn .2s ease}
+.modal{background:var(--surface);border-radius:var(--radius-lg);padding:2.2rem 2rem;max-width:620px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:var(--shadow-lg);animation:modalPop .22s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes modalPop{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal h2{margin-bottom:1.4rem;font-size:1.3rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}
+.fg{margin-bottom:1.05rem}
+.fg label{display:block;font-size:.8rem;font-weight:700;color:var(--text2);margin-bottom:.4rem;letter-spacing:.1px}
+.fg input,.fg select,.fg textarea{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.85rem;font-family:'DM Sans',sans-serif;background:var(--surface2);transition:var(--tr);color:var(--text)}
+.fg input:hover,.fg select:hover,.fg textarea:hover{border-color:var(--brand-mid)}
+.fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:var(--brand);background:var(--surface);box-shadow:0 0 0 4px rgba(196,107,29,.1)}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 1.1rem}
+.fchk{display:flex;align-items:center;gap:.55rem;font-size:.85rem;font-weight:600;color:var(--text);background:var(--surface3);padding:10px 13px;border-radius:var(--radius-sm);border:1.5px solid var(--border);cursor:pointer;transition:var(--tr)}
+.fchk:hover{border-color:var(--brand-mid);background:var(--brand-light)}
+.fchk input{width:auto !important;accent-color:var(--brand)}
+.modalfoot{display:flex;justify-content:flex-end;gap:.7rem;margin-top:1.3rem;padding-top:1.1rem;border-top:1px solid var(--border)}
+.err{color:var(--danger);font-size:.8rem;min-height:1.2em;margin-top:.35rem;font-weight:500}
+
+@media(max-width:640px){
+  .fgrid{grid-template-columns:1fr}
+  table{min-width:700px}
+  .wrap{padding:1.4rem 1rem 3rem}
+  .pghdr{flex-direction:column;align-items:flex-start}
+  .modal{padding:1.6rem 1.3rem}
+  nav{padding:0 1rem}
+}
+</style>
+
+</head>
+<body>
+
+<!-- ══════════ ADMIN AUTH GATE ══════════
+     Any visitor lands here first. We check the existing Supabase
+     session AND the existing users.role column. Only role==='admin'
+     gets through — normal users/workers are signed out of this page's
+     context and shown a plain "not authorized" message, they are NOT
+     redirected into index.html/worker-dashboard.html automatically
+     (avoids surprising a logged-in user by bouncing them elsewhere). -->
+<div id="gate">
+  <div class="left">
+    <div class="logo-mark">Q</div>
+    <h1>QuickFix<br/><span>Admin Portal</span></h1>
+    <p>Manage campaigns, monitor purchased passes, and track performance — all from one dashboard.</p>
+    <div class="badgepill">🔒 Secured admin-only access</div>
+  </div>
+  <div class="right">
+    <div class="card">
+      <h2>🔒 Admin Access</h2>
+      <p id="gateMsg">Checking your session…</p>
+      <div id="gateLoginForm" style="display:none">
+        <input type="email" id="gateEmail" placeholder="Admin email" onkeydown="if(event.key==='Enter'){event.preventDefault();adminLogin();}"/>
+<input type="password" id="gatePw" placeholder="Password" onkeydown="if(event.key==='Enter'){event.preventDefault();adminLogin();}"/>
+        <div class="err" id="gateErr"></div>
+        <button class="btn bp" style="width:100%;justify-content:center" onclick="adminLogin()">Sign In</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ ADMIN APP ══════════ -->
+<div id="app">
+  <nav>
+    <div class="logo">🛠️ QuickFix <span style="color:var(--text2);font-weight:600;font-size:.85rem">Admin</span></div>
+    <button class="btn bo bs" onclick="adminLogout()">Sign Out</button>
+  </nav>
+
+  <div class="wrap">
+    <div class="pghdr">
+      <div><h1>Campaign Dashboard</h1><p>Manage campaigns, purchased passes, and performance — no SQL required.</p></div>
+      <button class="btn bp" onclick="openCampaignForm()">+ Create Campaign</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab on" data-tab="campaigns" onclick="switchAdminTab('campaigns')">Campaigns</button>
+      <button class="tab" data-tab="passes" onclick="switchAdminTab('passes')">User Passes</button>
+      <button class="tab" data-tab="analytics" onclick="switchAdminTab('analytics')">Analytics</button>
+    </div>
+
+    <!-- CAMPAIGNS TAB -->
+    <div class="tabpane on" id="tab-campaigns">
+      <div class="fbar">
+        <input type="text" id="fSearch" placeholder="Search by campaign name…" oninput="renderCampaignsTable()"/>
+        <select id="fService" onchange="renderCampaignsTable()"><option value="">All Services</option></select>
+        <select id="fStatus" onchange="renderCampaignsTable()">
+          <option value="">All Statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <select id="fPriority" onchange="renderCampaignsTable()"><option value="">All Priorities</option></select>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th>Title</th><th>Service</th><th>Price</th><th>Visits</th><th>Validity</th>
+            <th>Start</th><th>End</th><th>Priority</th><th>Status</th><th>Created</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="campaignsBody"></tbody>
+        </table>
+        <div class="empty" id="campaignsEmpty" style="display:none">
+          <div class="empty-ic">🔍</div>
+          <div class="empty-title">No campaigns match your filters</div>
+          <div class="empty-sub">Try adjusting your search or filters, or create a new campaign to get started.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- USER PASSES TAB -->
+    <div class="tabpane" id="tab-passes">
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th>User</th><th>Email</th><th>Campaign</th><th>Purchased</th><th>Expires</th>
+            <th>Visits</th><th>Status</th>
+          </tr></thead>
+          <tbody id="passesBody"></tbody>
+        </table>
+        <div class="empty" id="passesEmpty" style="display:none">
+          <div class="empty-ic">🎫</div>
+          <div class="empty-title">No passes purchased yet</div>
+          <div class="empty-sub">Once customers buy a campaign pass, it will show up here.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANALYTICS TAB -->
+    <div class="tabpane" id="tab-analytics">
+      <div class="statgrid" id="analyticsOverview"></div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th>Campaign</th><th>Total Purchases</th><th>Active Passes</th><th>Expired Passes</th><th>Revenue Generated</th>
+          </tr></thead>
+          <tbody id="analyticsBody"></tbody>
+        </table>
+        <div class="empty" id="analyticsEmpty" style="display:none">
+          <div class="empty-ic">📊</div>
+          <div class="empty-title">No campaign data yet</div>
+          <div class="empty-sub">Analytics will appear here once you have created a campaign.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE / EDIT CAMPAIGN MODAL — one popup for both, per spec -->
+<div class="overlay" id="campaignModal">
+  <div class="modal">
+    <h2 id="campaignModalTitle">Create Campaign</h2>
+    <input type="hidden" id="cfId"/>
+    <div class="fgrid">
+      <div class="fg"><label>📌 Campaign Title</label><input id="cfTitle" placeholder="e.g. Diwali Electrician Offer"/></div>
+      <div class="fg"><label>🛠️ Service</label>
+        <select id="cfService">
+          <option value="Electrician">Electrician</option>
+          <option value="Plumber">Plumber</option>
+          <option value="Painter">Painter</option>
+          <option value="Carpenter">Carpenter</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg"><label>📝 Description</label><textarea id="cfDescription" rows="2" placeholder="Optional"></textarea></div>
+    <div class="fgrid">
+      <div class="fg"><label>💰 Price (₹)</label><input type="number" id="cfPrice" min="0" step="1"/></div>
+      <div class="fg"><label>🔁 Number of Visits</label><input type="number" id="cfVisits" min="1" step="1" value="1"/></div>
+    </div>
+    <div class="fgrid">
+      <div class="fg"><label>⏳ Pass Validity (days)</label><input type="number" id="cfValidity" min="1" step="1" value="30"/></div>
+      <div class="fg"><label>⭐ Priority (lower = shown first)</label><input type="number" id="cfPriority" min="1" step="1" value="1"/></div>
+    </div>
+    <div class="fgrid">
+      <div class="fg"><label>📅 Campaign Start Date</label><input type="datetime-local" id="cfStart"/></div>
+      <div class="fg"><label>📅 Campaign End Date</label><input type="datetime-local" id="cfEnd"/></div>
+    </div>
+    <div class="fgrid">
+      <div class="fg"><label class="fchk"><input type="checkbox" id="cfEmergency" style="width:auto"/> 🚑 Emergency Included</label></div>
+      <div class="fg"><label class="fchk"><input type="checkbox" id="cfPriorityBooking" style="width:auto"/> ⚡ Priority Booking</label></div>
+    </div>
+    <div class="fg"><label>🚦 Status</label>
+      <select id="cfStatus"><option value="active">Active</option><option value="inactive">Inactive</option></select>
+    </div>
+    <div class="err" id="cfErr"></div>
+    <div class="modalfoot">
+      <button class="btn bo" onclick="closeCampaignForm()">Cancel</button>
+      <button class="btn bp" id="cfPublishBtn" onclick="publishCampaign()">Publish Campaign</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════ SUPABASE CLIENT — same project + same auth config as
+   auth.html/index.html, so a session created there is read correctly
+   here (and vice versa). ══════════════════════════════════════════ */
+const SUPABASE_URL='https://oycurbgzzgfzilpflwks.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95Y3VyYmd6emdmemlscGZsd2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjkwMDMsImV4cCI6MjA5MzIwNTAwM30.B9KujxSHzhzpKM_IhVvpTqImVPjF4Yrv3RKn6mgtqxg';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:false }
+});
+
+let _allCampaigns = [];
+let _allPasses = [];
+let _editingId = null;
+
+/* ── AUTH GATE ─────────────────────────────────────────────── */
+(async()=>{
+  const {data:{session}} = await sb.auth.getSession();
+  if(!session?.user){ showLoginForm(); return; }
+  await checkAdminRole(session.user.email);
+})();
+
+function showLoginForm(){
+  document.getElementById('gateMsg').textContent = 'Sign in with an admin account.';
+  document.getElementById('gateLoginForm').style.display = '';
+}
+
+async function checkAdminRole(email){
+  const {data:a, error} = await sb.from('admins').select('is_active').eq('email', email).maybeSingle();
+  if(error || !a || a.is_active !== true){
+    await sb.auth.signOut();
+    denyAccess();
+    return;
+  }
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  initAdminApp();
+}
+    
+function denyAccess(){
+  document.getElementById('gateLoginForm').style.display = 'none';
+  document.getElementById('gateErr').textContent = '';
+  document.getElementById('gateMsg').textContent = '🚫 Access Denied — this account is not an authorized admin.';
+  setTimeout(()=>{
+    document.getElementById('gateMsg').textContent = 'Sign in with an admin account.';
+    document.getElementById('gateLoginForm').style.display = '';
+  }, 10000);
+}
+
+async function adminLogin(){
+  const email = document.getElementById('gateEmail').value.trim();
+  const pw = document.getElementById('gatePw').value;
+  const errEl = document.getElementById('gateErr');
+  errEl.textContent = '';
+  if(!email || !pw){ errEl.textContent = 'Enter email and password.'; return; }
+
+  const {data, error} = await sb.auth.signInWithPassword({email, password:pw});
+  if(error || !data?.user){ denyAccess(); return; }
+  await checkAdminRole(data.user.email);
+}
+
+async function adminLogout(){
+  await sb.auth.signOut();
+  window.location.reload();
+}
+
+/* ── APP INIT ──────────────────────────────────────────────── */
+async function initAdminApp(){
+  await Promise.all([loadCampaigns(), loadPasses()]);
+  renderCampaignsTable();
+  renderPassesTable();
+  renderAnalytics();
+}
+
+function switchAdminTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on', t.dataset.tab===name));
+  document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('on', p.id==='tab-'+name));
+}
+
+/* ── PART 3: LOAD + DISPLAY CAMPAIGNS ─────────────────────────
+   Reads every campaign, active or not — the customer-facing pages
+   already filter to active/in-window ones themselves; the admin
+   needs to see everything to manage it. */
+async function loadCampaigns(){
+  const {data, error} = await sb.from('campaigns').select('*').order('created_at', {ascending:false});
+  if(error){ console.error('loadCampaigns:', error.message); _allCampaigns = []; return; }
+  _allCampaigns = data || [];
+
+  const svcSel = document.getElementById('fService');
+  const services = [...new Set(_allCampaigns.map(c=>c.service).filter(Boolean))];
+  svcSel.innerHTML = '<option value="">All Services</option>' + services.map(s=>`<option value="${s}">${s}</option>`).join('');
+
+  const prSel = document.getElementById('fPriority');
+  const priorities = [...new Set(_allCampaigns.map(c=>c.priority))].sort((a,b)=>a-b);
+  prSel.innerHTML = '<option value="">All Priorities</option>' + priorities.map(p=>`<option value="${p}">${p}</option>`).join('');
+}
+
+function _fmtDate(d){ return d ? new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—'; }
+function _fmtDateTime(d){ return d ? new Date(d).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—'; }
+
+function renderCampaignsTable(){
+  const search = document.getElementById('fSearch').value.trim().toLowerCase();
+  const svc = document.getElementById('fService').value;
+  const status = document.getElementById('fStatus').value;
+  const pr = document.getElementById('fPriority').value;
+
+  const rows = _allCampaigns.filter(c=>{
+    if(search && !String(c.title||'').toLowerCase().includes(search)) return false;
+    if(svc && c.service !== svc) return false;
+    if(status && c.status !== status) return false;
+    if(pr && String(c.priority) !== pr) return false;
+    return true;
+  });
+
+  const body = document.getElementById('campaignsBody');
+  const empty = document.getElementById('campaignsEmpty');
+
+  if(!rows.length){ body.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+
+  body.innerHTML = rows.map(c => `
+    <tr>
+      <td><strong>${c.title||''}</strong></td>
+      <td>${c.service||''}</td>
+      <td>₹${c.price ?? 0}</td>
+      <td>${c.number_of_visits ?? 1}</td>
+      <td>${c.validity_days ?? '—'} days</td>
+      <td>${_fmtDateTime(c.offer_start_date)}</td>
+      <td>${_fmtDateTime(c.offer_end_date)}</td>
+      <td>${c.priority ?? 1}</td>
+      <td><span class="badge badge-${c.status==='active'?'active':'inactive'}">${(c.status||'').toUpperCase()}</span></td>
+      <td>${_fmtDate(c.created_at)}</td>
+      <td>
+        <div class="actionrow">
+          <button class="btn bo bs" onclick="openCampaignForm('${c.id}')">Edit</button>
+          <button class="btn ${c.status==='active'?'bd':'bt'} bs" onclick="toggleCampaignStatus('${c.id}','${c.status}')">${c.status==='active'?'Deactivate':'Activate'}</button>
+          <button class="btn bd bs" onclick="deleteCampaign('${c.id}')">Delete</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+/* ── PART 4/5/6: CREATE + EDIT MODAL ─────────────────────────
+   Same popup for both — pre-filled when editing, blank when creating,
+   matching the spec exactly. */
+function openCampaignForm(id){
+  document.getElementById('cfErr').textContent = '';
+  _editingId = id || null;
+
+  if(id){
+    const c = _allCampaigns.find(x => String(x.id) === String(id));
+    if(!c) return;
+    document.getElementById('campaignModalTitle').textContent = 'Edit Campaign';
+    document.getElementById('cfId').value = c.id;
+    document.getElementById('cfTitle').value = c.title || '';
+    document.getElementById('cfService').value = c.service || 'Electrician';
+    document.getElementById('cfDescription').value = c.description || '';
+    document.getElementById('cfPrice').value = c.price ?? '';
+    document.getElementById('cfVisits').value = c.number_of_visits ?? 1;
+    document.getElementById('cfValidity').value = c.validity_days ?? 30;
+    document.getElementById('cfPriority').value = c.priority ?? 1;
+    document.getElementById('cfStart').value = c.offer_start_date ? c.offer_start_date.slice(0,16) : '';
+    document.getElementById('cfEnd').value = c.offer_end_date ? c.offer_end_date.slice(0,16) : '';
+    document.getElementById('cfEmergency').checked = !!c.emergency_included;
+    document.getElementById('cfPriorityBooking').checked = !!c.priority_booking;
+    document.getElementById('cfStatus').value = c.status || 'active';
+  } else {
+    document.getElementById('campaignModalTitle').textContent = 'Create Campaign';
+    document.getElementById('cfId').value = '';
+    ['cfTitle','cfDescription'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('cfService').value = 'Electrician';
+    document.getElementById('cfPrice').value = '';
+    document.getElementById('cfVisits').value = 1;
+    document.getElementById('cfValidity').value = 30;
+    document.getElementById('cfPriority').value = 1;
+    document.getElementById('cfStart').value = '';
+    document.getElementById('cfEnd').value = '';
+    document.getElementById('cfEmergency').checked = false;
+    document.getElementById('cfPriorityBooking').checked = false;
+    document.getElementById('cfStatus').value = 'active';
+  }
+  document.getElementById('campaignModal').classList.add('on');
+}
+
+function closeCampaignForm(){
+  document.getElementById('campaignModal').classList.remove('on');
+  _editingId = null;
+}
+
+/* ── PART 5/6: PUBLISH (insert) or SAVE (update) ─────────────
+   NOTE: Campaign duration (offer_start_date/offer_end_date) only
+   controls customer-facing VISIBILITY, per the business rule in the
+   spec. It is never written to user_passes, and never touches an
+   already-purchased pass's own expiry_date — editing or deactivating
+   a campaign here cannot invalidate a pass someone already bought,
+   because this form never writes to user_passes at all. */
+async function publishCampaign(){
+  const errEl = document.getElementById('cfErr');
+  errEl.textContent = '';
+
+  const title = document.getElementById('cfTitle').value.trim();
+  const service = document.getElementById('cfService').value;
+  const price = Number(document.getElementById('cfPrice').value);
+  const visits = parseInt(document.getElementById('cfVisits').value);
+  const validity = parseInt(document.getElementById('cfValidity').value);
+  const priority = parseInt(document.getElementById('cfPriority').value) || 1;
+  const start = document.getElementById('cfStart').value;
+  const end = document.getElementById('cfEnd').value;
+
+  if(!title){ errEl.textContent = 'Campaign title is required.'; return; }
+  if(!service){ errEl.textContent = 'Service is required.'; return; }
+  if(isNaN(price) || price < 0){ errEl.textContent = 'Enter a valid price.'; return; }
+  if(!visits || visits < 1){ errEl.textContent = 'Number of visits must be at least 1.'; return; }
+  if(!validity || validity < 1){ errEl.textContent = 'Pass validity must be at least 1 day.'; return; }
+  if(!start || !end){ errEl.textContent = 'Campaign start and end dates are required.'; return; }
+  if(new Date(end) <= new Date(start)){ errEl.textContent = 'Campaign end must be after campaign start.'; return; }
+
+  const payload = {
+    title, service,
+    description: document.getElementById('cfDescription').value.trim() || null,
+    price, number_of_visits: visits, validity_days: validity,
+    emergency_included: document.getElementById('cfEmergency').checked,
+    priority_booking: document.getElementById('cfPriorityBooking').checked,
+    offer_start_date: new Date(start).toISOString(),
+    offer_end_date: new Date(end).toISOString(),
+    priority,
+    status: document.getElementById('cfStatus').value
+  };
+
+  const btn = document.getElementById('cfPublishBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  let error;
+  if(_editingId){
+    ({error} = await sb.from('campaigns').update(payload).eq('id', _editingId));
+  } else {
+    ({error} = await sb.from('campaigns').insert(payload));
+  }
+
+  btn.disabled = false; btn.textContent = 'Publish Campaign';
+
+  if(error){ errEl.textContent = 'Save failed: ' + error.message; return; }
+
+  closeCampaignForm();
+  await loadCampaigns();
+  renderCampaignsTable();
+  renderAnalytics();
+}
+
+/* ── PART 7: ACTIVATE / DEACTIVATE ────────────────────────── */
+async function toggleCampaignStatus(id, currentStatus){
+  const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+  const {error} = await sb.from('campaigns').update({status:newStatus}).eq('id', id);
+  if(error){ alert('Failed to update status: ' + error.message); return; }
+  await loadCampaigns();
+  renderCampaignsTable();
+  renderAnalytics();
+}
+
+/* ── PART 8: DELETE ───────────────────────────────────────── */
+async function deleteCampaign(id){
+  const c = _allCampaigns.find(x => String(x.id) === String(id));
+  if(!confirm(`Permanently delete "${c?.title || 'this campaign'}"? This cannot be undone.`)) return;
+
+  const {error} = await sb.from('campaigns').delete().eq('id', id);
+  if(error){ alert('Delete failed: ' + error.message); return; }
+  await loadCampaigns();
+  renderCampaignsTable();
+  renderAnalytics();
+}
+
+/* ── PART 9: USER PASSES ──────────────────────────────────────
+   Joins user_passes -> users (name, best-effort email) and
+   user_passes -> campaigns (title) client-side, since we can't
+   assume a Postgres FK-embed relationship exists. */
+async function loadPasses(){
+  const {data, error} = await sb.from('user_passes').select('*').order('purchase_date', {ascending:false});
+  if(error){ console.error('loadPasses:', error.message); _allPasses = []; return; }
+  _allPasses = data || [];
+}
+
+async function renderPassesTable(){
+  const body = document.getElementById('passesBody');
+  const empty = document.getElementById('passesEmpty');
+
+  if(!_allPasses.length){ body.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+
+  const userIds = [...new Set(_allPasses.map(p=>p.user_id))];
+  const campaignIds = [...new Set(_allPasses.map(p=>p.campaign_id))];
+
+  const [{data:userRows}, {data:campaignRows}] = await Promise.all([
+    sb.from('users').select('*').in('id', userIds),
+    sb.from('campaigns').select('id,title').in('id', campaignIds)
+  ]);
+
+  const userById = {};
+  (userRows||[]).forEach(u=>{ userById[u.id] = u; });
+  const titleById = {};
+  (campaignRows||[]).forEach(c=>{ titleById[c.id] = c.title; });
+
+  const now = Date.now();
+  body.innerHTML = _allPasses.map(p=>{
+    const u = userById[p.user_id] || {};
+    const expired = p.status === 'active' && new Date(p.expiry_date).getTime() < now;
+    const statusClass = expired ? 'expired' : (p.status==='active' ? 'active' : 'inactive');
+    const statusLabel = expired ? 'EXPIRED' : String(p.status||'').toUpperCase();
+    return `
+    <tr>
+      <td>${u.name || '—'}</td>
+      <td>${u.email || '—'}</td>
+      <td>${titleById[p.campaign_id] || '—'}</td>
+      <td>${_fmtDate(p.purchase_date)}</td>
+      <td>${_fmtDate(p.expiry_date)}</td>
+      <td>${p.visits_remaining} / ${p.total_visits}</td>
+      <td><span class="badge badge-${statusClass}">${statusLabel}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── PART 10: ANALYTICS ────────────────────────────────────── */
+function renderAnalytics(){
+  const overview = document.getElementById('analyticsOverview');
+  const body = document.getElementById('analyticsBody');
+  const empty = document.getElementById('analyticsEmpty');
+  const now = Date.now();
+
+  const totalPurchases = _allPasses.length;
+  const activePasses = _allPasses.filter(p => p.status==='active' && new Date(p.expiry_date).getTime() >= now).length;
+  const expiredPasses = _allPasses.filter(p => p.status!=='active' || new Date(p.expiry_date).getTime() < now).length;
+
+  overview.innerHTML = `
+    <div class="statcard"><div class="lb">Total Campaigns</div><div class="vl">${_allCampaigns.length}</div></div>
+    <div class="statcard"><div class="lb">Total Passes Sold</div><div class="vl">${totalPurchases}</div></div>
+    <div class="statcard"><div class="lb">Active Passes</div><div class="vl">${activePasses}</div></div>
+    <div class="statcard"><div class="lb">Expired Passes</div><div class="vl">${expiredPasses}</div></div>
+  `;
+
+  if(!_allCampaigns.length){ body.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+
+  body.innerHTML = _allCampaigns.map(c=>{
+    const passes = _allPasses.filter(p => String(p.campaign_id) === String(c.id));
+    const active = passes.filter(p => p.status==='active' && new Date(p.expiry_date).getTime() >= now).length;
+    const expired = passes.length - active;
+    const revenue = passes.length * (Number(c.price)||0);
+    return `
+    <tr>
+      <td><strong>${c.title}</strong></td>
+      <td>${passes.length}</td>
+      <td>${active}</td>
+      <td>${expired}</td>
+      <td>₹${revenue}</td>
+    </tr>`;
+  }).join('');
+}
+</script>
+</body>
+</html>

@@ -700,7 +700,7 @@ async function forgotPassword(e){
 }
 
 /* ── HELPERS ── */
-function redirect(role){window.location.replace(role==='worker'?'worker-dashboard.html':'index.html');}
+function redirect(role){window.location.replace(role==='admin'?'admin.html':role==='worker'?'worker-dashboard.html':'index.html');}
 
 function setBtn(bid,tid,loading,txt){
   document.getElementById(bid).classList.toggle('loading',loading);
