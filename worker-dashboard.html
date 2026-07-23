@@ -6,6 +6,8 @@
 <title>QuickFix — Worker Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -187,6 +189,19 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 .jbtn-arrive:hover{background:var(--brand-dark)}
 .jbtn-complete{background:#1d4ed8;color:#fff}
 .jbtn-complete:hover{background:#1e3a8a}
+
+/* Phase 4.1 — Track Customer panel (ported from index.html's trk- styles) */
+.trk-toggle{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:4px 11px;border-radius:50px;border:1px solid var(--teal);background:var(--teal-light);font-size:.72rem;font-weight:600;color:var(--teal);cursor:pointer;transition:var(--tr);line-height:1.4}
+.trk-toggle:hover{background:#d5ecdf;border-color:#3a7a5e}
+.trk-toggle .trk-arr{font-size:.6rem;transition:transform .25s ease}
+.trk-toggle.open .trk-arr{transform:rotate(180deg)}
+.trk-wrap{max-height:0;overflow:hidden;transition:max-height .4s cubic-bezier(.4,0,.2,1),opacity .25s ease;opacity:0;width:100%}
+.trk-wrap.open{max-height:420px;opacity:1}
+.trk-body{padding:.75rem 0 .2rem}
+.trk-map{width:100%;height:300px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface3);overflow:hidden}
+.trk-meta{display:flex;align-items:center;gap:.5rem;font-size:.75rem;font-weight:600;color:var(--teal);margin-top:.5rem}
+.trk-meta .trk-dot{width:7px;height:7px;border-radius:50%;background:var(--teal);animation:ep 1.4s infinite;flex-shrink:0}
+@media(max-width:640px){.trk-map{height:220px}}
 
 
 .otp-chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface3);border:1px dashed var(--border);border-radius:var(--radius-sm);padding:.45rem .75rem;font-size:.78rem;font-weight:700;color:var(--text2);font-family:'Sora',sans-serif;letter-spacing:1px}
@@ -1044,6 +1059,14 @@ function renderJobs(){
   const list=bookingsByTab(curTab);
   const grid=document.getElementById('jobGrid');
 
+  /* Phase 4.1: remember which Track Customer panels were open — the
+     innerHTML rebuild below destroys the DOM node any live Leaflet
+     map is mounted in, same reason index.html tracks openTrks. */
+  const openTrkC=new Set(
+    [...document.querySelectorAll('.trk-wrap.open[id^="trkc-wrap-"]')]
+      .map(el=>el.id.replace('trkc-wrap-',''))
+  );
+
   if(!list.length){
     const emptyMsgs={
       pending:  ['🔔','No pending requests','New job requests will show up here as soon as they come in.'],
@@ -1058,6 +1081,23 @@ function renderJobs(){
   }
 
   grid.innerHTML=list.map(b=>renderJobCard(b)).join('');
+
+  /* Restore open Track Customer panels on the freshly-rendered cards. */
+  openTrkC.forEach(id=>{
+    const wrap=document.getElementById('trkc-wrap-'+id);
+    const btn=document.getElementById('trkc-btn-'+id);
+    if(!wrap || !btn) return;
+    wrap.classList.add('open');
+    btn.classList.add('open');
+    btn.innerHTML='📍 Track Customer <span class="trk-arr">▲</span>';
+    const booking = bookings.find(x=>String(x.id)===String(id));
+    if(!booking) return;
+    if(_trkStateW[id]?.map){
+      _reattachTrackCustomerDom(id);
+    } else {
+      setTimeout(()=>{ _buildCustomerTrackMap(booking); }, 420);
+    }
+  });
 }
 
 function statusBadge(status){
@@ -1104,6 +1144,19 @@ function renderJobCard(b){
 
   const otpRow = '';
 
+  /* Phase 4.1: Track Customer — only for Accepted jobs, placed below
+     the action buttons. Uses the same trk-* markup/classes as
+     index.html's Track Worker panel; content is built lazily by
+     toggleTrackCustomer() the first time it's opened. */
+  const trackCustomerHtml = b.status==='Accepted' ? `
+        <button class="trk-toggle" id="trkc-btn-${b.id}" onclick="toggleTrackCustomer('${b.id}')">📍 Track Customer <span class="trk-arr">▼</span></button>
+        <div class="trk-wrap" id="trkc-wrap-${b.id}">
+          <div class="trk-body">
+            <div class="trk-map" id="trkc-slot-${b.id}"></div>
+            <div class="trk-meta" id="trkc-meta-${b.id}"><span class="trk-dot"></span><span id="trkc-eta-${b.id}">Waiting for your location...</span></div>
+          </div>
+        </div>` : '';
+
   return `<div class="job-card ${cardCls}" id="jcard-${b.id}">
     <div class="job-top">
       <div class="job-left">
@@ -1121,7 +1174,7 @@ function renderJobCard(b){
         <div class="job-earn">You earn ₹${earning}</div>
       </div>
     </div>
-    ${actions}
+    ${actions}${trackCustomerHtml}
   </div>`;
 }
 
@@ -1325,6 +1378,10 @@ async function submitArrivalOtp() {
 
   closeModal('arrivalOtpModal');
   showToast('✅ Arrival confirmed!');
+
+  /* Phase 4.1, requirement 5: worker has reached the customer —
+     tear down the Track Customer map for this booking now. */
+  _destroyCustomerTrackMap(b.id);
 
   await loadBookings();
   switchTab('arrived', document.querySelector('.tab[data-tab="arrived"]'));
@@ -1830,6 +1887,260 @@ function syncGPS(immediateBookingId){
   }
 }
 
+/* ══════════════════════════════════════════════════════════════
+   PHASE 4.1 — TRACK CUSTOMER (worker's view of the SAME live
+   tracking implementation used in index.html): same Leaflet map
+   approach, same worker/customer marker icons, same OSRM route
+   with straight-line fallback, same "fitBounds exactly once, then
+   only move markers" update strategy. Ported here because this is
+   a separate HTML file with no shared module to import from —
+   logic/behavior is identical, not reinvented.
+   ══════════════════════════════════════════════════════════════ */
+const TRACK_CUSTOMER_ZOOM = 15;
+
+/* bookingId → { map, workerMarker, customerMarker, routeLine, container, initialized, lastRouteFetch } */
+const _trkStateW = {};
+
+let _AREAS_CACHE_W = null;
+async function _loadAreasW(){
+  if(_AREAS_CACHE_W && _AREAS_CACHE_W.length) return _AREAS_CACHE_W;
+  const {data,error} = await sb.from('areas').select('*');
+  if(error){ console.error('_loadAreasW:',error.message); return []; }
+  _AREAS_CACHE_W = data||[];
+  return _AREAS_CACHE_W;
+}
+
+/* Same resolution order as index.html's _resolveCustomerLatLng:
+   exact GPS captured at booking time first, area centroid fallback. */
+async function _resolveCustomerLatLngW(b){
+  if(b.customer_lat != null && b.customer_lng != null){
+    return { lat:Number(b.customer_lat), lng:Number(b.customer_lng) };
+  }
+  const areaId = b.area_id ?? b.areaId ?? null;
+  if(areaId == null) return null;
+  const areas = await _loadAreasW();
+  const area = areas.find(a=>String(a.id)===String(areaId));
+  if(!area || area.lat==null || area.lng==null) return null;
+  return { lat:Number(area.lat), lng:Number(area.lng) };
+}
+
+/* Same OSRM call/fallback as index.html's _fetchRoadRoute. */
+async function _fetchRoadRouteW(from, to){
+  try{
+    const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('OSRM HTTP '+res.status);
+    const data = await res.json();
+    const coords = data?.routes?.[0]?.geometry?.coordinates;
+    if(!Array.isArray(coords) || !coords.length) throw new Error('OSRM: empty route');
+    return coords.map(([lng,lat])=>[lat,lng]);
+  }catch(e){
+    return null;
+  }
+}
+
+/* Same "draw once, then only update points" approach as index.html's
+   _drawOrUpdateRoute, same 8s OSRM throttle. */
+async function _drawOrUpdateRouteW(bkId, workerPt, customerPt){
+  const st = _trkStateW[bkId];
+  if(!st || !st.map) return;
+
+  const now = Date.now();
+  const throttled = st.lastRouteFetch && (now - st.lastRouteFetch < 8000);
+
+  let latlngs = null;
+
+  if(!throttled){
+    st.lastRouteFetch = now;
+    latlngs = await _fetchRoadRouteW(workerPt, customerPt);
+    if(_trkStateW[bkId] !== st || !st.map) return;
+  }
+
+  if(!latlngs){
+    latlngs = [
+      [workerPt.lat, workerPt.lng],
+      [customerPt.lat, customerPt.lng]
+    ];
+  }
+
+  if(!st.routeLine){
+    st.routeLine = L.polyline(latlngs, {
+      color: '#2563eb',
+      weight: 4,
+      opacity: 0.85,
+      dashArray: latlngs.length === 2 ? '6,8' : null
+    }).addTo(st.map);
+  } else {
+    st.routeLine.setLatLngs(latlngs);
+  }
+}
+
+function _reattachTrackCustomerDom(id){
+  const st = _trkStateW[id];
+  if(!st || !st.map || !st.container) return;
+  const slot = document.getElementById('trkc-slot-'+id);
+  if(!slot) return;
+  if(st.container.parentNode !== slot){
+    slot.appendChild(st.container);
+    try{ st.map.invalidateSize(); }catch(e){}
+  }
+}
+
+function toggleTrackCustomer(bkId){
+  const btn  = document.getElementById('trkc-btn-'+bkId);
+  const wrap = document.getElementById('trkc-wrap-'+bkId);
+  if(!btn || !wrap) return;
+  const opening = !wrap.classList.contains('open');
+  wrap.classList.toggle('open', opening);
+  btn.classList.toggle('open', opening);
+  btn.innerHTML = opening
+    ? '📍 Track Customer <span class="trk-arr">▲</span>'
+    : '📍 Track Customer <span class="trk-arr">▼</span>';
+
+  if(opening){
+    if(_trkStateW[bkId]?.map){
+      _reattachTrackCustomerDom(bkId);
+      _trkStateW[bkId].map.invalidateSize();
+    } else {
+      const booking = bookings.find(x=>String(x.id)===String(bkId));
+      _buildCustomerTrackMap(booking);
+    }
+    const onTransitionEnd = (e)=>{
+      if(e.target !== wrap || e.propertyName !== 'max-height') return;
+      if(_trkStateW[bkId]?.map){
+        try{ _trkStateW[bkId].map.invalidateSize(); }catch(err){}
+      }
+      wrap.removeEventListener('transitionend', onTransitionEnd);
+    };
+    wrap.addEventListener('transitionend', onTransitionEnd);
+  }
+}
+
+/* Builds the map once per booking. Worker marker = this worker's own
+   live position (worker_live_lat/lng, already published by the
+   existing GPS watcher above); customer marker = _resolveCustomerLatLngW.
+   fitBounds is called exactly once, right here — never again — so the
+   worker can freely zoom/pan afterwards, same guarantee as index.html. */
+async function _buildCustomerTrackMap(b){
+  if(!b) return;
+
+  if(_trkStateW[b.id]?.map){
+    try{ _trkStateW[b.id].map.invalidateSize(); }catch(e){}
+    return;
+  }
+
+  const wLat = b.worker_live_lat != null ? Number(b.worker_live_lat) : null;
+  const wLng = b.worker_live_lng != null ? Number(b.worker_live_lng) : null;
+  const slot  = document.getElementById('trkc-slot-'+b.id);
+  const msgEl = document.getElementById('trkc-eta-'+b.id);
+  if(!slot) return;
+
+  const customer = await _resolveCustomerLatLngW(b);
+
+  if(wLat == null || wLng == null || isNaN(wLat) || isNaN(wLng)){
+    if(msgEl) msgEl.textContent = 'Waiting for your location...';
+    return;
+  }
+  if(!customer){
+    if(msgEl) msgEl.textContent = 'Customer location unavailable';
+    return;
+  }
+
+  slot.innerHTML = '';
+  const mapEl = document.createElement('div');
+  mapEl.className = 'trk-map';
+  mapEl.id = 'trkc-map-live-'+b.id;
+  slot.appendChild(mapEl);
+
+  const map = L.map(mapEl, { zoomControl:true, attributionControl:false })
+               .setView([wLat, wLng], TRACK_CUSTOMER_ZOOM);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:19
+  }).addTo(map);
+
+  const workerIcon = L.divIcon({
+    className: "worker-marker",
+    html: `<div style="width:22px;height:22px;border-radius:50%;background:#ff6b35;border:3px solid white;box-shadow:0 0 8px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;">🔧</div>`,
+    iconSize:[28,28],
+    iconAnchor:[14,14]
+  });
+  const customerIcon = L.divIcon({
+    className: "customer-marker",
+    html: `<div style="width:20px;height:20px;border-radius:50%;background:#2f9e5c;border:3px solid white;box-shadow:0 0 8px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;">🏠</div>`,
+    iconSize:[26,26],
+    iconAnchor:[13,13]
+  });
+
+  const workerMarker   = L.marker([wLat, wLng], { icon:workerIcon }).addTo(map);
+  const customerMarker = L.marker([customer.lat, customer.lng], { icon:customerIcon }).addTo(map);
+
+  _trkStateW[b.id] = { map, workerMarker, customerMarker, container:mapEl, routeLine:null, initialized:false, lastRouteFetch:0 };
+
+  if(msgEl) msgEl.textContent = '📍 Live tracking';
+  setTimeout(()=>{ map.invalidateSize(); }, 50);
+
+  try{
+    await _drawOrUpdateRouteW(b.id, {lat:wLat,lng:wLng}, customer);
+    if(_trkStateW[b.id]?.map !== map) return;
+
+    const st = _trkStateW[b.id];
+    const bounds = st.routeLine
+      ? st.routeLine.getBounds().pad(0.25)
+      : L.latLngBounds([[wLat,wLng],[customer.lat,customer.lng]]).pad(0.35);
+
+    map.fitBounds(bounds, { maxZoom:16, padding:[40,40] }); /* only fitBounds call */
+    st.initialized = true;
+  }catch(err){
+    console.error('_buildCustomerTrackMap route/fit failed (tracking continues):', err);
+    if(_trkStateW[b.id]) _trkStateW[b.id].initialized = true;
+  }
+}
+
+/* Called after every bookings refresh — same responsibility split as
+   index.html's updateTrackingMaps(): panel closed → just refresh the
+   status text; panel open + map exists → move marker only; panel open
+   + no map → build it now. */
+function updateCustomerTrackMaps(bookingList){
+  (bookingList||[]).forEach(b=>{
+    if(b.status !== 'Accepted') return;
+
+    const wLat = b.worker_live_lat != null ? Number(b.worker_live_lat) : null;
+    const wLng = b.worker_live_lng != null ? Number(b.worker_live_lng) : null;
+    const hasCoords = wLat != null && wLng != null && !isNaN(wLat) && !isNaN(wLng);
+    const msgEl = document.getElementById('trkc-eta-'+b.id);
+    const wrap  = document.getElementById('trkc-wrap-'+b.id);
+    const isOpen = wrap?.classList.contains('open');
+
+    if(!hasCoords){
+      if(msgEl) msgEl.textContent = 'Waiting for your location...';
+      return;
+    }
+
+    if(_trkStateW[b.id]?.map){
+      _trkStateW[b.id].workerMarker.setLatLng([wLat, wLng]);
+      if(msgEl) msgEl.textContent = '📍 Live tracking';
+      return;
+    }
+
+    if(isOpen){
+      _buildCustomerTrackMap(b);
+    } else if(msgEl){
+      msgEl.textContent = '📍 Live tracking';
+    }
+  });
+}
+
+/* Requirement 5: once Arrival OTP is verified the worker has reached
+   the customer, so the map is torn down (not just left to fall out of
+   the DOM on next render) — called from submitArrivalOtp() below. */
+function _destroyCustomerTrackMap(bkId){
+  const st = _trkStateW[bkId];
+  if(!st) return;
+  try{ if(st.map) st.map.remove(); }catch(e){}
+  delete _trkStateW[bkId];
+}
+
 /* ── Patch loadBookings to also refresh the new sections after bookings load ── */
 const _origLoadBookings=loadBookings;
 loadBookings=async function(){
@@ -1839,6 +2150,14 @@ loadBookings=async function(){
   renderTimeline();
   /* Requirement 7: sync GPS state after every bookings refresh */
   syncGPS();
+};
+
+/* Keep Track Customer maps live on every refresh — same "move marker,
+   never recreate" contract as index.html's updateTrackingMaps(all). */
+const _origLoadBookingsForTrackCustomer = loadBookings;
+loadBookings = async function(){
+  await _origLoadBookingsForTrackCustomer();
+  updateCustomerTrackMaps(bookings);
 };
 
 /* ══════════════════════════════════════════════════════════════
