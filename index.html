@@ -601,7 +601,7 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
           <div class="fg"><label class="flabel">Date</label><input type="date" class="finput" id="bkDate" onchange="onDateChange()"/></div>
           <div class="fg" id="bkTimeGrp"><label class="flabel">Time (8:30 AM – 8:30 PM)</label><select class="fselect" id="bkTime" onchange="onTimeChange()"><option value="">Select time…</option></select></div>
         </div>
-        <div class="fg"><label class="flabel">Your Address</label><input type="text" class="finput" id="bkAddr" placeholder="Enter your full address…"/></div>
+        <div class="fg"><label class="flabel">Your Address</label><input type="text" class="finput" id="bkAddr" placeholder="Enter your full address…"/><div id="bkAddrAreaWarn" style="font-size:.74rem;color:var(--danger);margin-top:.35rem"></div></div>
         <div class="fg"><label class="flabel">Service Area</label><select class="fselect" id="bkArea" onchange="onAreaChange()"><option value="">Select your area…</option></select><div id="bkAreaNote" style="font-size:.74rem;color:var(--text3);margin-top:.35rem"></div></div>
         <div class="fg"><label class="flabel">Notes (Optional)</label><textarea class="finput" id="bkNotes" rows="3" placeholder="Describe the issue…" style="resize:vertical"></textarea></div>
       </div>
@@ -2788,6 +2788,107 @@ async function updatePrice(){
   document.getElementById('pTotal').textContent=base?`₹${base+fee}`:'—';
 }
 
+/* ── ADDRESS CLEANING & GEOCODING (Phase 4.2) ────────────────
+   Strips flat/wing/house/room/apartment identifiers so only the
+   building/society name, landmark, road, area and city reach the
+   geocoder. Flat numbers add noise and break address geocoding. */
+function cleanAddressForGeocoding(raw){
+  const FLAT_WORDS=/^(flat|apt|apartment|room|unit|door|house)\b/i;
+  const WING_SUFFIX=/\s+(wing|floor|flr)$/i; // strips a trailing "wing"/"floor" word, e.g. "1301/B wing" -> "1301/B"
+  const FLAT_PATTERN=/^[A-Za-z]{0,3}[-\/]?\d+[-\/]?[A-Za-z]{0,3}$/; // matches BOTH "B-1301" and "1301/B" style flat numbers
+  return raw
+    .split(',')
+    .map(p=>p.trim())
+    .filter(p=>{
+      if(!p) return false;
+      if(FLAT_WORDS.test(p)) return false;
+      const stripped=p.replace(WING_SUFFIX,'').trim();
+      if(/\d/.test(stripped) && FLAT_PATTERN.test(stripped)) return false;
+      return true;
+    })
+    .join(', ');
+}
+
+/* Confirms a locality string mentions the selected area. Used against
+   the geocoder's own suburb/neighbourhood field first; only falls
+   back to checking the cleaned address text if the geocoder returned
+   no locality at all. */
+function addressMatchesArea(localityOrAddr, areaName){
+  if(!areaName) return false;
+  const norm=s=>s.toLowerCase().replace(/[^a-z0-9 ]/g,'').trim();
+  return norm(localityOrAddr).includes(norm(areaName));
+}
+
+/* Geocodes the cleaned address via Nominatim (OpenStreetMap) — no
+   API key required. Returns coordinates AND the locality/suburb/
+   neighbourhood from the SAME successful response, so area
+   validation never triggers a second lookup on a hit.
+   Nominatim does strict matching: an unrecognized building/society
+   name anywhere in the query commonly returns zero results for the
+   whole query, even when the road/area/city portion is valid. On a
+   zero-result response only, this retries with the leading (most
+   specific, most likely-unrecognized) segment dropped, one at a
+   time, until it finds a match or runs out of segments. */
+async function geocodeAddress(cleanedAddr){
+  console.log('[geocode] 5. cleaned address sent to geocoder:', cleanedAddr);
+
+  async function tryQuery(q){
+    const url=`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=in&addressdetails=1&q=${encodeURIComponent(q)}`;
+    console.log('[geocode] 2. full request URL:', url);
+    let res;
+    try{
+      res=await fetch(url,{headers:{'Accept':'application/json'}});
+    }catch(networkErr){
+      console.error('[geocode] 4. fetch failed before a response was received (network/CORS block):', networkErr);
+      return null;
+    }
+    console.log('[geocode] 4. response status:', res.status, res.ok);
+    const rawText=await res.text();
+    console.log('[geocode] 3. raw response body:', rawText);
+    if(!res.ok){
+      console.error('[geocode] request rejected by Nominatim, status', res.status);
+      return null;
+    }
+    let data;
+    try{
+      data=JSON.parse(rawText);
+    }catch(parseErr){
+      console.error('[geocode] response was not valid JSON:', parseErr);
+      return null;
+    }
+    console.log('[geocode] 3. parsed response:', data);
+    if(!Array.isArray(data)||!data.length) return null;
+    const lat=parseFloat(data[0].lat), lng=parseFloat(data[0].lon);
+    if(!isFinite(lat)||!isFinite(lng)){
+      console.error('[geocode] result had non-numeric lat/lng:', data[0].lat, data[0].lon);
+      return null;
+    }
+    const a=data[0].address||{};
+    /* Combine every locality-ish field instead of picking just one.
+       Nominatim's suburb/neighbourhood ordering isn't consistent
+       across areas — e.g. this exact response has neighbourhood
+       "Tilak Nagar" AND suburb "Chheda Nagar" for the same point.
+       Picking only the first non-null field can silently discard the
+       one that actually matches the selected area. addressMatchesArea
+       does a substring check, so handing it the combined string still
+       matches correctly against any one of these fields. */
+    const locality=[a.neighbourhood,a.suburb,a.locality,a.city_district,a.quarter,a.city]
+      .filter(Boolean).join(' ');
+    console.log('[geocode] 5. resolved locality field(s):', locality);
+    return {lat,lng,locality: locality || null};
+  }
+
+  const parts=cleanedAddr.split(',').map(p=>p.trim()).filter(Boolean);
+  for(let i=0;i<Math.max(parts.length-1,1);i++){
+    const attempt=parts.slice(i).join(', ');
+    console.log(`[geocode] attempt ${i+1}/${parts.length-1||1}, query:`, attempt);
+    const result=await tryQuery(attempt);
+    if(result) return result;
+  }
+  console.warn('[geocode] Nominatim returned zero results for every fallback attempt');
+  return null;
+} 
+
 /* ── INITIATE BOOKING ─────────────────────────────────────── */
 async function initiateBooking(){
   const date=document.getElementById('bkDate').value;
@@ -2812,6 +2913,11 @@ async function initiateBooking(){
   if(!areaId){markErr('bkArea');ok=false;}
   if(!ok){showToast('⚠️ Please fill in all required fields');return;}
 
+  /* Phase 4.2: clear any previous inline address/area warning before
+     re-validating this attempt. */
+  const addrAreaWarn=document.getElementById('bkAddrAreaWarn');
+  if(addrAreaWarn) addrAreaWarn.textContent='';
+
   /* Area-based assignment validation — block booking if no eligible
      worker exists within radius/MAX_ASSIGN_KM before a booking is even
      created. This is enforced again server-side in onAccepted(). */
@@ -2827,13 +2933,34 @@ async function initiateBooking(){
     return;
   }
 
+  /* Phase 4.2: clean the address, then run ONE geocode call. Locality
+     validation and coordinates both come from that same response —
+     no second Nominatim lookup. Either failure blocks the payment
+     popup with an inline message; no alert(). */
+  const cleanedAddr=cleanAddressForGeocoding(addr);
+  const geo=await geocodeAddress(cleanedAddr);
+  if(!geo){
+    if(addrAreaWarn) addrAreaWarn.textContent='⚠️ Unable to locate this address. Please include your building/society name, road and locality.';
+    markErr('bkAddr');
+    return;
+  }
+  const areaMatches = geo.locality
+    ? addressMatchesArea(geo.locality, area.name)
+    : addressMatchesArea(cleanedAddr, area.name);
+  if(!areaMatches){
+    if(addrAreaWarn) addrAreaWarn.textContent='⚠️ This address does not belong to the selected area. Please choose the correct area.';
+    markErr('bkAddr');
+    return;
+  }
+
   pendBk={
     workerId:curW.id, workerRole:curW.role, workerEmoji:curW.emoji,
     service:svcName, date, time, address:addr,
     price:total, basePrice:base,
     notes:document.getElementById('bkNotes').value.trim(),
     isEmergency:e||!inWork(time),
-    areaId, areaName:area.name, areaLat:area.lat, areaLng:area.lng
+    areaId, areaName:area.name, areaLat:area.lat, areaLng:area.lng,
+    customerLat:geo.lat, customerLng:geo.lng
   };
 
   /* Phase 2D.1: pass-covered booking — skip the payment screen
@@ -2971,6 +3098,9 @@ async function startBroadcast(){
   }
 );
 
+  /* Phase 4.2: geocoded address coordinates seed customer_lat/lng at
+     creation time. The live-GPS callback above is unchanged and will
+     still overwrite them asynchronously if/when it resolves. */
   const bk = {
     id:           bkId,
     workerId:     pendBk.workerId,
@@ -2984,8 +3114,8 @@ async function startBroadcast(){
     time:         pendBk.time,
     address:      pendBk.address,
     areaId:       pendBk.areaId||null,
-  customer_lat: null,
-  customer_lng: null,
+  customer_lat: pendBk.customerLat != null ? pendBk.customerLat : null,
+  customer_lng: pendBk.customerLng != null ? pendBk.customerLng : null,
   price:        pendBk.price,
     basePrice:    pendBk.basePrice,
     notes:        pendBk.notes,
