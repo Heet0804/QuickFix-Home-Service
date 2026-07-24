@@ -1154,6 +1154,10 @@ function renderJobCard(b){
           <div class="trk-body">
             <div class="trk-map" id="trkc-slot-${b.id}"></div>
             <div class="trk-meta" id="trkc-meta-${b.id}"><span class="trk-dot"></span><span id="trkc-eta-${b.id}">Waiting for your location...</span></div>
+            <div class="trk-eta-panel" id="trkc-etapanel-${b.id}" style="display:flex;gap:1.5rem;justify-content:center;margin-top:.5rem;font-size:.85rem;color:var(--text2,#666)">
+              <span>🚗 Distance to Customer<br><b id="trkc-dist-${b.id}">--</b></span>
+              <span>⏱ ETA<br><b id="trkc-time-${b.id}">--</b></span>
+            </div>
           </div>
         </div>` : '';
 
@@ -1931,12 +1935,44 @@ async function _fetchRoadRouteW(from, to){
     const res = await fetch(url);
     if(!res.ok) throw new Error('OSRM HTTP '+res.status);
     const data = await res.json();
-    const coords = data?.routes?.[0]?.geometry?.coordinates;
+    const route = data?.routes?.[0];
+    const coords = route?.geometry?.coordinates;
     if(!Array.isArray(coords) || !coords.length) throw new Error('OSRM: empty route');
-    return coords.map(([lng,lat])=>[lat,lng]);
+    const latlngs = coords.map(([lng,lat])=>[lat,lng]);
+    /* Phase 4.5: same attach-not-replace approach as index.html —
+       return contract unchanged, extra properties on the same array. */
+    Object.defineProperties(latlngs, {
+  distance: {
+    value: route.distance ?? null,
+    enumerable: false
+  },
+  duration: {
+    value: route.duration ?? null,
+    enumerable: false
+  }
+});
+    return latlngs;
   }catch(e){
     return null;
   }
+}
+
+/* Phase 4.5: kept separate from index.html's helpers since the two
+   files load independently. */
+function _fmtDistanceW(m){
+  if(typeof m !== 'number' || !isFinite(m)) return '--';
+  return m < 1000 ? Math.round(m)+' m' : (m/1000).toFixed(1)+' km';
+}
+function _fmtDurationW(s){
+  if(typeof s !== 'number' || !isFinite(s)) return '--';
+  const mins = Math.round(s/60);
+  return mins < 1 ? '<1 min' : mins+' min'+(mins===1?'':'s');
+}
+function _updateEtaPanelW(bkId, distance, duration){
+  const distEl = document.getElementById('trkc-dist-'+bkId);
+  const timeEl = document.getElementById('trkc-time-'+bkId);
+  if(distEl) distEl.textContent = _fmtDistanceW(distance);
+  if(timeEl) timeEl.textContent = _fmtDurationW(duration);
 }
 
 /* Same "draw once, then only update points" approach as index.html's
@@ -1954,6 +1990,9 @@ async function _drawOrUpdateRouteW(bkId, workerPt, customerPt){
     st.lastRouteFetch = now;
     latlngs = await _fetchRoadRouteW(workerPt, customerPt);
     if(_trkStateW[bkId] !== st || !st.map) return;
+
+    // Phase 4.5: same pattern as index.html.
+    _updateEtaPanelW(bkId, latlngs?.distance ?? null, latlngs?.duration ?? null);
   }
 
   if(!latlngs){

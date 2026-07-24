@@ -3594,12 +3594,48 @@ async function _fetchRoadRoute(from, to){
     const res = await fetch(url);
     if(!res.ok) throw new Error('OSRM HTTP '+res.status);
     const data = await res.json();
-    const coords = data?.routes?.[0]?.geometry?.coordinates;
+    const route = data?.routes?.[0];
+    const coords = route?.geometry?.coordinates;
     if(!Array.isArray(coords) || !coords.length) throw new Error('OSRM: empty route');
-    return coords.map(([lng,lat])=>[lat,lng]);
+    const latlngs = coords.map(([lng,lat])=>[lat,lng]);
+    /* Phase 4.5: distance (m) / duration (s) attached as extra
+       properties on this SAME array — the return contract stays
+       exactly what Phase 4.3 callers expect: an array of [lat,lng]
+       pairs, or null. .length, .map(), Array.isArray(), spread, and
+       L.polyline(latlngs) are all unaffected. Any caller unaware of
+       Phase 4.5 sees no difference at all. */
+    Object.defineProperties(latlngs, {
+  distance: {
+    value: route.distance ?? null,
+    enumerable: false
+  },
+  duration: {
+    value: route.duration ?? null,
+    enumerable: false
+  }
+});
+    return latlngs;
   }catch(e){
     return null;
   }
+}
+
+/* Phase 4.5: formatting + panel update helpers. Pure functions, no
+   network calls, no map/marker/polyline creation. */
+function _fmtDistance(m){
+  if(typeof m !== 'number' || !isFinite(m)) return '--';
+  return m < 1000 ? Math.round(m)+' m' : (m/1000).toFixed(1)+' km';
+}
+function _fmtDuration(s){
+  if(typeof s !== 'number' || !isFinite(s)) return '--';
+  const mins = Math.round(s/60);
+  return mins < 1 ? '<1 min' : mins+' min'+(mins===1?'':'s');
+}
+function _updateEtaPanel(bkId, distance, duration){
+  const distEl = document.getElementById('trk-dist-'+bkId);
+  const timeEl = document.getElementById('trk-time-'+bkId);
+  if(distEl) distEl.textContent = _fmtDistance(distance);
+  if(timeEl) timeEl.textContent = _fmtDuration(duration);
 }
 
 /* Draws the worker→customer line the first time, then only ever
@@ -3622,6 +3658,12 @@ async function _drawOrUpdateRoute(bkId, workerPt, customerPt){
 
     // prevent race condition (map destroyed / re-init)
     if(_trkState[bkId] !== st || !st.map) return;
+
+    // Phase 4.5: distance/duration ride along as extra properties on
+    // the array _fetchRoadRoute returns (see Phase 4.5 comment there).
+    // Undefined when latlngs is null (OSRM failed) — the ?? null
+    // covers that case and the panel correctly shows "--".
+    _updateEtaPanel(bkId, latlngs?.distance ?? null, latlngs?.duration ?? null);
   }
 
   // fallback straight line
@@ -3896,8 +3938,6 @@ const contactHtml = show
            style="color:#266049;font-weight:600;text-decoration:none">
            ${b.workerPhone}
         </a>
-        &nbsp; 📍 ${km.toFixed(1)} km
-        &nbsp; ⏱ ~${eta}
       </span>
     </div>`
   : b.isAdvance
@@ -3954,6 +3994,10 @@ const cancelBtn=canCancel
           <div class="trk-body">
             <div class="trk-map" id="trk-slot-${b.id}"></div>
             <div class="trk-meta" id="trk-meta-${b.id}"><span class="trk-dot"></span><span id="trk-eta-${b.id}">Waiting for worker location...</span></div>
+            <div class="trk-eta-panel" id="trk-etapanel-${b.id}" style="display:flex;gap:1.5rem;justify-content:center;margin-top:.5rem;font-size:.85rem;color:var(--text2,#666)">
+              <span>🚗 Distance Remaining<br><b id="trk-dist-${b.id}">--</b></span>
+              <span>⏱ ETA<br><b id="trk-time-${b.id}">--</b></span>
+            </div>
           </div>
         </div>`:''}
       </div>
