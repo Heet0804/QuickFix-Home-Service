@@ -2118,8 +2118,19 @@ function updateCustomerTrackMaps(bookingList){
     }
 
     if(_trkStateW[b.id]?.map){
-      _trkStateW[b.id].workerMarker.setLatLng([wLat, wLng]);
+      const st = _trkStateW[b.id];
+      st.workerMarker.setLatLng([wLat, wLng]);
       if(msgEl) msgEl.textContent = '📍 Live tracking';
+      /* Phase 4.4: refresh the road route on every live GPS fix, same
+         approach as index.html. Reuses the existing routeLine and its
+         8s OSRM throttle inside _drawOrUpdateRouteW (Phase 4.3,
+         untouched). Handles identical/near-identical coordinates the
+         same way — no throw, straight-line fallback. Customer marker
+         is never moved — only this worker's own marker and the route. */
+      if(st.customerMarker){
+        const c = st.customerMarker.getLatLng();
+        _drawOrUpdateRouteW(b.id, {lat:wLat, lng:wLng}, {lat:c.lat, lng:c.lng});
+      }
       return;
     }
 

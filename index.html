@@ -3805,8 +3805,22 @@ function updateTrackingMaps(bookingList){
 
     if(_trkState[b.id]?.map){
       /* Map exists — move marker, never recreate */
-      _trkState[b.id].marker.setLatLng([lat, lng]);
+      const st = _trkState[b.id];
+      st.marker.setLatLng([lat, lng]);
       if(msgEl) msgEl.textContent = '📍 Live worker location';
+      /* Phase 4.4: refresh the road route on every live GPS fix.
+         Reuses the existing routeLine (setLatLngs only — never
+         recreated) and the existing 8s OSRM throttle already inside
+         _drawOrUpdateRoute (Phase 4.3, untouched). Fire-and-forget:
+         _drawOrUpdateRoute already guards against races if the map is
+         torn down mid-request, and never throws — including when
+         worker and customer coordinates are identical/near-identical,
+         where it silently falls back to a straight line. Customer
+         marker is never moved. */
+      if(st.customerMarker){
+        const c = st.customerMarker.getLatLng();
+        _drawOrUpdateRoute(b.id, {lat, lng}, {lat:c.lat, lng:c.lng});
+      }
       return;
     }
 
