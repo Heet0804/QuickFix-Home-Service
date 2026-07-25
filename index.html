@@ -765,6 +765,30 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
   </div>
 </div>
 
+<!-- PHASE 4.6: REUSE SAVED LOCATION MODAL -->
+<div class="overlay" id="reusePinModal">
+  <div class="modal" style="max-width:380px">
+    <div class="mico" style="background:#e8f4ef">📍</div>
+    <h2>Use your previously pinned location?</h2>
+    <p style="font-size:.875rem;color:var(--text2)">This address matches your last booking exactly. Reuse the exact spot you pinned before, or pin it again.</p>
+    <div style="display:flex;gap:.65rem;justify-content:center;flex-wrap:wrap;margin-top:.5rem">
+      <button class="btn bp" id="reusePinYes">YES</button>
+      <button class="btn bo" id="reusePinAgain">Pin Again</button>
+    </div>
+  </div>
+</div>
+
+<!-- PHASE 4.6: CUSTOMER LOCATION PIN PICKER MODAL -->
+<div class="overlay" id="pinLocationModal">
+  <div class="modal" style="max-width:520px">
+    <div class="mico" style="background:#e8f4ef">🏠</div>
+    <h2>Pin Your Exact Building Location</h2>
+    <p style="font-size:.875rem;color:var(--text2)">Drag the marker, or tap the map, to place it exactly on your building.</p>
+    <div id="pinMapEl" style="width:100%;height:320px;border-radius:var(--radius-sm);overflow:hidden;margin:.75rem 0"></div>
+    <button class="btn bp bfull blg" id="confirmPinBtn">Confirm Location</button>
+  </div>
+</div>
+
 <!-- PHOTO LIGHTBOX (worker profile photo, enlarged view) -->
 <div class="overlay" id="photoLightbox" onclick="if(event.target===this)closeModal('photoLightbox')">
   <div class="modal" style="max-width:340px;padding:1rem;text-align:center">
@@ -2889,6 +2913,81 @@ async function geocodeAddress(cleanedAddr){
   return null;
 } 
 
+/* ── PHASE 4.6: PERMANENT CUSTOMER LOCATION PINNING ──────────
+   Exact-string match against users.saved_address decides whether to
+   offer reuse or go straight to the map picker. Nothing here touches
+   booking creation itself — it only resolves pendBk.customerLat/
+   customerLng before _continueAfterPin() runs the exact payment/pass
+   logic that already existed. */
+async function _resolveCustomerPin(addr, areaId, geo){
+  const {data:{session}} = await sb.auth.getSession();
+  let saved = null;
+  if(session?.user){
+    const {data:u} = await sb.from('users')
+      .select('saved_address,saved_area_id,saved_lat,saved_lng')
+      .eq('id', session.user.id).single();
+    saved = u || null;
+  }
+
+  const exactMatch = !!(saved && saved.saved_address != null
+    && saved.saved_address === addr
+    && saved.saved_lat != null && saved.saved_lng != null);
+
+  if(exactMatch){
+    _showReusePinDialog(addr, areaId, geo, saved);
+  } else {
+    _openPinPicker(addr, areaId, geo, saved);
+  }
+}
+
+function _showReusePinDialog(addr, areaId, geo, saved){
+  document.getElementById('reusePinModal').classList.add('on');
+  document.getElementById('reusePinYes').onclick = ()=>{
+    closeModal('reusePinModal');
+    pendBk.customerLat = saved.saved_lat;
+    pendBk.customerLng = saved.saved_lng;
+    _continueAfterPin();
+  };
+  document.getElementById('reusePinAgain').onclick = ()=>{
+    closeModal('reusePinModal');
+    _openPinPicker(addr, areaId, geo, saved);
+  };
+}
+
+let _pinMap = null, _pinMarker = null;
+function _openPinPicker(addr, areaId, geo, saved){
+  document.getElementById('pinLocationModal').classList.add('on');
+  const startLat = geo?.lat ?? saved?.saved_lat;
+  const startLng = geo?.lng ?? saved?.saved_lng;
+
+  setTimeout(()=>{
+    const mapEl = document.getElementById('pinMapEl');
+    if(_pinMap){ _pinMap.remove(); _pinMap = null; }
+    _pinMap = L.map(mapEl, { zoomControl:true, attributionControl:false }).setView([startLat, startLng], 17);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(_pinMap);
+    _pinMarker = L.marker([startLat, startLng], { draggable:true }).addTo(_pinMap);
+    _pinMap.on('click', (ev)=>{ _pinMarker.setLatLng(ev.latlng); });
+    setTimeout(()=>{ _pinMap.invalidateSize(); }, 50);
+  }, 30);
+
+  document.getElementById('confirmPinBtn').onclick = async ()=>{
+    const ll = _pinMarker.getLatLng();
+    const {data:{session}} = await sb.auth.getSession();
+    if(session?.user){
+      await sb.from('users').update({
+        saved_address: addr,
+        saved_area_id: areaId,
+        saved_lat: ll.lat,
+        saved_lng: ll.lng
+      }).eq('id', session.user.id);
+    }
+    pendBk.customerLat = ll.lat;
+    pendBk.customerLng = ll.lng;
+    closeModal('pinLocationModal');
+    _continueAfterPin();
+  };
+}
+
 /* ── INITIATE BOOKING ─────────────────────────────────────── */
 async function initiateBooking(){
   const date=document.getElementById('bkDate').value;
@@ -2953,6 +3052,10 @@ async function initiateBooking(){
     return;
   }
 
+  /* Phase 4.6: customerLat/customerLng are resolved AFTER this point
+     — by _resolveCustomerPin() below — from the customer's permanent
+     building pin, not directly from the area-level geocode. geo is
+     passed through only to seed the map picker's initial center. */
   pendBk={
     workerId:curW.id, workerRole:curW.role, workerEmoji:curW.emoji,
     service:svcName, date, time, address:addr,
@@ -2960,9 +3063,16 @@ async function initiateBooking(){
     notes:document.getElementById('bkNotes').value.trim(),
     isEmergency:e||!inWork(time),
     areaId, areaName:area.name, areaLat:area.lat, areaLng:area.lng,
-    customerLat:geo.lat, customerLng:geo.lng
+    customerLat:null, customerLng:null
   };
 
+  await _resolveCustomerPin(addr, areaId, geo);
+}
+
+/* Phase 4.6: everything below is UNCHANGED from what used to run
+   immediately after pendBk was built — only WHEN it runs has moved,
+   to after pendBk.customerLat/customerLng are set by the pin flow. */
+function _continueAfterPin(){
   /* Phase 2D.1: pass-covered booking — skip the payment screen
      entirely and go straight to the existing broadcast flow.
      basePrice is left exactly as calculated above (the true service
@@ -2984,7 +3094,7 @@ async function initiateBooking(){
   document.getElementById('gpaySection').style.display='none';
   document.getElementById('cashSection').style.display='none';
   document.getElementById('gpayOk').classList.remove('on');
-  document.getElementById('cashAmt').textContent=`₹${total}`;
+  document.getElementById('cashAmt').textContent=`₹${pendBk.price}`;
   document.getElementById('payModal').classList.add('on');
 }
 
