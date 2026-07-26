@@ -11,7 +11,7 @@
 
 QuickFix is a modern home service booking platform that connects customers with verified service professionals such as electricians, plumbers, carpenters, painters, cleaners, AC technicians, masons and many more.
 
-Unlike a simple booking website, QuickFix manages the complete service lifecycle—from booking creation, address validation and worker assignment, to live GPS + road-route tracking with real-time ETA, OTP verification, payments, QuickCoins rewards, service passes, reviews, achievements, worker analytics and a full admin portal.
+Unlike a simple booking website, QuickFix manages the complete service lifecycle—from booking creation, address validation, permanent building-location pinning and worker assignment, to live GPS + road-route tracking with real-time ETA, OTP verification, payments, QuickCoins rewards, service passes, reviews, achievements, worker analytics and a full admin portal.
 
 The project was built as a major academic project with a focus on solving real-world service booking problems while implementing production-style workflows.
 
@@ -28,6 +28,7 @@ The project was built as a major academic project with a focus on solving real-w
 - 🚨 Emergency booking mode
 - 🏠 Address validation with automatic area-match checking
 - 🌍 Customer address geocoding (exact building-level coordinates)
+- 📌 Permanent building-location pinning on a map — reused automatically on repeat bookings to the same address
 - 💳 Cash & UPI payment options
 - 🪙 QuickCoins wallet & rewards
 - 🎟️ Service Passes & priority booking
@@ -155,11 +156,19 @@ QuickFix's live tracking system is being built in incremental phases. Progress s
 - Falls back to `--` / `--` gracefully if OSRM is unreachable, without breaking the map or throwing errors
 - `_fetchRoadRoute()` / `_fetchRoadRouteW()` remain fully backward-compatible with Phase 4.3 — distance/duration are carried as extra properties on the same array these functions already returned, so no existing caller's contract changed
 
+### ✅ Phase 4.6 — Permanent Customer Location Pinning
+- On a first booking to a given address, after area validation succeeds, the customer places a marker on a Leaflet map — by dragging it or tapping the map — to pin their exact building location, then confirms with **Confirm Location**
+- The complete, unmodified address text, the selected area, and the pinned coordinates are saved permanently against the customer's account (`saved_address`, `saved_area_id`, `saved_lat`, `saved_lng`) — no cleaning or normalization applied to the stored address
+- The pinned coordinates are copied into the booking's `customer_lat` / `customer_lng` and are the **only** source for those fields — the one-time live-GPS overwrite from earlier phases was removed so a manually pinned location can never be silently replaced by wherever the customer's device happens to be at booking time
+- On a repeat booking, the newly entered address is compared to the saved address with an **exact string match**; any difference at all — including just a flat, wing, or house number — skips the reuse prompt and opens the map picker again
+- On an exact match, the customer is asked **"Use your previously pinned location?"** — choosing **YES** reuses the saved pin instantly with no map interaction; choosing **Pin Again** reopens the map to re-pin
+- Worker-side behavior is unaffected — workers still receive the full address exactly as entered
+
 ### ⏳ Remaining Phase 4 Roadmap
-- **Phase 4.6** — Route Recalculation
-- **Phase 4.7** — Smart Status Updates
-- **Phase 4.8** — Automatic Arrival Detection
-- **Phase 4.9** — Final Production Polish
+- **Phase 4.7** — Route Recalculation
+- **Phase 4.8** — Smart Status Updates
+- **Phase 4.9** — Automatic Arrival Detection
+- **Phase 4.10** — Final Production Polish
 
 ---
 
@@ -205,6 +214,9 @@ Address Validation
       │
       ▼
 Geocoding
+      │
+      ▼
+Location Pin (new address) OR Reuse Saved Pin (unchanged address)
       │
       ▼
 Worker Assignment
@@ -264,6 +276,7 @@ Achievements
 ### Location
 
 - `navigator.geolocation.watchPosition()` — continuous live worker GPS publishing
+- Leaflet drag/tap marker picker — permanent customer building-location pinning
 
 ### Notifications
 
@@ -295,6 +308,7 @@ QuickFix/
 - ✅ Dynamic worker ranking
 - ✅ Customer address validation against selected service area
 - ✅ Building-level customer geocoding (no area-center fallback for new bookings)
+- ✅ Permanent, reusable customer location pinning with exact-match detection on repeat bookings
 - ✅ Continuous live GPS tracking for the worker via `watchPosition()`
 - ✅ Road-following route generation via OSRM, shared across both dashboards
 - ✅ Live route refresh as the worker moves — no map, marker, or polyline recreation
@@ -315,9 +329,9 @@ QuickFix/
 
 # 🎯 Future Improvements
 
-- 🔁 Automatic route recalculation (Phase 4.6)
-- 🔔 Smart status updates (Phase 4.7)
-- 📍 Automatic arrival detection (Phase 4.8)
+- 🔁 Automatic route recalculation (Phase 4.7)
+- 🔔 Smart status updates (Phase 4.8)
+- 📍 Automatic arrival detection (Phase 4.9)
 - 💬 In-app chat between customer & worker
 - 📹 Video consultation support
 - 🤖 AI-powered worker recommendation
@@ -357,6 +371,9 @@ Live Worker Movement (watchPosition + Live Route Refresh)
 
 v4.5
 Live ETA & Distance Remaining
+
+v4.6
+Permanent Customer Location Pinning
 ```
 
 ---
