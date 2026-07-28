@@ -29,6 +29,7 @@ The project was built as a major academic project with a focus on solving real-w
 - 🏠 Address validation with automatic area-match checking
 - 🌍 Customer address geocoding (exact building-level coordinates)
 - 📌 Permanent building-location pinning on a map — reused automatically on repeat bookings to the same address
+- 🏢 Resolved building/society name shown live on the pin picker as the marker is placed or dragged (Geoapify Reverse Geocoding)
 - 💳 Cash & UPI payment options
 - 🪙 QuickCoins wallet & rewards
 - 🎟️ Service Passes & priority booking
@@ -36,7 +37,8 @@ The project was built as a major academic project with a focus on solving real-w
 - 📜 Booking history
 - ⭐ Worker ratings & reviews
 - 📍 Live worker tracking using Leaflet Maps
-- 🛣️ Road-following route to the assigned worker (OSRM)
+- 🛣️ Road-following route to the assigned worker (Geoapify Routing API)
+- 🏢 Destination building name shown on the Track Worker map (Geoapify Reverse Geocoding)
 - 🚗 Live-updating worker marker as the worker travels
 - ⏱️ Live Distance Remaining & ETA on the Track Worker map
 - 🔢 OTP based arrival & completion verification
@@ -49,7 +51,8 @@ The project was built as a major academic project with a focus on solving real-w
 - 📥 Accept / Reject booking requests
 - 📅 Job management dashboard
 - 📍 Continuous live GPS location sharing (`watchPosition()`)
-- 🧭 Live "Track Customer" map with road route to the customer
+- 🧭 Live "Track Customer" map with road route to the customer (Geoapify Routing API)
+- 🏢 Destination building name shown on the Track Customer map (Geoapify Reverse Geocoding)
 - 🚗 Live Distance to Customer & ETA on the Track Customer map
 - 💰 Earnings dashboard
 - 📈 Worker performance statistics
@@ -164,8 +167,15 @@ QuickFix's live tracking system is being built in incremental phases. Progress s
 - On an exact match, the customer is asked **"Use your previously pinned location?"** — choosing **YES** reuses the saved pin instantly with no map interaction; choosing **Pin Again** reopens the map to re-pin
 - Worker-side behavior is unaffected — workers still receive the full address exactly as entered
 
+### ✅ Phase 4.7 — Geoapify Integration (Reverse Geocoding & Routing)
+- A single reusable `GEOAPIFY_API_KEY` constant is shared by both `index.html` and `worker-dashboard.html`
+- **Reverse Geocoding:** after the customer manually places or drags the pin on the Leaflet map (Phase 4.6), the exact marker coordinates are resolved to a human-readable building/society name via the Geoapify Reverse Geocoding API, shown live in the pin picker and updated on every move — the manual pin remains the only source of truth for `customer_lat` / `customer_lng`, the reverse-geocoded name is display-only
+- The same resolved building name is also surfaced to the worker on their **Track Customer** map, and to the customer on their **Track Worker** map, so both sides see the identical destination — computed independently on each dashboard from the same stored coordinates and the same API key
+- **Routing:** the OSRM road-route implementation from Phase 4.3 is replaced with the **Geoapify Routing API** on both dashboards, still producing a proper road-following route with turns and junctions
+- The route line is always rendered **solid, blue, and rounded** — the straight-line/dashed fallback used previously has been removed entirely; if a routing request fails, the existing route on screen is simply left in place rather than degrading to a straight line
+- Booking, payment, OTP, timeline, worker assignment, GPS publishing, polling, and Phase 4.6 manual pinning are all unchanged
+
 ### ⏳ Remaining Phase 4 Roadmap
-- **Phase 4.7** — Route Recalculation
 - **Phase 4.8** — Smart Status Updates
 - **Phase 4.9** — Automatic Arrival Detection
 - **Phase 4.10** — Final Production Polish
@@ -271,10 +281,12 @@ Achievements
 
 - Leaflet.js
 - OpenStreetMap
-- OSRM (Open Source Routing Machine) — road-following route generation and live ETA/distance
+- Geoapify Routing API — road-following route generation and live ETA/distance
 
-### Location
+### Location & Geocoding
 
+- Nominatim (OpenStreetMap) — customer address validation and area-match geocoding (Phase 4.2)
+- Geoapify Reverse Geocoding API — resolves the manually pinned marker to a building/society name, shown on the customer's pin picker and on both dashboards' tracking maps
 - `navigator.geolocation.watchPosition()` — continuous live worker GPS publishing
 - Leaflet drag/tap marker picker — permanent customer building-location pinning
 
@@ -310,7 +322,8 @@ QuickFix/
 - ✅ Building-level customer geocoding (no area-center fallback for new bookings)
 - ✅ Permanent, reusable customer location pinning with exact-match detection on repeat bookings
 - ✅ Continuous live GPS tracking for the worker via `watchPosition()`
-- ✅ Road-following route generation via OSRM, shared across both dashboards
+- ✅ Road-following route generation via the Geoapify Routing API, shared across both dashboards — always solid, blue and rounded, never a straight or dashed line
+- ✅ Destination building name resolved via Geoapify Reverse Geocoding, shown identically on both dashboards
 - ✅ Live route refresh as the worker moves — no map, marker, or polyline recreation
 - ✅ Live Distance Remaining & ETA, computed from the existing OSRM response with zero extra network calls
 - ✅ Automatic map fitBounds — no manual zooming required
@@ -329,7 +342,6 @@ QuickFix/
 
 # 🎯 Future Improvements
 
-- 🔁 Automatic route recalculation (Phase 4.7)
 - 🔔 Smart status updates (Phase 4.8)
 - 📍 Automatic arrival detection (Phase 4.9)
 - 💬 In-app chat between customer & worker
@@ -374,6 +386,9 @@ Live ETA & Distance Remaining
 
 v4.6
 Permanent Customer Location Pinning
+
+v4.7
+Geoapify Integration (Reverse Geocoding & Routing)
 ```
 
 ---
