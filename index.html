@@ -3795,11 +3795,48 @@ function _fmtDuration(s){
   const mins = Math.round(s/60);
   return mins < 1 ? '<1 min' : mins+' min'+(mins===1?'':'s');
 }
+
+/* Requirement 8: only re-call Geoapify when the worker actually
+   moved. ~10m threshold — smaller than normal GPS jitter would ever
+   need to matter, large enough to ignore noise. */
+function _metersBetween(a, b){
+  if(!a || !b) return Infinity;
+  const R = 6371000;
+  const dLat = (b.lat - a.lat) * Math.PI/180;
+  const dLng = (b.lng - a.lng) * Math.PI/180;
+  const s1 = Math.sin(dLat/2)**2 +
+    Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.min(1, Math.sqrt(s1)));
+}
+
+/* Requirement 5: glide the marker between GPS fixes instead of
+   jumping. Pure requestAnimationFrame interpolation — no plugin, no
+   marker recreation. Cancels any in-flight animation on the same
+   marker first, so back-to-back GPS updates never fight each other
+   or leak overlapping rAF loops. */
+function _animateMarkerTo(marker, toLat, toLng, duration){
+  if(!marker) return;
+  if(marker._animFrame) cancelAnimationFrame(marker._animFrame);
+  const from = marker.getLatLng();
+  const fromLat = from.lat, fromLng = from.lng;
+  if(fromLat === toLat && fromLng === toLng) return;
+  const start = performance.now();
+  function step(now){
+    const t = Math.min(1, (now - start) / duration);
+    const ease = t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2; /* ease-in-out */
+    marker.setLatLng([fromLat + (toLat-fromLat)*ease, fromLng + (toLng-fromLng)*ease]);
+    marker._animFrame = (t < 1) ? requestAnimationFrame(step) : null;
+  }
+  marker._animFrame = requestAnimationFrame(step);
+}
+
 function _updateEtaPanel(bkId, distance, duration){
   const distEl = document.getElementById('trk-dist-'+bkId);
   const timeEl = document.getElementById('trk-time-'+bkId);
   if(distEl) distEl.textContent = _fmtDistance(distance);
   if(timeEl) timeEl.textContent = _fmtDuration(duration);
+  const st = _trkState[bkId];
+  if(st){ st.lastDistance = distance; st.lastDuration = duration; }
 }
 
 /* Draws the worker→customer line the first time, then only ever
@@ -3812,11 +3849,15 @@ async function _drawOrUpdateRoute(bkId, workerPt, customerPt){
 
   const now = Date.now();
   const throttled = st.lastRouteFetch && (now - st.lastRouteFetch < 8000);
+  /* Requirement 8: worker hasn't moved since the last successful
+     fetch — don't spend a Geoapify call on an identical route. */
+  const unmoved = st.lastWorkerPt && _metersBetween(st.lastWorkerPt, workerPt) < 10;
 
   let latlngs = null;
 
-  if(!throttled){
+  if(!throttled && !unmoved){
     st.lastRouteFetch = now;
+    st.lastWorkerPt = workerPt;
 
     latlngs = await _fetchRoadRoute(workerPt, customerPt);
 
@@ -3825,7 +3866,7 @@ async function _drawOrUpdateRoute(bkId, workerPt, customerPt){
 
     // Phase 4.5: distance/duration ride along as extra properties on
     // the array _fetchRoadRoute returns (see Phase 4.5 comment there).
-    // Undefined when latlngs is null (OSRM failed) — the ?? null
+    // Undefined when latlngs is null (Geoapify failed) — the ?? null
     // covers that case and the panel correctly shows "--".
     _updateEtaPanel(bkId, latlngs?.distance ?? null, latlngs?.duration ?? null);
   }
@@ -3863,6 +3904,7 @@ function _reattachTrackingDom(id){
     slot.appendChild(st.container);
     try{ st.map.invalidateSize(); }catch(e){}
   }
+  _updateEtaPanel(id, st.lastDistance ?? null, st.lastDuration ?? null);
 }
 
 async function _buildTrackingMap(b){
@@ -3925,11 +3967,39 @@ async function _buildTrackingMap(b){
   const marker = L.marker([lat, lng],{ icon:workerIcon }).addTo(map);
 
   /* State exists BEFORE any await so a live update landing mid-flight
-     never races an uninitialised entry, and can always move the marker. */
-  _trkState[b.id] = { map, marker, container:mapEl, customerMarker:null, routeLine:null, initialized:false, lastRouteFetch:0 };
+     never races an uninitialised entry, and can always move the marker.
+     Requirement 6/8: autoFollow starts true; lastWorkerPt tracks the
+     last coordinates a route was actually fetched for. */
+  _trkState[b.id] = { map, marker, container:mapEl, customerMarker:null, routeLine:null, initialized:false, lastRouteFetch:0, autoFollow:true, lastWorkerPt:null };
 
   const msgEl = document.getElementById('trk-eta-'+b.id);
   if(msgEl) msgEl.textContent = '📍 Live worker location';
+
+  /* Requirement 6: Uber-style auto-follow. Any user-initiated drag
+     disables it and reveals a Re-center button; tapping the button
+     re-enables it and pans back to the worker without touching zoom.
+     Attached once here at map creation — never re-attached, so no
+     duplicate listeners accumulate across updates. */
+  const recenterBtn = document.createElement('button');
+  recenterBtn.textContent = '⦿ Re-center';
+  recenterBtn.type = 'button';
+  recenterBtn.style.cssText = 'position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:1000;display:none;background:#111;color:#fff;border:none;border-radius:20px;padding:.4rem .9rem;font-size:.78rem;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer';
+  mapEl.style.position = 'relative';
+  mapEl.appendChild(recenterBtn);
+  _trkState[b.id].recenterBtn = recenterBtn;
+  recenterBtn.addEventListener('click', ()=>{
+    const st = _trkState[b.id];
+    if(!st) return;
+    st.autoFollow = true;
+    recenterBtn.style.display = 'none';
+    map.panTo(st.marker.getLatLng(), { animate:true, duration:0.6 });
+  });
+  map.on('dragstart', ()=>{
+    const st = _trkState[b.id];
+    if(!st) return;
+    st.autoFollow = false;
+    recenterBtn.style.display = 'block';
+  });
 
   setTimeout(()=>{ map.invalidateSize(); }, 50);
 
@@ -4020,17 +4090,20 @@ function updateTrackingMaps(bookingList){
     if(_trkState[b.id]?.map){
       /* Map exists — move marker, never recreate */
       const st = _trkState[b.id];
-      st.marker.setLatLng([lat, lng]);
+      /* Requirement 5: glide, don't jump. Requirement 7: panTo never
+         changes zoom, so the user's zoom level is always preserved. */
+      _animateMarkerTo(st.marker, lat, lng, 900);
+      if(st.autoFollow) st.map.panTo([lat, lng], { animate:true, duration:0.9 });
       if(msgEl) msgEl.textContent = '📍 Live worker location';
-      /* Phase 4.4: refresh the road route on every live GPS fix.
+      /* Phase 4.4/4.7: refresh the road route on every live GPS fix,
+         but _drawOrUpdateRoute now skips the Geoapify call itself if
+         the worker hasn't actually moved (Requirement 8) — this call
+         stays unconditional so the marker/ETA path is untouched.
          Reuses the existing routeLine (setLatLngs only — never
-         recreated) and the existing 8s OSRM throttle already inside
-         _drawOrUpdateRoute (Phase 4.3, untouched). Fire-and-forget:
-         _drawOrUpdateRoute already guards against races if the map is
-         torn down mid-request, and never throws — including when
-         worker and customer coordinates are identical/near-identical,
-         where it silently falls back to a straight line. Customer
-         marker is never moved. */
+         recreated). Fire-and-forget: _drawOrUpdateRoute already
+         guards against races if the map is torn down mid-request,
+         and never draws a straight/dashed fallback. Customer marker
+         is never moved. */
       if(st.customerMarker){
         const c = st.customerMarker.getLatLng();
         _drawOrUpdateRoute(b.id, {lat, lng}, {lat:c.lat, lng:c.lng});

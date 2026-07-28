@@ -1983,11 +1983,40 @@ function _fmtDurationW(s){
   const mins = Math.round(s/60);
   return mins < 1 ? '<1 min' : mins+' min'+(mins===1?'':'s');
 }
+/* Same movement/animation helpers as index.html — ported, not
+   reinvented, since this file has no shared module to import from. */
+function _metersBetweenW(a, b){
+  if(!a || !b) return Infinity;
+  const R = 6371000;
+  const dLat = (b.lat - a.lat) * Math.PI/180;
+  const dLng = (b.lng - a.lng) * Math.PI/180;
+  const s1 = Math.sin(dLat/2)**2 +
+    Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.min(1, Math.sqrt(s1)));
+}
+function _animateMarkerToW(marker, toLat, toLng, duration){
+  if(!marker) return;
+  if(marker._animFrame) cancelAnimationFrame(marker._animFrame);
+  const from = marker.getLatLng();
+  const fromLat = from.lat, fromLng = from.lng;
+  if(fromLat === toLat && fromLng === toLng) return;
+  const start = performance.now();
+  function step(now){
+    const t = Math.min(1, (now - start) / duration);
+    const ease = t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+    marker.setLatLng([fromLat + (toLat-fromLat)*ease, fromLng + (toLng-fromLng)*ease]);
+    marker._animFrame = (t < 1) ? requestAnimationFrame(step) : null;
+  }
+  marker._animFrame = requestAnimationFrame(step);
+}
+
 function _updateEtaPanelW(bkId, distance, duration){
   const distEl = document.getElementById('trkc-dist-'+bkId);
   const timeEl = document.getElementById('trkc-time-'+bkId);
   if(distEl) distEl.textContent = _fmtDistanceW(distance);
   if(timeEl) timeEl.textContent = _fmtDurationW(duration);
+  const st = _trkStateW[bkId];
+  if(st){ st.lastDistance = distance; st.lastDuration = duration; }
 }
 
 /* Same "draw once, then only update points" approach as index.html's
@@ -1998,11 +2027,14 @@ async function _drawOrUpdateRouteW(bkId, workerPt, customerPt){
 
   const now = Date.now();
   const throttled = st.lastRouteFetch && (now - st.lastRouteFetch < 8000);
+  /* Requirement 8: same "worker didn't move" skip as index.html. */
+  const unmoved = st.lastWorkerPt && _metersBetweenW(st.lastWorkerPt, workerPt) < 10;
 
   let latlngs = null;
 
-  if(!throttled){
+  if(!throttled && !unmoved){
     st.lastRouteFetch = now;
+    st.lastWorkerPt = workerPt;
     latlngs = await _fetchRoadRouteW(workerPt, customerPt);
     if(_trkStateW[bkId] !== st || !st.map) return;
 
@@ -2038,6 +2070,7 @@ function _reattachTrackCustomerDom(id){
     slot.appendChild(st.container);
     try{ st.map.invalidateSize(); }catch(e){}
   }
+  _updateEtaPanelW(id, st.lastDistance ?? null, st.lastDuration ?? null);
 }
 
 function toggleTrackCustomer(bkId){
@@ -2129,7 +2162,9 @@ async function _buildCustomerTrackMap(b){
   const workerMarker   = L.marker([wLat, wLng], { icon:workerIcon }).addTo(map);
   const customerMarker = L.marker([customer.lat, customer.lng], { icon:customerIcon }).addTo(map);
 
-  _trkStateW[b.id] = { map, workerMarker, customerMarker, container:mapEl, routeLine:null, initialized:false, lastRouteFetch:0 };
+  /* Requirement 6/8: same autoFollow + lastWorkerPt fields as
+     index.html's _trkState. */
+  _trkStateW[b.id] = { map, workerMarker, customerMarker, container:mapEl, routeLine:null, initialized:false, lastRouteFetch:0, autoFollow:true, lastWorkerPt:null };
 
   /* Phase 4.7: same destination building name the customer sees on
      their side, resolved once from the same customer_lat/customer_lng
@@ -2138,6 +2173,29 @@ async function _buildCustomerTrackMap(b){
     const bEl = document.getElementById('trkc-building-'+b.id);
     if(bEl) bEl.textContent = name ? '🏠 '+name : '';
   }).catch(()=>{});
+
+  /* Requirement 6: same auto-follow / Re-center button as index.html,
+     attached once at map creation — never duplicated. */
+  const recenterBtnW = document.createElement('button');
+  recenterBtnW.textContent = '⦿ Re-center';
+  recenterBtnW.type = 'button';
+  recenterBtnW.style.cssText = 'position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:1000;display:none;background:#111;color:#fff;border:none;border-radius:20px;padding:.4rem .9rem;font-size:.78rem;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer';
+  mapEl.style.position = 'relative';
+  mapEl.appendChild(recenterBtnW);
+  _trkStateW[b.id].recenterBtn = recenterBtnW;
+  recenterBtnW.addEventListener('click', ()=>{
+    const st = _trkStateW[b.id];
+    if(!st) return;
+    st.autoFollow = true;
+    recenterBtnW.style.display = 'none';
+    map.panTo(st.workerMarker.getLatLng(), { animate:true, duration:0.6 });
+  });
+  map.on('dragstart', ()=>{
+    const st = _trkStateW[b.id];
+    if(!st) return;
+    st.autoFollow = false;
+    recenterBtnW.style.display = 'block';
+  });
 
   if(msgEl) msgEl.textContent = '📍 Live tracking';
   setTimeout(()=>{ map.invalidateSize(); }, 50);
@@ -2181,14 +2239,18 @@ function updateCustomerTrackMaps(bookingList){
 
     if(_trkStateW[b.id]?.map){
       const st = _trkStateW[b.id];
-      st.workerMarker.setLatLng([wLat, wLng]);
+      /* Requirement 5: glide, don't jump. Requirement 7: panTo never
+         changes zoom. */
+      _animateMarkerToW(st.workerMarker, wLat, wLng, 900);
+      if(st.autoFollow) st.map.panTo([wLat, wLng], { animate:true, duration:0.9 });
       if(msgEl) msgEl.textContent = '📍 Live tracking';
-      /* Phase 4.4: refresh the road route on every live GPS fix, same
-         approach as index.html. Reuses the existing routeLine and its
-         8s OSRM throttle inside _drawOrUpdateRouteW (Phase 4.3,
-         untouched). Handles identical/near-identical coordinates the
-         same way — no throw, straight-line fallback. Customer marker
-         is never moved — only this worker's own marker and the route. */
+      /* Phase 4.4/4.7: refresh the road route on every live GPS fix,
+         same approach as index.html. _drawOrUpdateRouteW now skips
+         the Geoapify call itself if the worker hasn't moved
+         (Requirement 8) — this call stays unconditional so the
+         marker/ETA path is untouched. Never draws a straight/dashed
+         fallback. Customer marker is never moved — only this
+         worker's own marker and the route. */
       if(st.customerMarker){
         const c = st.customerMarker.getLatLng();
         _drawOrUpdateRouteW(b.id, {lat:wLat, lng:wLng}, {lat:c.lat, lng:c.lng});
@@ -2210,6 +2272,7 @@ function updateCustomerTrackMaps(bookingList){
 function _destroyCustomerTrackMap(bkId){
   const st = _trkStateW[bkId];
   if(!st) return;
+  if(st.workerMarker?._animFrame) cancelAnimationFrame(st.workerMarker._animFrame);
   try{ if(st.map) st.map.remove(); }catch(e){}
   delete _trkStateW[bkId];
 }
