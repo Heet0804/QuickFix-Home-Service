@@ -384,7 +384,7 @@ Live Worker Movement (watchPosition + Live Route Refresh)
 v4.5
 Live ETA & Distance Remaining
 
-v4.6
+v4.6  
 Permanent Customer Location Pinning
 
 v4.7
