@@ -668,6 +668,9 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
    ════════════════════════════════════════════════════════════ */
 const SUPABASE_URL='https://oycurbgzzgfzilpflwks.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95Y3VyYmd6emdmemlscGZsd2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjkwMDMsImV4cCI6MjA5MzIwNTAwM30.B9KujxSHzhzpKM_IhVvpTqImVPjF4Yrv3RKn6mgtqxg';
+/* Phase 4.7: same constant name/value as index.html — one reusable
+   Geoapify key for reverse geocoding + routing on this dashboard. */
+const GEOAPIFY_API_KEY = "a89cdf24c2ae454585c82225c630f28c";
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
   auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}
 });
@@ -1149,11 +1152,12 @@ function renderJobCard(b){
      index.html's Track Worker panel; content is built lazily by
      toggleTrackCustomer() the first time it's opened. */
   const trackCustomerHtml = b.status==='Accepted' ? `
-        <button class="trk-toggle" id="trkc-btn-${b.id}" onclick="toggleTrackCustomer('${b.id}')">📍 Track Customer <span class="trk-arr">▼</span></button>
+         <button class="trk-toggle" id="trkc-btn-${b.id}" onclick="toggleTrackCustomer('${b.id}')">📍 Track Customer <span class="trk-arr">▼</span></button>
         <div class="trk-wrap" id="trkc-wrap-${b.id}">
           <div class="trk-body">
             <div class="trk-map" id="trkc-slot-${b.id}"></div>
             <div class="trk-meta" id="trkc-meta-${b.id}"><span class="trk-dot"></span><span id="trkc-eta-${b.id}">Waiting for your location...</span></div>
+            <div id="trkc-building-${b.id}" style="font-size:.78rem;font-weight:600;color:var(--teal,#2f9e5c);text-align:center;margin-top:.3rem"></div>
             <div class="trk-eta-panel" id="trkc-etapanel-${b.id}" style="display:flex;gap:1.5rem;justify-content:center;margin-top:.5rem;font-size:.85rem;color:var(--text2,#666)">
               <span>🚗 Distance to Customer<br><b id="trkc-dist-${b.id}">--</b></span>
               <span>⏱ ETA<br><b id="trkc-time-${b.id}">--</b></span>
@@ -1914,6 +1918,18 @@ async function _loadAreasW(){
   return _AREAS_CACHE_W;
 }
 
+/* Phase 4.7: same reverse-geocoding call as index.html's
+   _geoapifyReverseGeocode, ported here since this file has no shared
+   module to import from. Same field preference order, same key. */
+async function _geoapifyReverseGeocodeW(lat, lng){
+  const url = `https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lng}&apiKey=${GEOAPIFY_API_KEY}`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('Geoapify reverse geocode HTTP '+res.status);
+  const data = await res.json();
+  const p = data?.features?.[0]?.properties || {};
+  return p.building || p.amenity || p.name || p.housename || p.street || p.suburb || p.locality || null;
+}
+
 /* Same resolution order as index.html's _resolveCustomerLatLng:
    exact GPS captured at booking time first, area centroid fallback. */
 async function _resolveCustomerLatLngW(b){
@@ -1928,29 +1944,28 @@ async function _resolveCustomerLatLngW(b){
   return { lat:Number(area.lat), lng:Number(area.lng) };
 }
 
-/* Same OSRM call/fallback as index.html's _fetchRoadRoute. */
+/* Phase 4.7: Geoapify Routing API road route — replaces OSRM, same
+   contract as index.html's _fetchRoadRoute so both dashboards render
+   the identical road-following route for the same two points. */
 async function _fetchRoadRouteW(from, to){
   try{
-    const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+    const url = `https://api.geoapify.com/v1/routing?waypoints=${from.lat},${from.lng}|${to.lat},${to.lng}&mode=drive&apiKey=${GEOAPIFY_API_KEY}`;
     const res = await fetch(url);
-    if(!res.ok) throw new Error('OSRM HTTP '+res.status);
+    if(!res.ok) throw new Error('Geoapify routing HTTP '+res.status);
     const data = await res.json();
-    const route = data?.routes?.[0];
-    const coords = route?.geometry?.coordinates;
-    if(!Array.isArray(coords) || !coords.length) throw new Error('OSRM: empty route');
+    const feature = data?.features?.[0];
+    const geom = feature?.geometry;
+    const coordArrays = geom?.type === 'MultiLineString' ? geom.coordinates
+      : geom?.type === 'LineString' ? [geom.coordinates]
+      : null;
+    if(!coordArrays || !coordArrays.length) throw new Error('Geoapify routing: empty route');
+    const coords = coordArrays.flat();
+    if(!coords.length) throw new Error('Geoapify routing: empty coordinates');
     const latlngs = coords.map(([lng,lat])=>[lat,lng]);
-    /* Phase 4.5: same attach-not-replace approach as index.html —
-       return contract unchanged, extra properties on the same array. */
     Object.defineProperties(latlngs, {
-  distance: {
-    value: route.distance ?? null,
-    enumerable: false
-  },
-  duration: {
-    value: route.duration ?? null,
-    enumerable: false
-  }
-});
+      distance: { value: feature.properties?.distance ?? null, enumerable: false },
+      duration: { value: feature.properties?.time ?? null, enumerable: false }
+    });
     return latlngs;
   }catch(e){
     return null;
@@ -1995,19 +2010,19 @@ async function _drawOrUpdateRouteW(bkId, workerPt, customerPt){
     _updateEtaPanelW(bkId, latlngs?.distance ?? null, latlngs?.duration ?? null);
   }
 
-  if(!latlngs){
-    latlngs = [
-      [workerPt.lat, workerPt.lng],
-      [customerPt.lat, customerPt.lng]
-    ];
-  }
+  /* Phase 4.7: no straight-line/dashed fallback — same rule as
+     index.html. Keep the existing road route on screen if this
+     cycle's Geoapify call failed, rather than ever drawing a
+     straight or dashed line. */
+  if(!latlngs) return;
 
   if(!st.routeLine){
     st.routeLine = L.polyline(latlngs, {
       color: '#2563eb',
       weight: 4,
       opacity: 0.85,
-      dashArray: latlngs.length === 2 ? '6,8' : null
+      lineCap: 'round',
+      lineJoin: 'round'
     }).addTo(st.map);
   } else {
     st.routeLine.setLatLngs(latlngs);
@@ -2115,6 +2130,14 @@ async function _buildCustomerTrackMap(b){
   const customerMarker = L.marker([customer.lat, customer.lng], { icon:customerIcon }).addTo(map);
 
   _trkStateW[b.id] = { map, workerMarker, customerMarker, container:mapEl, routeLine:null, initialized:false, lastRouteFetch:0 };
+
+  /* Phase 4.7: same destination building name the customer sees on
+     their side, resolved once from the same customer_lat/customer_lng
+     via the same Geoapify key — never re-run since the pin is fixed. */
+  _geoapifyReverseGeocodeW(customer.lat, customer.lng).then(name=>{
+    const bEl = document.getElementById('trkc-building-'+b.id);
+    if(bEl) bEl.textContent = name ? '🏠 '+name : '';
+  }).catch(()=>{});
 
   if(msgEl) msgEl.textContent = '📍 Live tracking';
   setTimeout(()=>{ map.invalidateSize(); }, 50);

@@ -785,6 +785,10 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
     <h2>Pin Your Exact Building Location</h2>
     <p style="font-size:.875rem;color:var(--text2)">Drag the marker, or tap the map, to place it exactly on your building.</p>
     <div id="pinMapEl" style="width:100%;height:320px;border-radius:var(--radius-sm);overflow:hidden;margin:.75rem 0"></div>
+    <!-- Phase 4.7: reverse-geocoded building name, resolved via Geoapify
+         after the user pins/drags the marker. Starts as the static
+         placeholder, replaced with the resolved name once available. -->
+    <p id="pinBuildingName" style="font-size:.85rem;font-weight:600;color:var(--teal,#2f9e5c);margin:0 0 .5rem">Pin your exact building location</p>
     <button class="btn bp bfull blg" id="confirmPinBtn">Confirm Location</button>
   </div>
 </div>
@@ -1191,6 +1195,11 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
 /* ── SUPABASE ── */
 const SUPABASE_URL='https://oycurbgzzgfzilpflwks.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95Y3VyYmd6emdmemlscGZsd2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjkwMDMsImV4cCI6MjA5MzIwNTAwM30.B9KujxSHzhzpKM_IhVvpTqImVPjF4Yrv3RKn6mgtqxg';
+/* Phase 4.7: single reusable Geoapify key — used for reverse
+   geocoding (building names) and routing. Same constant name/value
+   must exist in worker-dashboard.html. Never hardcode the key
+   anywhere else in either file. */
+const GEOAPIFY_API_KEY = "a89cdf24c2ae454585c82225c630f28c";
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
   auth:{
     persistSession:true,
@@ -2913,6 +2922,41 @@ async function geocodeAddress(cleanedAddr){
   return null;
 } 
 
+/* ── PHASE 4.7: GEOAPIFY REVERSE GEOCODING ───────────────────
+   Resolves a lat/lng picked on the pin map to a human-readable
+   building/society name. Field preference order per spec: building
+   is always shown first if present, then amenity, name, housename,
+   street, suburb, locality. Read-only lookup — never writes
+   anything, never touches pendBk or Supabase. */
+async function _geoapifyReverseGeocode(lat, lng){
+  const url = `https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lng}&apiKey=${GEOAPIFY_API_KEY}`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('Geoapify reverse geocode HTTP '+res.status);
+  const data = await res.json();
+  const p = data?.features?.[0]?.properties || {};
+  return p.building || p.amenity || p.name || p.housename || p.street || p.suburb || p.locality || null;
+}
+
+/* Updates the pin picker's building-name line. Debounced by the
+   caller's own event (click/dragend), guarded with a sequence number
+   so a slow response from an earlier move never overwrites a newer
+   one. Display-only — same guarantee as before: only confirmPinBtn's
+   handler ever writes to pendBk/Supabase. */
+let _pinBuildingSeq = 0;
+async function _updatePinBuildingName(lat, lng){
+  const mySeq = ++_pinBuildingSeq;
+  const el = document.getElementById('pinBuildingName');
+  if(el) el.textContent = 'Locating building…';
+  try{
+    const name = await _geoapifyReverseGeocode(lat, lng);
+    if(mySeq !== _pinBuildingSeq) return;
+    if(el) el.textContent = name || 'Pin your exact building location';
+  }catch(e){
+    if(mySeq !== _pinBuildingSeq) return;
+    if(el) el.textContent = 'Pin your exact building location';
+  }
+}
+
 /* ── PHASE 4.6: PERMANENT CUSTOMER LOCATION PINNING ──────────
    Exact-string match against users.saved_address decides whether to
    offer reuse or go straight to the map picker. Nothing here touches
@@ -2960,13 +3004,26 @@ function _openPinPicker(addr, areaId, geo, saved){
   const startLat = geo?.lat ?? saved?.saved_lat;
   const startLng = geo?.lng ?? saved?.saved_lng;
 
+  const buildingEl = document.getElementById('pinBuildingName');
+  if(buildingEl) buildingEl.textContent = 'Pin your exact building location';
+
   setTimeout(()=>{
     const mapEl = document.getElementById('pinMapEl');
     if(_pinMap){ _pinMap.remove(); _pinMap = null; }
     _pinMap = L.map(mapEl, { zoomControl:true, attributionControl:false }).setView([startLat, startLng], 17);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(_pinMap);
     _pinMarker = L.marker([startLat, startLng], { draggable:true }).addTo(_pinMap);
-    _pinMap.on('click', (ev)=>{ _pinMarker.setLatLng(ev.latlng); });
+    /* Phase 4.7: reverse-geocode on every manual placement — tap and
+       drag both count as "pinning" per spec, so the building name
+       updates whenever the marker moves. */
+    _pinMarker.on('dragend', ()=>{
+      const ll = _pinMarker.getLatLng();
+      _updatePinBuildingName(ll.lat, ll.lng);
+    });
+    _pinMap.on('click', (ev)=>{
+      _pinMarker.setLatLng(ev.latlng);
+      _updatePinBuildingName(ev.latlng.lat, ev.latlng.lng);
+    });
     setTimeout(()=>{ _pinMap.invalidateSize(); }, 50);
   }, 30);
 
@@ -3696,34 +3753,31 @@ async function _resolveCustomerLatLng(b){
   return { lat:Number(area.lat), lng:Number(area.lng) };
 }
 
-/* OSRM road route. Returns an array of [lat,lng] pairs, or null on
-   any failure — caller always has a straight-line fallback ready. */
+/* Phase 4.7: Geoapify Routing API road route — replaces OSRM.
+   Returns an array of [lat,lng] pairs following actual roads/turns/
+   junctions, or null on any failure. distance (m) / duration (s) are
+   attached as non-enumerable extra properties on the SAME array, so
+   the return contract callers rely on (array of [lat,lng] pairs, or
+   null) is unchanged. */
 async function _fetchRoadRoute(from, to){
   try{
-    const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+    const url = `https://api.geoapify.com/v1/routing?waypoints=${from.lat},${from.lng}|${to.lat},${to.lng}&mode=drive&apiKey=${GEOAPIFY_API_KEY}`;
     const res = await fetch(url);
-    if(!res.ok) throw new Error('OSRM HTTP '+res.status);
+    if(!res.ok) throw new Error('Geoapify routing HTTP '+res.status);
     const data = await res.json();
-    const route = data?.routes?.[0];
-    const coords = route?.geometry?.coordinates;
-    if(!Array.isArray(coords) || !coords.length) throw new Error('OSRM: empty route');
+    const feature = data?.features?.[0];
+    const geom = feature?.geometry;
+    const coordArrays = geom?.type === 'MultiLineString' ? geom.coordinates
+      : geom?.type === 'LineString' ? [geom.coordinates]
+      : null;
+    if(!coordArrays || !coordArrays.length) throw new Error('Geoapify routing: empty route');
+    const coords = coordArrays.flat();
+    if(!coords.length) throw new Error('Geoapify routing: empty coordinates');
     const latlngs = coords.map(([lng,lat])=>[lat,lng]);
-    /* Phase 4.5: distance (m) / duration (s) attached as extra
-       properties on this SAME array — the return contract stays
-       exactly what Phase 4.3 callers expect: an array of [lat,lng]
-       pairs, or null. .length, .map(), Array.isArray(), spread, and
-       L.polyline(latlngs) are all unaffected. Any caller unaware of
-       Phase 4.5 sees no difference at all. */
     Object.defineProperties(latlngs, {
-  distance: {
-    value: route.distance ?? null,
-    enumerable: false
-  },
-  duration: {
-    value: route.duration ?? null,
-    enumerable: false
-  }
-});
+      distance: { value: feature.properties?.distance ?? null, enumerable: false },
+      duration: { value: feature.properties?.time ?? null, enumerable: false }
+    });
     return latlngs;
   }catch(e){
     return null;
@@ -3776,13 +3830,11 @@ async function _drawOrUpdateRoute(bkId, workerPt, customerPt){
     _updateEtaPanel(bkId, latlngs?.distance ?? null, latlngs?.duration ?? null);
   }
 
-  // fallback straight line
-  if(!latlngs){
-    latlngs = [
-      [workerPt.lat, workerPt.lng],
-      [customerPt.lat, customerPt.lng]
-    ];
-  }
+  /* Phase 4.7: no straight-line/dashed fallback. If Geoapify routing
+     failed this cycle, keep whatever road route is already on the
+     map (or draw nothing yet) rather than ever rendering a straight
+     or dashed line. */
+  if(!latlngs) return;
 
   const isNewLine = !st.routeLine;
 
@@ -3791,7 +3843,8 @@ async function _drawOrUpdateRoute(bkId, workerPt, customerPt){
       color: '#2563eb',
       weight: 4,
       opacity: 0.85,
-      dashArray: latlngs.length === 2 ? '6,8' : null
+      lineCap: 'round',
+      lineJoin: 'round'
     }).addTo(st.map);
   } else {
     // IMPORTANT: ONLY update geometry, no style mutation
@@ -3910,6 +3963,15 @@ async function _buildTrackingMap(b){
     });
     const customerMarker = L.marker([customer.lat, customer.lng], { icon:customerIcon }).addTo(map);
     _trkState[b.id].customerMarker = customerMarker;
+
+    /* Phase 4.7: destination building name — resolved once via the
+       same Geoapify reverse-geocoding call used in the pin picker,
+       against the same stored customer_lat/customer_lng. The pin
+       is fixed once confirmed, so this never needs to re-run. */
+    _geoapifyReverseGeocode(customer.lat, customer.lng).then(name=>{
+      const bEl = document.getElementById('trk-building-'+b.id);
+      if(bEl) bEl.textContent = name ? '🏠 '+name : '';
+    }).catch(()=>{});
 
     await _drawOrUpdateRoute(b.id, {lat,lng}, customer);
     if(_trkState[b.id]?.map !== map) return; /* torn down while awaiting */
@@ -4099,11 +4161,12 @@ const cancelBtn=canCancel
         <button class="tl-toggle" id="tl-btn-${b.id}" onclick="toggleTimeline('${b.id}')">▼ View Timeline <span class="tl-arr">▼</span></button>
         <div class="tl-wrap" id="tl-wrap-${b.id}">${buildTimeline(b)}</div>
         ${['Accepted','Worker on Way'].includes(b.status)?`
-        <button class="trk-toggle" id="trk-btn-${b.id}" onclick="toggleTracking('${b.id}')">📍 Track Worker <span class="trk-arr">▼</span></button>
+         <button class="trk-toggle" id="trk-btn-${b.id}" onclick="toggleTracking('${b.id}')">📍 Track Worker <span class="trk-arr">▼</span></button>
         <div class="trk-wrap" id="trk-wrap-${b.id}">
           <div class="trk-body">
             <div class="trk-map" id="trk-slot-${b.id}"></div>
             <div class="trk-meta" id="trk-meta-${b.id}"><span class="trk-dot"></span><span id="trk-eta-${b.id}">Waiting for worker location...</span></div>
+            <div id="trk-building-${b.id}" style="font-size:.78rem;font-weight:600;color:var(--teal,#2f9e5c);text-align:center;margin-top:.3rem"></div>
             <div class="trk-eta-panel" id="trk-etapanel-${b.id}" style="display:flex;gap:1.5rem;justify-content:center;margin-top:.5rem;font-size:.85rem;color:var(--text2,#666)">
               <span>🚗 Distance Remaining<br><b id="trk-dist-${b.id}">--</b></span>
               <span>⏱ ETA<br><b id="trk-time-${b.id}">--</b></span>
