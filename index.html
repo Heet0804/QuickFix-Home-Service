@@ -785,10 +785,6 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
     <h2>Pin Your Exact Building Location</h2>
     <p style="font-size:.875rem;color:var(--text2)">Drag the marker, or tap the map, to place it exactly on your building.</p>
     <div id="pinMapEl" style="width:100%;height:320px;border-radius:var(--radius-sm);overflow:hidden;margin:.75rem 0"></div>
-    <!-- Phase 4.7: reverse-geocoded building name, resolved via Geoapify
-         after the user pins/drags the marker. Starts as the static
-         placeholder, replaced with the resolved name once available. -->
-    <p id="pinBuildingName" style="font-size:.85rem;font-weight:600;color:var(--teal,#2f9e5c);margin:0 0 .5rem">Pin your exact building location</p>
     <button class="btn bp bfull blg" id="confirmPinBtn">Confirm Location</button>
   </div>
 </div>
@@ -2937,25 +2933,7 @@ async function _geoapifyReverseGeocode(lat, lng){
   return p.building || p.amenity || p.name || p.housename || p.street || p.suburb || p.locality || null;
 }
 
-/* Updates the pin picker's building-name line. Debounced by the
-   caller's own event (click/dragend), guarded with a sequence number
-   so a slow response from an earlier move never overwrites a newer
-   one. Display-only — same guarantee as before: only confirmPinBtn's
-   handler ever writes to pendBk/Supabase. */
-let _pinBuildingSeq = 0;
-async function _updatePinBuildingName(lat, lng){
-  const mySeq = ++_pinBuildingSeq;
-  const el = document.getElementById('pinBuildingName');
-  if(el) el.textContent = 'Locating building…';
-  try{
-    const name = await _geoapifyReverseGeocode(lat, lng);
-    if(mySeq !== _pinBuildingSeq) return;
-    if(el) el.textContent = name || 'Pin your exact building location';
-  }catch(e){
-    if(mySeq !== _pinBuildingSeq) return;
-    if(el) el.textContent = 'Pin your exact building location';
-  }
-}
+
 
 /* ── PHASE 4.6: PERMANENT CUSTOMER LOCATION PINNING ──────────
    Exact-string match against users.saved_address decides whether to
@@ -3004,25 +2982,17 @@ function _openPinPicker(addr, areaId, geo, saved){
   const startLat = geo?.lat ?? saved?.saved_lat;
   const startLng = geo?.lng ?? saved?.saved_lng;
 
-  const buildingEl = document.getElementById('pinBuildingName');
-  if(buildingEl) buildingEl.textContent = 'Pin your exact building location';
-
   setTimeout(()=>{
     const mapEl = document.getElementById('pinMapEl');
     if(_pinMap){ _pinMap.remove(); _pinMap = null; }
     _pinMap = L.map(mapEl, { zoomControl:true, attributionControl:false }).setView([startLat, startLng], 17);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(_pinMap);
     _pinMarker = L.marker([startLat, startLng], { draggable:true }).addTo(_pinMap);
-    /* Phase 4.7: reverse-geocode on every manual placement — tap and
-       drag both count as "pinning" per spec, so the building name
-       updates whenever the marker moves. */
     _pinMarker.on('dragend', ()=>{
       const ll = _pinMarker.getLatLng();
-      _updatePinBuildingName(ll.lat, ll.lng);
     });
     _pinMap.on('click', (ev)=>{
       _pinMarker.setLatLng(ev.latlng);
-      _updatePinBuildingName(ev.latlng.lat, ev.latlng.lng);
     });
     setTimeout(()=>{ _pinMap.invalidateSize(); }, 50);
   }, 30);
