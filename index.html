@@ -579,9 +579,12 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
     <div class="csec">
       <div class="cst">🔒 Change Password</div>
       <div id="acctPwMsg"></div>
-      <div class="fg"><label class="flabel">New Password</label><input type="password" class="finput" id="acctNewPw" placeholder="At least 6 characters"/></div>
-      <div class="fg"><label class="flabel">Confirm Password</label><input type="password" class="finput" id="acctConfirmPw" placeholder="Re-enter new password"/></div>
-      <button class="btn bp" onclick="changeAccountPassword()">Update Password</button>
+      <form onsubmit="return false" autocomplete="off">
+        <input type="text" id="acctUsername" autocomplete="username" style="display:none" readonly/>
+        <div class="fg"><label class="flabel">New Password</label><input type="password" class="finput" id="acctNewPw" placeholder="At least 6 characters" autocomplete="new-password"/></div>
+        <div class="fg"><label class="flabel">Confirm Password</label><input type="password" class="finput" id="acctConfirmPw" placeholder="Re-enter new password" autocomplete="new-password"/></div>
+        <button type="button" class="btn bp" onclick="changeAccountPassword()">Update Password</button>
+      </form>
     </div>
   </div>
 </div>
@@ -2577,6 +2580,8 @@ async function renderAccount(){
       <div><strong>Phone:</strong> ${u.phone||'—'}</div>
       <div><strong>Saved Address:</strong> ${u.saved_address||'—'}</div>`;
   }
+  const acctUsernameEl=document.getElementById('acctUsername');
+  if(acctUsernameEl) acctUsernameEl.value = u?.email || session.user.email || ''; 
 
   const bc=document.getElementById('acctBookings');
   const all=await DB.bookings();
