@@ -55,6 +55,8 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);position:sti
 .clock.em .ctm{color:var(--emerg)}
 .hbg{display:none;background:none;border:none;cursor:pointer;flex-direction:column;gap:4px;padding:4px}
 .hbg span{display:block;width:22px;height:2px;background:var(--text);border-radius:2px}
+.nav-overlay{display:none;position:fixed;inset:0;background:rgba(20,12,4,.45);z-index:498;opacity:0;pointer-events:none;transition:opacity .28s ease}
+.nav-close{display:none;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--surface3);border:1px solid var(--border);font-size:1.1rem;cursor:pointer;align-self:flex-end;margin-bottom:.5rem;color:var(--text2);flex-shrink:0}
 
 .page{display:none;animation:fadeUp .3s ease;width:100%;flex:1;overflow-y:auto}.page.on{display:flex;flex-direction:column}
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
@@ -361,13 +363,24 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);position:sti
 footer{background:var(--text);color:rgba(255,255,255,.55);text-align:center;padding:1.4rem;font-size:.79rem;flex-shrink:0}
 footer strong{color:#fff;font-family:'Sora',sans-serif}
 
-@media(max-width:860px){
-  .navlinks{display:none;flex-direction:column;position:absolute;top:60px;left:0;right:0;background:var(--surface);border-bottom:1px solid var(--border);padding:.875rem;gap:3px;z-index:299}
-  .navlinks.open{display:flex}.hbg{display:flex}
-  .clock{font-size:.7rem;padding:4px 9px}
+@media(max-width:1023px){
+  .navlinks{display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;background:var(--surface);gap:3px;z-index:499;width:78vw;max-width:300px;padding:1.25rem 1rem 2rem;overflow-y:auto;white-space:normal;transform:translateX(-100%);transition:transform .32s cubic-bezier(.4,0,.2,1);box-shadow:0 0 40px rgba(0,0,0,.25)}
+  .navlinks.open{transform:translateX(0)}
+  .nav-overlay{display:block}
+  .nav-overlay.on{opacity:1;pointer-events:auto}
+  .nav-close{display:flex}
+  .hbg{display:flex}
+  nav{padding:0 .75rem}
+  .clock{font-size:.68rem;padding:4px 8px;gap:4px}
+  .clock span:last-child{display:none}
+  .lgmk{width:30px;height:30px;font-size:.9rem}
+  .lgtx{font-size:1.05rem}
   /* Touch-friendly nav items */
   .nl{min-height:44px;display:inline-flex;align-items:center}
-  /* Worker grid: prevent cards forcing horizontal scroll on tablets */
+}
+@media(max-width:860px){
+  /* Worker grid: prevent cards forcing horizontal scroll on tablets — kept at its
+     original breakpoint, unrelated to the nav drawer's breakpoint above */
   .wgrid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
 }
 @media(max-width:640px){
@@ -431,9 +444,12 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
 
 <nav>
   <div class="navi">
+    <button class="hbg" onclick="toggleMenu()"><span></span><span></span><span></span></button>
     <div class="logo" onclick="goPage('home')"><div class="lgmk">Q</div><span class="lgtx">Quick<span>Fix</span></span></div>
+    <div class="nav-overlay" id="navOverlay" onclick="toggleMenu()"></div>
     <div class="navlinks" id="navLinks">
-      <a class="nl" href="landing.html" style="text-decoration:none;display:inline-block;padding:7px 13px;border-radius:var(--radius-sm);font-size:.85rem;font-weight:500;color:var(--text2);transition:var(--tr)">← Back to Home</a>
+      <button class="nav-close" onclick="toggleMenu()" aria-label="Close menu">✕</button>
+      <a class="nl" href="landing.html" style="text-decoration:none;display:inline-block;white-space:nowrap;padding:7px 13px;border-radius:var(--radius-sm);font-size:.85rem;font-weight:500;color:var(--text2);transition:var(--tr)">← Back to Home</a>
       <button class="nl on" onclick="goPage('home')" data-pg="home">Home</button>
       <button class="nl" onclick="goPage('services')" data-pg="services">Services</button>
       <button class="nl" onclick="goPage('bookings')" data-pg="bookings">My Bookings</button>
@@ -446,7 +462,6 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
     </div>
     <div style="display:flex;align-items:center;gap:10px">
       <div class="clock" id="istClock"><div class="cdot"></div><span class="ctm" id="istTime">--:-- --</span><span style="color:var(--text3);font-size:.68rem">IST</span></div>
-      <button class="hbg" onclick="toggleMenu()"><span></span><span></span><span></span></button>
     </div>
   </div>
 </nav>
@@ -2318,7 +2333,18 @@ function goPage(id){
 }, 2000);
   }
 }
-function toggleMenu(){ document.getElementById('navLinks').classList.toggle('open'); }
+function toggleMenu(){
+  document.getElementById('navLinks').classList.toggle('open');
+  document.getElementById('navOverlay').classList.toggle('on');
+}
+// Responsive-only addition: close the mobile hamburger menu after a nav item is tapped.
+// Does not alter navigation behavior, IDs, or any existing handler — purely closes the panel.
+document.querySelectorAll('#navLinks a, #navLinks button').forEach(function(el){
+  el.addEventListener('click', function(){
+    document.getElementById('navLinks').classList.remove('open');
+    document.getElementById('navOverlay').classList.remove('on');
+  });
+});
 function goBack(){ sst.catId?goPage('smart'):goPage('services'); }
 function doSearch(){ filters.search=document.getElementById('homeSearch').value; document.getElementById('svcSearch').value=filters.search; goPage('services'); }
 
