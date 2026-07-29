@@ -2859,11 +2859,8 @@ function addressMatchesArea(localityOrAddr, areaName){
    specific, most likely-unrecognized) segment dropped, one at a
    time, until it finds a match or runs out of segments. */
 async function geocodeAddress(cleanedAddr){
-  console.log('[geocode] 5. cleaned address sent to geocoder:', cleanedAddr);
-
   async function tryQuery(q){
     const url=`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=in&addressdetails=1&q=${encodeURIComponent(q)}`;
-    console.log('[geocode] 2. full request URL:', url);
     let res;
     try{
       res=await fetch(url,{headers:{'Accept':'application/json'}});
@@ -2871,9 +2868,7 @@ async function geocodeAddress(cleanedAddr){
       console.error('[geocode] 4. fetch failed before a response was received (network/CORS block):', networkErr);
       return null;
     }
-    console.log('[geocode] 4. response status:', res.status, res.ok);
     const rawText=await res.text();
-    console.log('[geocode] 3. raw response body:', rawText);
     if(!res.ok){
       console.error('[geocode] request rejected by Nominatim, status', res.status);
       return null;
@@ -2885,7 +2880,6 @@ async function geocodeAddress(cleanedAddr){
       console.error('[geocode] response was not valid JSON:', parseErr);
       return null;
     }
-    console.log('[geocode] 3. parsed response:', data);
     if(!Array.isArray(data)||!data.length) return null;
     const lat=parseFloat(data[0].lat), lng=parseFloat(data[0].lon);
     if(!isFinite(lat)||!isFinite(lng)){
@@ -2903,14 +2897,12 @@ async function geocodeAddress(cleanedAddr){
        matches correctly against any one of these fields. */
     const locality=[a.neighbourhood,a.suburb,a.locality,a.city_district,a.quarter,a.city]
       .filter(Boolean).join(' ');
-    console.log('[geocode] 5. resolved locality field(s):', locality);
     return {lat,lng,locality: locality || null};
   }
 
   const parts=cleanedAddr.split(',').map(p=>p.trim()).filter(Boolean);
   for(let i=0;i<Math.max(parts.length-1,1);i++){
     const attempt=parts.slice(i).join(', ');
-    console.log(`[geocode] attempt ${i+1}/${parts.length-1||1}, query:`, attempt);
     const result=await tryQuery(attempt);
     if(result) return result;
   }
@@ -3483,9 +3475,6 @@ async function onAccepted(){
           </div>
         </div>
       `;
-
-    console.log('SHOWING CONFIRM MODAL');
-    console.log(bk);
 
     document.getElementById('confirmModal').classList.add('on');
 
