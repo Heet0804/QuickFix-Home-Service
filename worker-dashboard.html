@@ -1313,6 +1313,10 @@ async function confirmCancelAccepted(){
   }
 
   showToast('Booking cancelled.');
+  /* 4.9.6: the only other way a tracked booking leaves the active
+     status set (besides Arrival, which already calls this). Without
+     it, cancelling while Track Customer is open leaks the map. */
+  _destroyCustomerTrackMap(id);
   await loadBookings();
 }
 

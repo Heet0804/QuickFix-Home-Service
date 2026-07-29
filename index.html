@@ -3723,7 +3723,6 @@ function toggleTracking(bkId){
       } else {
         const fresh = normalizeBookings(await DB.bookings());
         const booking = fresh.find(b => String(b.id) === String(bkId));
-        console.log("TRACK DEBUG", { bkId, booking, allIds: fresh.map(x=>x.id) });
         _buildTrackingMap(booking);
       }
     })();
@@ -3907,6 +3906,17 @@ function _reattachTrackingDom(id){
   _updateEtaPanel(id, st.lastDistance ?? null, st.lastDuration ?? null);
 }
 
+/* 4.9.6: tear down a tracking map instance — Leaflet map, in-flight
+   marker animation frame, and stored state. index.html currently has
+   no function that ever removes a _trkState entry. */
+function _destroyTrackingMap(bkId){
+  const st = _trkState[bkId];
+  if(!st) return;
+  if(st.marker?._animFrame) cancelAnimationFrame(st.marker._animFrame);
+  try{ if(st.map) st.map.remove(); }catch(e){}
+  delete _trkState[bkId];
+}
+
 async function _buildTrackingMap(b){
   if(!b) return;
 
@@ -3925,13 +3935,7 @@ async function _buildTrackingMap(b){
   }
   const lat = b.worker_live_lat != null ? Number(b.worker_live_lat) : null;
   const lng = b.worker_live_lng != null ? Number(b.worker_live_lng) : null;
-  console.log("MAP COORD DEBUG", {
-  id: b.id,
-  lat: b.worker_live_lat,
-  lng: b.worker_live_lng,
-  status: b.status
-});
-  if(lat == null || lng == null || isNaN(lat) || isNaN(lng)) return;
+  if(lat == null || lng == null || isNaN(lat) || isNaN(lng)) return;  
 
   const slot = document.getElementById('trk-slot-'+b.id);
   if(!slot) return;
@@ -4065,6 +4069,19 @@ async function _buildTrackingMap(b){
    - If panel is open and map exists: move marker only
    - If panel is open and no map: build it now */
 function updateTrackingMaps(bookingList){
+  /* 4.9.6: destroy any tracking map whose booking has left the active
+     statuses — covers Completed, Cancelled, Rejected, Expired, or any
+     other terminal status, since it's driven by current status alone
+     rather than by which exit path was taken. bookingList here is
+     always the full set (renderBookings passes `all`), so this never
+     misses a booking that's just off the current tab. */
+  const _activeTrkIds = new Set(
+    bookingList.filter(b=>['Accepted','Worker on Way'].includes(b.status)).map(b=>String(b.id))
+  );
+  Object.keys(_trkState).forEach(id=>{
+    if(!_activeTrkIds.has(String(id))) _destroyTrackingMap(id);
+  });
+
   bookingList.forEach(b=>{
     if(!['Accepted','Worker on Way'].includes(b.status)) return;
 
