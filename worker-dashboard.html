@@ -86,6 +86,12 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 .nav-profile-btn{background:none;border:1.5px solid var(--brand-mid);border-radius:var(--radius-sm);padding:5px 12px;font-size:.78rem;font-weight:600;color:var(--brand);cursor:pointer;transition:var(--tr)}
 .nav-profile-btn:hover{background:var(--brand);color:#fff;border-color:var(--brand)}
 
+/* ── MOBILE NAV DRAWER (identical mechanism to index.html) ── */
+.hbg{display:none;background:none;border:none;cursor:pointer;flex-direction:column;gap:4px;padding:4px}
+.hbg span{display:block;width:22px;height:2px;background:var(--text);border-radius:2px}
+.nav-overlay{display:none;position:fixed;inset:0;background:rgba(20,12,4,.45);z-index:498;opacity:0;pointer-events:none;transition:opacity .28s ease}
+.nav-close{display:none;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--surface3);border:1px solid var(--border);font-size:1.1rem;cursor:pointer;color:var(--text2);flex-shrink:0;margin-bottom:.5rem}
+.nav-mobile-name{display:none;font-family:'Sora',sans-serif;font-weight:700;font-size:.92rem;color:var(--text);flex:1;text-align:right;padding-right:.6rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* ── LAYOUT ── */
 .wrap{max-width:1100px;margin:0 auto;padding:1.75rem 1.5rem 5rem;flex:1;width:100%}
 
@@ -277,32 +283,38 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 .tl-meta{font-size:.72rem;color:var(--text3);margin-top:1px}
 .tl-empty{font-size:.82rem;color:var(--text3);text-align:center;padding:.75rem 0}
 
-/* ── TABLET (≤900px) ──────────────────────────────────────── */
-@media(max-width:900px){
-  /* Nav overflows at this width — hide lower-priority items */
-  .nav-profile{display:none}
-  .clock{font-size:.68rem;padding:4px 9px}
-  .avail-lbl{font-size:.72rem}
+/* ── MOBILE NAV DRAWER (≤1023px, matches index.html's breakpoint) ── */
+@media(max-width:1023px){
+  .hbg{display:flex}
+  .nav-overlay{display:block}
+  .nav-overlay.on{opacity:1;pointer-events:auto}
+  .nav-close{display:flex}
+  nav{padding:0 .75rem}
+  .navi{position:relative}
+  .nav-right{
+    display:flex;flex-direction:column;align-items:stretch;
+    position:fixed;top:0;left:0;bottom:0;
+    background:var(--surface);gap:.6rem;z-index:499;
+    width:78vw;max-width:300px;padding:1.25rem 1rem 2rem;
+    overflow-y:auto;
+    transform:translateX(-100%);
+    transition:transform .32s cubic-bezier(.4,0,.2,1);
+    box-shadow:0 0 40px rgba(0,0,0,.25);
+  }
+  .nav-right.open{transform:translateX(0)}
+  .nav-name,.nav-role{display:block}
+  .nav-profile{display:flex}
+  .nav-profile-btn,.nav-logout{min-height:44px}
+  .nav-mobile-name{display:block}
 }
 
 /* ── MOBILE (≤680px) ──────────────────────────────────────── */
 @media(max-width:680px){
-  /* Nav: collapse to two rows */
-  .navi{height:auto;flex-wrap:wrap;padding:.5rem 0;gap:.4rem}
-  .nav-right{flex-wrap:wrap;gap:.4rem .6rem;width:100%;justify-content:flex-start}
-  .nav-name,.nav-role{display:none}
-  .nav-profile{display:none}
-  .clock{font-size:.68rem;padding:4px 9px;flex-shrink:0}
-  .avail-wrap{gap:.4rem}
-  .avail-lbl{font-size:.7rem}
-  .avail-status{font-size:.68rem;padding:2px 8px}
-  .nav-profile-btn,.nav-logout{font-size:.72rem;padding:4px 9px;min-height:36px}
-
   /* Wrap */
   .wrap{padding:1rem .875rem 4.5rem}
 
-  /* Profile card stacks vertically */
-  .profile-card{flex-direction:column;align-items:flex-start;gap:.75rem}
+  /* Avatar + name stay side-by-side; only the stats row wraps below,
+     via profile-card's existing flex-wrap (not touched here) */
   .pc-stats{width:100%;justify-content:space-between}
   .pc-stat{flex:1;padding:.55rem .4rem;min-width:0}
 
@@ -416,11 +428,14 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 
 <nav>
   <div class="navi">
+    <button class="hbg" onclick="toggleMenu()"><span></span><span></span><span></span></button>
     <a class="logo" href="#">
       <div class="lmark">Q</div>
       <span class="ltxt">Quick<span>Fix</span> <small style="font-size:.6rem;color:var(--text3);font-weight:600">WORKER</small></span>
     </a>
-    <div class="nav-right">
+    <div class="nav-overlay" id="navOverlay" onclick="toggleMenu()"></div>
+    <div class="nav-right" id="navRight">
+      <button class="nav-close" onclick="toggleMenu()" aria-label="Close menu">✕</button>
       <div class="avail-wrap">
         <span class="avail-lbl">🚨 Emergency</span>
         <label class="emerg-toggle">
@@ -653,6 +668,19 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 <div class="toast" id="toast"></div>
 
 <script>
+/* Responsive-only addition: mobile nav drawer, mirrors index.html's
+   toggleMenu() exactly. Does not touch any business logic below. */
+function toggleMenu(){
+  document.getElementById('navRight').classList.toggle('open');
+  document.getElementById('navOverlay').classList.toggle('on');
+}
+document.querySelectorAll('#navRight a, #navRight button').forEach(function(el){
+  el.addEventListener('click', function(){
+    document.getElementById('navRight').classList.remove('open');
+    document.getElementById('navOverlay').classList.remove('on');
+  });
+});
+
 /* ════════════════════════════════════════════════════════════
    SUPABASE CLIENT
    persistSession:true / autoRefreshToken:true — MUST match
