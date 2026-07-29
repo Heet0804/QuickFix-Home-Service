@@ -364,7 +364,7 @@ footer{background:var(--text);color:rgba(255,255,255,.55);text-align:center;padd
 footer strong{color:#fff;font-family:'Sora',sans-serif}
 
 @media(max-width:1023px){
-  .navlinks{display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;background:var(--surface);gap:3px;z-index:499;width:78vw;max-width:300px;padding:1.25rem 1rem 2rem;overflow-y:auto;white-space:normal;transform:translateX(-100%);transition:transform .32s cubic-bezier(.4,0,.2,1);box-shadow:0 0 40px rgba(0,0,0,.25)}
+  .navlinks{display:flex;flex-direction:column;align-items:stretch;position:fixed;top:0;left:0;bottom:0;background:var(--surface);gap:2px;z-index:499;width:78vw;max-width:300px;padding:1.25rem 1rem 2rem;overflow-y:auto;white-space:normal;transform:translateX(-100%);transition:transform .32s cubic-bezier(.4,0,.2,1);box-shadow:0 0 40px rgba(0,0,0,.25)}
   .navlinks.open{transform:translateX(0)}
   .nav-overlay{display:block}
   .nav-overlay.on{opacity:1;pointer-events:auto}
@@ -375,8 +375,9 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
   .clock span:last-child{display:none}
   .lgmk{width:30px;height:30px;font-size:.9rem}
   .lgtx{font-size:1.05rem}
-  /* Touch-friendly nav items */
-  .nl{min-height:44px;display:inline-flex;align-items:center}
+  .nl{width:100%;min-height:48px;display:flex;align-items:center;justify-content:flex-start;text-align:left;gap:8px;padding:.78rem .9rem;box-sizing:border-box;font-size:.9rem}
+  .nl-back{margin-bottom:.5rem;padding-bottom:.9rem;border-bottom:1px solid var(--border);font-size:.85rem}
+  .nl.ncta{justify-content:center;margin-top:.5rem;font-size:.92rem;font-weight:700}
 }
 @media(max-width:860px){
   /* Worker grid: prevent cards forcing horizontal scroll on tablets — kept at its
@@ -449,7 +450,7 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
     <div class="nav-overlay" id="navOverlay" onclick="toggleMenu()"></div>
     <div class="navlinks" id="navLinks">
       <button class="nav-close" onclick="toggleMenu()" aria-label="Close menu">✕</button>
-      <a class="nl" href="landing.html" style="text-decoration:none;display:inline-block;white-space:nowrap;padding:7px 13px;border-radius:var(--radius-sm);font-size:.85rem;font-weight:500;color:var(--text2);transition:var(--tr)">← Back to Home</a>
+      <a class="nl nl-back" href="landing.html" style="text-decoration:none;color:var(--text2)">← Back to Home</a>
       <button class="nl on" onclick="goPage('home')" data-pg="home">Home</button>
       <button class="nl" onclick="goPage('services')" data-pg="services">Services</button>
       <button class="nl" onclick="goPage('bookings')" data-pg="bookings">My Bookings</button>
@@ -458,7 +459,7 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
       <button class="nl" onclick="openAccount()" data-pg="account">👤 Profile</button>
       <button class="nl" onclick="openQuickWallet()">💰 Quick Wallet</button>
       <button class="nl ncta" onclick="goPage('services')">Book Now</button>
-      <button class="nl" onclick="signOut()" style="color:var(--danger)">Sign Out</button>
+      <button class="nl nl-signout" onclick="signOut()" style="color:var(--danger)">Sign Out</button>
     </div>
     <div style="display:flex;align-items:center;gap:10px">
       <div class="clock" id="istClock"><div class="cdot"></div><span class="ctm" id="istTime">--:-- --</span><span style="color:var(--text3);font-size:.68rem">IST</span></div>
