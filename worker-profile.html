@@ -47,6 +47,12 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 .nav-logout{background:none;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:5px 12px;font-size:.78rem;font-weight:600;color:var(--text2);cursor:pointer;transition:var(--tr)}
 .nav-logout:hover{border-color:var(--danger);color:var(--danger)}
 
+/* ── MOBILE NAV DRAWER (identical mechanism to worker-dashboard.html / index.html) ── */
+.hbg{display:none;background:none;border:none;cursor:pointer;flex-direction:column;gap:4px;padding:4px}
+.hbg span{display:block;width:22px;height:2px;background:var(--text);border-radius:2px}
+.nav-overlay{display:none;position:fixed;inset:0;background:rgba(20,12,4,.45);z-index:498;opacity:0;pointer-events:none;transition:opacity .28s ease}
+.nav-close{display:none;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--surface3);border:1px solid var(--border);font-size:1.1rem;cursor:pointer;color:var(--text2);flex-shrink:0;margin-bottom:.5rem}
+
 /* ── LAYOUT ── */
 .wrap{max-width:860px;margin:0 auto;padding:1.75rem 1.5rem 5rem;flex:1;width:100%}
 
@@ -223,21 +229,33 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 /* ── EMPTY ── */
 .mt-empty{text-align:center;padding:2rem;font-size:.82rem;color:var(--text3)}
 
-@media(max-width:680px){
-  /* Nav */
-  nav{padding:0 .875rem}
-  .navi{height:auto;min-height:56px;flex-wrap:wrap;padding:.4rem 0;gap:.4rem}
-  .nav-right{gap:.45rem;flex-wrap:wrap}
-  .nav-name,.nav-role{display:none}
-  .nav-profile{display:none}
-  .nav-back{font-size:.75rem;padding:.4rem .75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
-  .nav-logout{font-size:.75rem;padding:4px 10px;min-height:36px}
+@media(max-width:1023px){
+  .hbg{display:flex}
+  .nav-overlay{display:block}
+  .nav-overlay.on{opacity:1;pointer-events:auto}
+  .nav-close{display:flex}
+  nav{padding:0 .75rem}
+  .navi{position:relative}
+  .nav-right{
+    display:flex;flex-direction:column;align-items:stretch;
+    position:fixed;top:0;left:0;bottom:0;
+    background:var(--surface);gap:.6rem;z-index:499;
+    width:78vw;max-width:300px;padding:1.25rem 1rem 2rem;
+    overflow-y:auto;
+    transform:translateX(-100%);
+    transition:transform .32s cubic-bezier(.4,0,.2,1);
+    box-shadow:0 0 40px rgba(0,0,0,.25);
+  }
+  .nav-right.open{transform:translateX(0)}
+  .nav-back{white-space:normal;max-width:none;min-height:44px}
+  .nav-logout{min-height:44px}
+}
 
+@media(max-width:680px){
   /* Wrap */
   .wrap{padding:1rem .875rem 4.5rem}
 
-  /* Profile card */
-  .pc-top{flex-direction:column;align-items:flex-start;gap:.875rem}
+  /* Profile card: avatar + name/details stay side-by-side (row, not column) */
   .pc-stats{gap:.5rem}
   .pc-stat{padding:.55rem .5rem;min-width:calc(50% - .25rem);flex:unset}
   .pc-actions{justify-content:stretch}
@@ -277,11 +295,14 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 <!-- ── NAV ── -->
 <nav>
   <div class="navi">
+    <button class="hbg" onclick="toggleMenu()"><span></span><span></span><span></span></button>
     <a class="logo" href="worker-dashboard.html">
       <div class="lmark">Q</div>
       <span class="ltxt">Quick<span>Fix</span> <small style="font-size:.6rem;color:var(--text3);font-weight:600">WORKER</small></span>
     </a>
-    <div class="nav-right">
+    <div class="nav-overlay" id="navOverlay" onclick="toggleMenu()"></div>
+    <div class="nav-right" id="navRight">
+      <button class="nav-close" onclick="toggleMenu()" aria-label="Close menu">✕</button>
       <a class="nav-back" href="worker-dashboard.html">← Back to Dashboard</a>
       <div class="nav-profile">
         <div class="nav-av">🔧</div>
@@ -471,6 +492,18 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 <div class="toast" id="toast"></div>
 
 <script>
+/* Responsive-only addition: mobile nav drawer, identical mechanism to
+   worker-dashboard.html and index.html. */
+function toggleMenu(){
+  document.getElementById('navRight').classList.toggle('open');
+  document.getElementById('navOverlay').classList.toggle('on');
+}
+document.querySelectorAll('#navRight a, #navRight button').forEach(function(el){
+  el.addEventListener('click', function(){
+    document.getElementById('navRight').classList.remove('open');
+    document.getElementById('navOverlay').classList.remove('on');
+  });
+});
 /* ════════════════════════════════════════════════════════════
    SUPABASE CLIENT — exact same config as worker-dashboard.html
    ════════════════════════════════════════════════════════════ */
