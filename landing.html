@@ -28,6 +28,13 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:1.25rem 2rem;display
 .nav-cta:hover{background:var(--brand-dark);transform:translateY(-1px)}
 .nav-dash{background:var(--surface);color:var(--brand);border:1.5px solid var(--brand);border-radius:var(--radius-sm);padding:.5rem 1.1rem;font-family:'DM Sans',sans-serif;font-weight:600;font-size:.82rem;cursor:pointer;text-decoration:none;display:none;align-items:center;gap:5px;}
 .nav-dash:hover{background:var(--brand-light)}
+.nav-toggle{display:none;background:none;border:none;cursor:pointer;flex-direction:column;justify-content:center;align-items:flex-end;gap:5px;width:38px;height:38px;padding:6px;z-index:200;flex-shrink:0;}
+.nav-toggle span{display:block;width:100%;height:2.5px;background:var(--text);border-radius:2px;transition:transform .3s ease,opacity .3s ease;}
+.nav-toggle.active span:nth-child(1){transform:translateY(7.5px) rotate(45deg)}
+.nav-toggle.active span:nth-child(2){opacity:0}
+.nav-toggle.active span:nth-child(3){transform:translateY(-7.5px) rotate(-45deg)}
+.nav-overlay{display:none;position:fixed;inset:0;background:rgba(26,14,4,.4);z-index:150;opacity:0;visibility:hidden;transition:opacity .3s ease,visibility .3s ease;}
+.nav-overlay.open{opacity:1;visibility:visible}
 .hero{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6rem 2rem 4rem;text-align:center;}
 .hero-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(181,101,29,.1);border:1px solid rgba(181,101,29,.25);border-radius:50px;padding:.4rem 1rem;font-size:.78rem;font-weight:600;color:var(--brand);margin-bottom:2rem;animation:fadeDown .6s ease both;}
 .hero-badge .pulse{width:7px;height:7px;border-radius:50%;background:var(--brand);animation:pulse 2s infinite}
@@ -108,6 +115,21 @@ footer a:hover{color:#fff}
   .section{padding:3.5rem 1.5rem}
   .steps-grid{grid-template-columns:repeat(2,1fr)}
   .services-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}
+
+  /* Hamburger nav */
+  .nav-toggle{display:flex}
+  .nav-right{position:fixed;top:0;left:0;height:100vh;width:min(78vw,320px);background:var(--surface);flex-direction:column;align-items:stretch;justify-content:flex-start;gap:1rem;padding:5.5rem 1.5rem 2rem;box-shadow:4px 0 24px rgba(0,0,0,.15);transform:translateX(-100%);transition:transform .35s cubic-bezier(.4,0,.2,1);z-index:190;overflow-y:auto;}
+  .nav-right.open{transform:translateX(0)}
+  .nav-right .nav-dash,.nav-right .nav-cta{width:100%;justify-content:center;display:inline-flex}
+  .nav-right .nav-dash{display:none}
+  .nav-right .nav-dash.show{display:inline-flex}
+  .nav-overlay{display:block}
+
+  /* Landscape phones/foldables: avoid overly tall hero */
+  @media(orientation:landscape){
+    .hero{min-height:auto;padding:5.5rem 2rem 3rem}
+    .stats-strip{gap:1rem 1.5rem}
+  }
 }
 
 /* ── MOBILE (max 600px) ───────────────────────────────────── */
@@ -171,11 +193,15 @@ footer a:hover{color:#fff}
     <div class="logo-mark">Q</div>
     <span class="logo-text">Quick<span>Fix</span></span>
   </a>
-  <div class="nav-right">
+  <div class="nav-right" id="navRight">
     <a class="nav-dash" id="navDash" href="#">My Dashboard →</a>
     <a class="nav-cta" href="auth.html">Get Started →</a>
   </div>
+  <button class="nav-toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="navRight">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
+<div class="nav-overlay" id="navOverlay"></div>
 
 <section class="hero">
   <div class="hero-badge"><span class="pulse"></span>500+ Verified Professionals · Live Now</div>
@@ -277,6 +303,7 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
     const role=u?.role||sessionStorage.getItem('qf_role');
     const dash=document.getElementById('navDash');
     if(dash){
+      dash.classList.add('show');
       dash.style.display='inline-flex';
       dash.href=role==='worker'?'worker-dashboard.html':'index.html';
       dash.textContent=role==='worker'?'Worker Dashboard →':'My Dashboard →';
@@ -289,6 +316,20 @@ if(params.get('role'))sessionStorage.setItem('qf_role',params.get('role'));
 
 const obs=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('on')});},{threshold:.15});
 document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+
+(function(){
+  const toggle=document.getElementById('navToggle');
+  const panel=document.getElementById('navRight');
+  const overlay=document.getElementById('navOverlay');
+  if(toggle&&panel&&overlay){
+    const closeMenu=()=>{panel.classList.remove('open');overlay.classList.remove('open');toggle.classList.remove('active');toggle.setAttribute('aria-expanded','false');};
+    const openMenu=()=>{panel.classList.add('open');overlay.classList.add('open');toggle.classList.add('active');toggle.setAttribute('aria-expanded','true');};
+    toggle.addEventListener('click',()=>{panel.classList.contains('open')?closeMenu():openMenu();});
+    overlay.addEventListener('click',closeMenu);
+    panel.querySelectorAll('a').forEach(a=>a.addEventListener('click',closeMenu));
+    window.addEventListener('resize',()=>{if(window.innerWidth>900)closeMenu();});
+  }
+})();
 
 (function(){
   const logo=document.querySelector('.logo');
