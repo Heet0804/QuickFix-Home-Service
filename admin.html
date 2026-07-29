@@ -73,12 +73,29 @@ h1,h2,h3,h4{font-family:'Sora',sans-serif;letter-spacing:-.01em}
 #gateErr{color:var(--danger);font-size:.8rem;min-height:1.2em;margin-bottom:.5rem;font-weight:500}
 #gate .btn.bp{width:100%;justify-content:center;padding:12px 18px;font-size:.9rem;margin-top:.3rem}
 @media(max-width:860px){ #gate{grid-template-columns:1fr} #gate .left{display:none} #gate .right{padding:1.5rem} #gate .card{box-shadow:none;border:none;padding:1rem} }
+/* ── Admin nav → hamburger drawer (tablet & below); desktop nav unchanged ── */
+@media(max-width:860px){
+  .hbg{display:flex}
+  .navactions{position:fixed;top:0;left:0;bottom:0;background:var(--surface);flex-direction:column;align-items:stretch;gap:.6rem;width:78vw;max-width:280px;padding:4.5rem 1rem 2rem;z-index:499;transform:translateX(-100%);transition:transform .32s cubic-bezier(.4,0,.2,1);box-shadow:0 0 40px rgba(0,0,0,.25);overflow-y:auto}
+  .navactions.open{transform:translateX(0)}
+  .navactions .btn{width:100%;justify-content:center;min-height:46px}
+  .nav-overlay{display:block}
+  nav{padding:0 1.25rem}
+}
 
 /* ── App shell ─────────────────────────────────────────────── */
 #gate{display:none}
 #app{display:none}
 nav{background:rgba(255,255,255,.85);backdrop-filter:saturate(180%) blur(10px);border-bottom:1px solid var(--border);padding:0 1.75rem;display:flex;align-items:center;justify-content:space-between;height:64px;position:sticky;top:0;z-index:50}
 .logo{font-family:'Sora',sans-serif;font-weight:800;font-size:1.15rem;color:var(--brand-dark);display:flex;align-items:center;gap:.4rem}
+.navactions{display:flex;align-items:center;gap:.5rem}
+.hbg{display:none;background:none;border:none;cursor:pointer;flex-direction:column;justify-content:center;gap:4px;padding:6px;flex-shrink:0}
+.hbg span{display:block;width:22px;height:2px;background:var(--text);border-radius:2px;transition:var(--tr)}
+.hbg.active span:nth-child(1){transform:translateY(6px) rotate(45deg)}
+.hbg.active span:nth-child(2){opacity:0}
+.hbg.active span:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
+.nav-overlay{display:none;position:fixed;inset:0;background:rgba(26,15,4,.45);z-index:498;opacity:0;pointer-events:none;transition:opacity .28s ease}
+.nav-overlay.on{opacity:1;pointer-events:auto}
 .wrap{max-width:1240px;margin:0 auto;padding:2rem 1.5rem 4rem}
 .pghdr{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.9rem;margin-bottom:1.8rem}
 .pghdr h1{font-size:1.55rem;font-weight:800;letter-spacing:-.02em}
@@ -156,6 +173,16 @@ tbody tr:hover td{background:var(--brand-light)}
   .pghdr{flex-direction:column;align-items:flex-start}
   .modal{padding:1.6rem 1.3rem}
   nav{padding:0 1rem}
+  /* Tabs scroll within their own bar rather than wrapping/overflowing the page */
+  .tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex-shrink:0}
+  /* Filters stack full-width */
+  .fbar{flex-direction:column;align-items:stretch}
+  .fbar input,.fbar select{width:100%;min-width:0}
+  /* Touch-friendly controls */
+  .btn{min-height:44px}
+  .bs{min-height:40px}
 }
 </style>
 
@@ -195,11 +222,15 @@ tbody tr:hover td{background:var(--brand-light)}
 <div id="app">
   <nav>
     <div class="logo">🛠️ QuickFix <span style="color:var(--text2);font-weight:600;font-size:.85rem">Admin</span></div>
-    <div style="display:flex;align-items:center;gap:.5rem">
+    <div class="navactions" id="navActions">
       <button class="btn bo bs" onclick="window.location.href='landing.html'">← Landing</button>
       <button class="btn bo bs" onclick="adminLogout()">Sign Out</button>
     </div>
+    <button class="hbg" id="hbg" onclick="toggleAdminNav()" aria-label="Toggle menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
   </nav>
+  <div class="nav-overlay" id="navOverlay" onclick="toggleAdminNav()"></div>
 
   <div class="wrap">
     <div class="pghdr">
@@ -681,6 +712,32 @@ function renderAnalytics(){
     </tr>`;
   }).join('');
 }
+</script>
+<script>
+/* ── Admin nav hamburger (mobile/tablet only; desktop nav/logic unaffected) ── */
+function toggleAdminNav(){
+  const panel=document.getElementById('navActions');
+  const overlay=document.getElementById('navOverlay');
+  const hbg=document.getElementById('hbg');
+  if(!panel||!overlay||!hbg)return;
+  const opening=!panel.classList.contains('open');
+  panel.classList.toggle('open',opening);
+  overlay.classList.toggle('on',opening);
+  hbg.classList.toggle('active',opening);
+  hbg.setAttribute('aria-expanded',String(opening));
+}
+function closeAdminNav(){
+  const panel=document.getElementById('navActions');
+  const overlay=document.getElementById('navOverlay');
+  const hbg=document.getElementById('hbg');
+  if(!panel||!overlay||!hbg)return;
+  panel.classList.remove('open');
+  overlay.classList.remove('on');
+  hbg.classList.remove('active');
+  hbg.setAttribute('aria-expanded','false');
+}
+document.querySelectorAll('.navactions .btn').forEach(b=>b.addEventListener('click',closeAdminNav));
+window.addEventListener('resize',()=>{ if(window.innerWidth>860) closeAdminNav(); });
 </script>
 </body>
 </html>
