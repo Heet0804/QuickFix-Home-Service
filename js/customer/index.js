@@ -1062,7 +1062,8 @@ function openPhotoLightbox(url){
   document.getElementById('photoLightboxImg').src=url;
   document.getElementById('photoLightbox').classList.add('on');
 }
-/* showToast and markErr now come from js/common/utils.js, loaded before this file. */
+/* markErr now comes from js/common/utils.js, loaded before this file. */
+/* showToast now comes from js/common/toast.js, loaded before this file. */
 
 /* ── NAV ───────────────────────────────────────────────────── */
 function goPage(id){

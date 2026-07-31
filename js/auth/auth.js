@@ -441,7 +441,8 @@ function setBtn(bid,tid,loading,txt){
   document.getElementById(tid).innerHTML=loading?`<span class="spin"></span> ${txt}`:txt;
 }
 
-/* markErr and showToast now come from js/common/utils.js, loaded before this file. */
+/* markErr now comes from js/common/utils.js, loaded before this file. */
+/* showToast now comes from js/common/toast.js, loaded before this file. */
 function showErr(msg){
   const b=document.getElementById('errBanner');
   b.textContent='⚠️ '+msg;

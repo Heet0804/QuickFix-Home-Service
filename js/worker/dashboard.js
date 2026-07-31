@@ -925,7 +925,7 @@ function tickClock(){
   const str=`${String(h%12||12).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} ${h<12?'AM':'PM'}`;
   document.getElementById('istTime').textContent=str;
 }
-/* showToast now comes from js/common/utils.js, loaded before this file. */
+/* showToast now comes from js/common/toast.js, loaded before this file. */
 
 async function logout(){
   await sb.auth.signOut();

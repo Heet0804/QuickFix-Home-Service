@@ -10,20 +10,8 @@
    global lexical environment).
    ════════════════════════════════════════════════════════════ */
 
-/* ── TOAST ─────────────────────────────────────────────────────
-   Identical implementation previously duplicated in auth.js,
-   index.js, dashboard.js, and profile.js. All four call it the
-   same way: showToast(msg), targeting the #toast element that
-   exists on every page. _tt (the pending-timeout handle) must live
-   alongside it since showToast closes over it. */
-let _tt;
-function showToast(msg){
-  const t=document.getElementById('toast');
-  t.textContent=msg;
-  t.classList.add('on');
-  clearTimeout(_tt);
-  _tt=setTimeout(()=>t.classList.remove('on'),3500);
-}
+/* showToast and _tt moved to js/common/toast.js in Phase 5.3.5 —
+   loaded before this file. */
 
 /* ── FIELD ERROR MARKING ──────────────────────────────────────
    Identical implementation previously duplicated in auth.js and

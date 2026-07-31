@@ -397,7 +397,7 @@ async function logout(){
   window.location.href='auth.html';
 }
 
-/* showToast now comes from js/common/utils.js, loaded before this file. */
+/* showToast now comes from js/common/toast.js, loaded before this file. */
 
 /* Remove err on focus */
 ['eName','ePhone','eSkill','eRadius'].forEach(id=>{
