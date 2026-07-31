@@ -14,9 +14,9 @@ document.querySelectorAll('#navRight a, #navRight button').forEach(function(el){
 });
 
 /* sb now comes from js/common/supabase.js, loaded before this file. */
-/* Phase 4.7: same constant name/value as index.html — one reusable
-   Geoapify key for reverse geocoding + routing on this dashboard. */
-const GEOAPIFY_API_KEY = "a89cdf24c2ae454585c82225c630f28c";
+/* Phase 5.3.3: GEOAPIFY_API_KEY now comes from js/common/config.js
+   (CONFIG.GEOAPIFY_API_KEY), loaded before this file. Previously
+   duplicated identically in index.html. */
 
 let W=null;            /* current worker record (merged users + workers row) */
 let bookings=[];        /* raw bookings rows for this worker, snake_case as-is from Supabase */
@@ -32,7 +32,12 @@ let pendCancelAcceptedId=null;
    completion/reliability/activity/worker score locally.
    ════════════════════════════════════════════════════════════ */
 let Stats=null;
-const RELIABILITY_MIN_ACCEPTED_JOBS=1; /* below this, reliability_score/worker_score reflect an unqualified default, not earned performance — display 0, not the raw RPC value */
+/* Phase 5.3.3: RELIABILITY_MIN_ACCEPTED_JOBS now comes from
+   js/common/config.js (CONFIG.RELIABILITY_MIN_ACCEPTED_JOBS), loaded
+   before this file. Previously duplicated identically in
+   worker-profile.html. Below this threshold, reliability_score/
+   worker_score reflect an unqualified default, not earned
+   performance — display 0, not the raw RPC value. */
 async function loadStats(){
   const {data,error}=await sb.rpc('get_worker_stats',{p_worker_id:W.id});
   if(error){ console.error('get_worker_stats:',error.message); return; }
@@ -252,7 +257,7 @@ document.getElementById("statTotalJobs").textContent =
 
   renderCancellationWarning(cancelledJobs);
 
-  const qualified = acceptedJobs >= RELIABILITY_MIN_ACCEPTED_JOBS;
+  const qualified = acceptedJobs >= CONFIG.RELIABILITY_MIN_ACCEPTED_JOBS;
   const relShown = rel == null ? null : (qualified ? rel : 0);
   const wscShown = qualified ? wsc : 0;
 
@@ -1011,7 +1016,7 @@ function renderAcceptanceRate(){
    ════════════════════════════════════════════════════════════ */
 function renderWorkerRank(){
   const el=document.getElementById('workerRankBadge');
-  const qualified = (Stats?.accepted_jobs ?? 0) >= RELIABILITY_MIN_ACCEPTED_JOBS;
+  const qualified = (Stats?.accepted_jobs ?? 0) >= CONFIG.RELIABILITY_MIN_ACCEPTED_JOBS;
   const score = qualified ? (Stats?.worker_score ?? 0) : 0;
 
   el.className='rank-badge';
@@ -1055,7 +1060,7 @@ function renderCancellationWarning(cancelledJobs){
 function renderReliabilityPill(){
   const el=document.getElementById('reliabilityPill');
   const rel=Stats?.reliability_score!=null?Number(Stats.reliability_score):null;
-  const qualified=(Stats?.accepted_jobs??0)>=RELIABILITY_MIN_ACCEPTED_JOBS;
+  const qualified=(Stats?.accepted_jobs??0)>=CONFIG.RELIABILITY_MIN_ACCEPTED_JOBS;
   el.className='rel-pill';
   if(rel===null){el.textContent='Reliability: —';el.classList.add('rel-needs');return;}
   if(!qualified){el.textContent='🆕 New Worker';el.classList.add('rel-needs');return;}
@@ -1251,7 +1256,10 @@ function syncGPS(immediateBookingId){
    a separate HTML file with no shared module to import from —
    logic/behavior is identical, not reinvented.
    ══════════════════════════════════════════════════════════════ */
-const TRACK_CUSTOMER_ZOOM = 15;
+/* Phase 5.3.3: TRACK_CUSTOMER_ZOOM now comes from js/common/config.js
+   (CONFIG.TRACKING_ZOOM), loaded before this file. Previously
+   declared separately as TRACKING_ZOOM in index.html with the same
+   value (15) and the same purpose. */
 
 /* bookingId → { map, workerMarker, customerMarker, routeLine, container, initialized, lastRouteFetch } */
 const _trkStateW = {};
@@ -1269,7 +1277,7 @@ async function _loadAreasW(){
    _geoapifyReverseGeocode, ported here since this file has no shared
    module to import from. Same field preference order, same key. */
 async function _geoapifyReverseGeocodeW(lat, lng){
-  const url = `https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lng}&apiKey=${GEOAPIFY_API_KEY}`;
+  const url = `https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lng}&apiKey=${CONFIG.GEOAPIFY_API_KEY}`;
   const res = await fetch(url);
   if(!res.ok) throw new Error('Geoapify reverse geocode HTTP '+res.status);
   const data = await res.json();
@@ -1296,7 +1304,7 @@ async function _resolveCustomerLatLngW(b){
    the identical road-following route for the same two points. */
 async function _fetchRoadRouteW(from, to){
   try{
-    const url = `https://api.geoapify.com/v1/routing?waypoints=${from.lat},${from.lng}|${to.lat},${to.lng}&mode=drive&apiKey=${GEOAPIFY_API_KEY}`;
+    const url = `https://api.geoapify.com/v1/routing?waypoints=${from.lat},${from.lng}|${to.lat},${to.lng}&mode=drive&apiKey=${CONFIG.GEOAPIFY_API_KEY}`;
     const res = await fetch(url);
     if(!res.ok) throw new Error('Geoapify routing HTTP '+res.status);
     const data = await res.json();
@@ -1487,7 +1495,7 @@ async function _buildCustomerTrackMap(b){
   slot.appendChild(mapEl);
 
   const map = L.map(mapEl, { zoomControl:true, attributionControl:false })
-               .setView([wLat, wLng], TRACK_CUSTOMER_ZOOM);
+               .setView([wLat, wLng], CONFIG.TRACKING_ZOOM);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
     maxZoom:19

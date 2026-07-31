@@ -2,11 +2,9 @@
 
 /* ── DATA LAYER ───────────────────────────────────────────── */
 /* sb now comes from js/common/supabase.js, loaded before this file. */
-/* Phase 4.7: single reusable Geoapify key — used for reverse
-   geocoding (building names) and routing. Same constant name/value
-   must exist in worker-dashboard.html. Never hardcode the key
-   anywhere else in either file. */
-const GEOAPIFY_API_KEY = "a89cdf24c2ae454585c82225c630f28c";
+/* Phase 5.3.3: GEOAPIFY_API_KEY now comes from js/common/config.js
+   (CONFIG.GEOAPIFY_API_KEY), loaded before this file. Previously
+   duplicated identically in worker-dashboard.html. */
 
 /* Auth gate — index.html is for authenticated users only.
    getSession() is the single source of truth for whether this page is
@@ -1734,7 +1732,7 @@ async function geocodeAddress(cleanedAddr){
    street, suburb, locality. Read-only lookup — never writes
    anything, never touches pendBk or Supabase. */
 async function _geoapifyReverseGeocode(lat, lng){
-  const url = `https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lng}&apiKey=${GEOAPIFY_API_KEY}`;
+  const url = `https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lng}&apiKey=${CONFIG.GEOAPIFY_API_KEY}`;
   const res = await fetch(url);
   if(!res.ok) throw new Error('Geoapify reverse geocode HTTP '+res.status);
   const data = await res.json();
@@ -2452,7 +2450,10 @@ function toggleTimeline(id){
      end of _buildTrackingMap(). Nothing after that ever moves the
      camera — updateTrackingMaps() only moves the worker marker and
      refreshes the route geometry. */
-const TRACKING_ZOOM = 15;
+/* Phase 5.3.3: TRACKING_ZOOM now comes from js/common/config.js
+   (CONFIG.TRACKING_ZOOM), loaded before this file. Previously
+   duplicated as TRACK_CUSTOMER_ZOOM in worker-dashboard.html with
+   the same value (15) and the same purpose. */
 
 /* bookingId → { map, marker, customerMarker, routeLine, initialized, lastRouteFetch } */
 const _trkState = {};
@@ -2536,7 +2537,7 @@ async function _resolveCustomerLatLng(b){
    null) is unchanged. */
 async function _fetchRoadRoute(from, to){
   try{
-    const url = `https://api.geoapify.com/v1/routing?waypoints=${from.lat},${from.lng}|${to.lat},${to.lng}&mode=drive&apiKey=${GEOAPIFY_API_KEY}`;
+    const url = `https://api.geoapify.com/v1/routing?waypoints=${from.lat},${from.lng}|${to.lat},${to.lng}&mode=drive&apiKey=${CONFIG.GEOAPIFY_API_KEY}`;
     const res = await fetch(url);
     if(!res.ok) throw new Error('Geoapify routing HTTP '+res.status);
     const data = await res.json();
@@ -2723,7 +2724,7 @@ async function _buildTrackingMap(b){
   slot.appendChild(mapEl);
 
   const map = L.map(mapEl, { zoomControl:true, attributionControl:false })
-               .setView([lat, lng], TRACKING_ZOOM);
+               .setView([lat, lng], CONFIG.TRACKING_ZOOM);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
     maxZoom:19

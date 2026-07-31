@@ -17,7 +17,10 @@ document.querySelectorAll('#navRight a, #navRight button').forEach(function(el){
 let W=null;
 let completedBookings=[];
 let Stats=null;               /* get_worker_stats RPC result — same as dashboard, never computed here */
-const RELIABILITY_MIN_ACCEPTED_JOBS=1; /* below this, reliability_score/worker_score reflect an unqualified default, not earned performance — display 0, not the raw RPC value. Keep this value in sync with the same constant in worker-dashboard.html. */
+/* Phase 5.3.3: RELIABILITY_MIN_ACCEPTED_JOBS now comes from
+   js/common/config.js (CONFIG.RELIABILITY_MIN_ACCEPTED_JOBS), loaded
+   before this file. Previously duplicated identically in
+   worker-dashboard.html. */
 let UnlockedAchievements=[];  /* worker_achievements rows — profile never decides, only reads */
 
 /* ════════════════════════════════════════════════════════════
@@ -163,7 +166,7 @@ function renderPerf(){
   const act=Stats?.activity_score??null;
   const wsc=Stats?.worker_score??null;
 
-  const qualified=(Stats?.accepted_jobs??0)>=RELIABILITY_MIN_ACCEPTED_JOBS;
+  const qualified=(Stats?.accepted_jobs??0)>=CONFIG.RELIABILITY_MIN_ACCEPTED_JOBS;
   const relShown=rel==null?null:(qualified?rel:0);
   const wscShown=wsc==null?null:(qualified?wsc:0);
 
