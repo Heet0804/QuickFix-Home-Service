@@ -441,14 +441,7 @@ function setBtn(bid,tid,loading,txt){
   document.getElementById(tid).innerHTML=loading?`<span class="spin"></span> ${txt}`:txt;
 }
 
-function markErr(id){
-  const el=document.getElementById(id);
-  if(!el)return;
-  el.classList.add('err');
-  el.addEventListener('input', ()=>el.classList.remove('err'),{once:true});
-  el.addEventListener('change',()=>el.classList.remove('err'),{once:true});
-}
-
+/* markErr and showToast now come from js/common/utils.js, loaded before this file. */
 function showErr(msg){
   const b=document.getElementById('errBanner');
   b.textContent='⚠️ '+msg;
@@ -456,15 +449,6 @@ function showErr(msg){
   b.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function hideErr(){document.getElementById('errBanner').style.display='none';}
-
-let _tt;
-function showToast(msg){
-  const t=document.getElementById('toast');
-  t.textContent=msg;
-  t.classList.add('on');
-  clearTimeout(_tt);
-  _tt=setTimeout(()=>t.classList.remove('on'),3500);
-}
 
 document.querySelectorAll('.finput,.fselect').forEach(el=>{
   el.addEventListener('input', ()=>el.classList.remove('err'));

@@ -383,18 +383,11 @@ async function saveProfile(){
 /* ════════════════════════════════════════════════════════════
    MISC HELPERS
    ════════════════════════════════════════════════════════════ */
-function fmtDate(d){
-  if(!d)return '—';
-  return new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
-}
-
-function escHtml(s){
-  return String(s)
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;');
-}
+/* Thin wrapper kept so every existing fmtDate(...) call site in this
+   file needs no changes, while the actual logic now lives once in
+   js/common/utils.js as _fmtDate — same guarded behavior, byte for
+   byte. escHtml now comes directly from js/common/utils.js. */
+function fmtDate(d){ return _fmtDate(d); }
 
 async function logout(){
   await sb.auth.signOut();
@@ -404,14 +397,7 @@ async function logout(){
   window.location.href='auth.html';
 }
 
-let _tt;
-function showToast(msg){
-  const t=document.getElementById('toast');
-  t.textContent=msg;
-  t.classList.add('on');
-  clearTimeout(_tt);
-  _tt=setTimeout(()=>t.classList.remove('on'),3500);
-}
+/* showToast now comes from js/common/utils.js, loaded before this file. */
 
 /* Remove err on focus */
 ['eName','ePhone','eSkill','eRadius'].forEach(id=>{

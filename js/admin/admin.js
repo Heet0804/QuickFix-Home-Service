@@ -88,7 +88,7 @@ async function loadCampaigns(){
   prSel.innerHTML = '<option value="">All Priorities</option>' + priorities.map(p=>`<option value="${p}">${p}</option>`).join('');
 }
 
-function _fmtDate(d){ return d ? new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—'; }
+/* _fmtDate now comes from js/common/utils.js, loaded before this file. */
 function _fmtDateTime(d){ return d ? new Date(d).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—'; }
 
 function renderCampaignsTable(){

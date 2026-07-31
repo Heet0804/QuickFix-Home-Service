@@ -919,23 +919,13 @@ function openAchievements(){
   document.getElementById('achievementsModal').classList.add('on');
 }
 
-function closeModal(id){ document.getElementById(id).classList.remove('on'); }
-
-function getIST(){ return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'})); }
+/* closeModal and getIST now come from js/common/utils.js, loaded before this file. */
 function tickClock(){
   const d=getIST(), h=d.getHours(), m=d.getMinutes(), s=d.getSeconds();
   const str=`${String(h%12||12).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} ${h<12?'AM':'PM'}`;
   document.getElementById('istTime').textContent=str;
 }
-
-let _tt;
-function showToast(msg){
-  const t=document.getElementById('toast');
-  t.textContent=msg;
-  t.classList.add('on');
-  clearTimeout(_tt);
-  _tt=setTimeout(()=>t.classList.remove('on'),3500);
-}
+/* showToast now comes from js/common/utils.js, loaded before this file. */
 
 async function logout(){
   await sb.auth.signOut();

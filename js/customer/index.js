@@ -552,7 +552,7 @@ async function getEligibleWorkersForArea(role, area, opts={}){
     });
 }
 
-function getIST(){ return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Kolkata'})); }
+/* getIST now comes from js/common/utils.js, loaded before this file. */
 function istDateStr(){
   const d=getIST();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -639,7 +639,7 @@ setInterval(tickClock,1000); tickClock();
 /* ── HELPERS ───────────────────────────────────────────────── */
 function stars(r){ return Array.from({length:5},(_,i)=>`<span class="star${i<Math.round(r)?'':' empty'}">★</span>`).join(''); }
 function genOtp(){ return String(Math.floor(100000+Math.random()*900000)); }
-function closeModal(id){ document.getElementById(id).classList.remove('on'); }
+/* closeModal now comes from js/common/utils.js, loaded before this file. */
 
 /* ── CAMPAIGN SYSTEM (Phase 2A popup + Phase 2B Offers page) ─────
    SINGLE SOURCE OF TRUTH: both the login popup and the Offers page
@@ -1062,9 +1062,7 @@ function openPhotoLightbox(url){
   document.getElementById('photoLightboxImg').src=url;
   document.getElementById('photoLightbox').classList.add('on');
 }
-let _tt;
-function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(_tt); _tt=setTimeout(()=>t.classList.remove('on'),3500); }
-function markErr(id){ const el=document.getElementById(id); if(!el)return; el.classList.add('err'); el.addEventListener('input',()=>el.classList.remove('err'),{once:true}); el.addEventListener('change',()=>el.classList.remove('err'),{once:true}); }
+/* showToast and markErr now come from js/common/utils.js, loaded before this file. */
 
 /* ── NAV ───────────────────────────────────────────────────── */
 function goPage(id){
