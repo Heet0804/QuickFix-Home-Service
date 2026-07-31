@@ -1263,17 +1263,9 @@ async function _loadAreasW(){
   return _AREAS_CACHE_W;
 }
 
-/* Phase 4.7: same reverse-geocoding call as index.html's
-   _geoapifyReverseGeocode, ported here since this file has no shared
-   module to import from. Same field preference order, same key. */
-async function _geoapifyReverseGeocodeW(lat, lng){
-  const url = `https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lng}&apiKey=${CONFIG.GEOAPIFY_API_KEY}`;
-  const res = await fetch(url);
-  if(!res.ok) throw new Error('Geoapify reverse geocode HTTP '+res.status);
-  const data = await res.json();
-  const p = data?.features?.[0]?.properties || {};
-  return p.building || p.amenity || p.name || p.housename || p.street || p.suburb || p.locality || null;
-}
+/* Phase 5.3.6: _geoapifyReverseGeocodeW now resolves via the
+   js/common/maps.js alias (const _geoapifyReverseGeocodeW =
+   _geoapifyReverseGeocode). No local definition needed. */
 
 /* Same resolution order as index.html's _resolveCustomerLatLng:
    exact GPS captured at booking time first, area centroid fallback. */
@@ -1289,71 +1281,9 @@ async function _resolveCustomerLatLngW(b){
   return { lat:Number(area.lat), lng:Number(area.lng) };
 }
 
-/* Phase 4.7: Geoapify Routing API road route — replaces OSRM, same
-   contract as index.html's _fetchRoadRoute so both dashboards render
-   the identical road-following route for the same two points. */
-async function _fetchRoadRouteW(from, to){
-  try{
-    const url = `https://api.geoapify.com/v1/routing?waypoints=${from.lat},${from.lng}|${to.lat},${to.lng}&mode=drive&apiKey=${CONFIG.GEOAPIFY_API_KEY}`;
-    const res = await fetch(url);
-    if(!res.ok) throw new Error('Geoapify routing HTTP '+res.status);
-    const data = await res.json();
-    const feature = data?.features?.[0];
-    const geom = feature?.geometry;
-    const coordArrays = geom?.type === 'MultiLineString' ? geom.coordinates
-      : geom?.type === 'LineString' ? [geom.coordinates]
-      : null;
-    if(!coordArrays || !coordArrays.length) throw new Error('Geoapify routing: empty route');
-    const coords = coordArrays.flat();
-    if(!coords.length) throw new Error('Geoapify routing: empty coordinates');
-    const latlngs = coords.map(([lng,lat])=>[lat,lng]);
-    Object.defineProperties(latlngs, {
-      distance: { value: feature.properties?.distance ?? null, enumerable: false },
-      duration: { value: feature.properties?.time ?? null, enumerable: false }
-    });
-    return latlngs;
-  }catch(e){
-    return null;
-  }
-}
-
-/* Phase 4.5: kept separate from index.html's helpers since the two
-   files load independently. */
-function _fmtDistanceW(m){
-  if(typeof m !== 'number' || !isFinite(m)) return '--';
-  return m < 1000 ? Math.round(m)+' m' : (m/1000).toFixed(1)+' km';
-}
-function _fmtDurationW(s){
-  if(typeof s !== 'number' || !isFinite(s)) return '--';
-  const mins = Math.round(s/60);
-  return mins < 1 ? '<1 min' : mins+' min'+(mins===1?'':'s');
-}
-/* Same movement/animation helpers as index.html — ported, not
-   reinvented, since this file has no shared module to import from. */
-function _metersBetweenW(a, b){
-  if(!a || !b) return Infinity;
-  const R = 6371000;
-  const dLat = (b.lat - a.lat) * Math.PI/180;
-  const dLng = (b.lng - a.lng) * Math.PI/180;
-  const s1 = Math.sin(dLat/2)**2 +
-    Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;
-  return 2*R*Math.asin(Math.min(1, Math.sqrt(s1)));
-}
-function _animateMarkerToW(marker, toLat, toLng, duration){
-  if(!marker) return;
-  if(marker._animFrame) cancelAnimationFrame(marker._animFrame);
-  const from = marker.getLatLng();
-  const fromLat = from.lat, fromLng = from.lng;
-  if(fromLat === toLat && fromLng === toLng) return;
-  const start = performance.now();
-  function step(now){
-    const t = Math.min(1, (now - start) / duration);
-    const ease = t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
-    marker.setLatLng([fromLat + (toLat-fromLat)*ease, fromLng + (toLng-fromLng)*ease]);
-    marker._animFrame = (t < 1) ? requestAnimationFrame(step) : null;
-  }
-  marker._animFrame = requestAnimationFrame(step);
-}
+/* Phase 5.3.6: _fetchRoadRouteW, _fmtDistanceW, _fmtDurationW,
+   _metersBetweenW, _animateMarkerToW now resolve via the
+   js/common/maps.js aliases. No local definitions needed. */
 
 function _updateEtaPanelW(bkId, distance, duration){
   const distEl = document.getElementById('trkc-dist-'+bkId);
