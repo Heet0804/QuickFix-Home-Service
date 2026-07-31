@@ -1,6 +1,4 @@
-const SUPABASE_URL='https://oycurbgzzgfzilpflwks.supabase.co';
-const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95Y3VyYmd6emdmemlscGZsd2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjkwMDMsImV4cCI6MjA5MzIwNTAwM30.B9KujxSHzhzpKM_IhVvpTqImVPjF4Yrv3RKn6mgtqxg';
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+/* sb now comes from js/common/supabase.js, loaded before this file. */
 
 /* If already logged in, show dashboard link */
 (async()=>{

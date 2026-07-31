@@ -1,11 +1,4 @@
-/* ══════════ SUPABASE CLIENT — same project + same auth config as
-   auth.html/index.html, so a session created there is read correctly
-   here (and vice versa). ══════════════════════════════════════════ */
-const SUPABASE_URL='https://oycurbgzzgfzilpflwks.supabase.co';
-const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95Y3VyYmd6emdmemlscGZsd2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjkwMDMsImV4cCI6MjA5MzIwNTAwM30.B9KujxSHzhzpKM_IhVvpTqImVPjF4Yrv3RKn6mgtqxg';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:false }
-});
+/* sb now comes from js/common/supabase.js, loaded before this file. */
 
 let _allCampaigns = [];
 let _allPasses = [];

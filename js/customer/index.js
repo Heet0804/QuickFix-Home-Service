@@ -1,21 +1,12 @@
 /* ===== QuickFix Customer Script — extracted from index.html (Phase 5.2) ===== */
 
 /* ── DATA LAYER ───────────────────────────────────────────── */
-/* ── SUPABASE ── */
-const SUPABASE_URL='https://oycurbgzzgfzilpflwks.supabase.co';
-const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95Y3VyYmd6emdmemlscGZsd2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjkwMDMsImV4cCI6MjA5MzIwNTAwM30.B9KujxSHzhzpKM_IhVvpTqImVPjF4Yrv3RKn6mgtqxg';
+/* sb now comes from js/common/supabase.js, loaded before this file. */
 /* Phase 4.7: single reusable Geoapify key — used for reverse
    geocoding (building names) and routing. Same constant name/value
    must exist in worker-dashboard.html. Never hardcode the key
    anywhere else in either file. */
 const GEOAPIFY_API_KEY = "a89cdf24c2ae454585c82225c630f28c";
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
-  auth:{
-    persistSession:true,
-    autoRefreshToken:true,
-    detectSessionInUrl:false
-  }
-});
 
 /* Auth gate — index.html is for authenticated users only.
    getSession() is the single source of truth for whether this page is

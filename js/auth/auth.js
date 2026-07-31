@@ -1,23 +1,4 @@
-const SUPABASE_URL='https://oycurbgzzgfzilpflwks.supabase.co';
-const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95Y3VyYmd6emdmemlscGZsd2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjkwMDMsImV4cCI6MjA5MzIwNTAwM30.B9KujxSHzhzpKM_IhVvpTqImVPjF4Yrv3RKn6mgtqxg';
-/* Auth config MUST match index.html exactly (persistSession:true,
-   autoRefreshToken:true). Both pages use the same SUPABASE_URL/KEY and
-   the SDK's default storage key, so a session created here (login/signup)
-   is correctly persisted to localStorage and read back by index.html.
-   persistSession:false previously discarded the session created by
-   doLogin()/doSignup() instead of saving it, which is why index.html's
-   getSession() always found nothing. Logout is handled correctly by
-   index.html's signOut(), which calls sb.auth.signOut() — that clears
-   the real Supabase session from storage, so this page's getSession()
-   correctly sees no session after logout without needing persistence
-   disabled. */
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
-  auth:{
-    persistSession:true,
-    autoRefreshToken:true,
-    detectSessionInUrl:false
-  }
-});
+/* sb now comes from js/common/supabase.js, loaded before this file. */
 
 let curRole='user',curForm='login';
 let areasData=[];

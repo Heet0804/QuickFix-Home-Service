@@ -13,27 +13,10 @@ document.querySelectorAll('#navRight a, #navRight button').forEach(function(el){
   });
 });
 
-/* ════════════════════════════════════════════════════════════
-   SUPABASE CLIENT
-   persistSession:true / autoRefreshToken:true — MUST match
-   auth.html and index.html exactly. Both use the same URL/KEY,
-   so the SDK's default storage key is identical on all pages.
-   auth.html writes the session to localStorage on login; this
-   page reads it back, so sb.auth.getSession() returns a valid
-   session and auth.uid() is non-null. Without this, RLS policies
-   (workers_own_update etc.) see auth.uid()=null and silently
-   return data:[] on every write — availability toggles, booking
-   status updates, and worker stat increments all appear to
-   succeed but write nothing to the database.
-   ════════════════════════════════════════════════════════════ */
-const SUPABASE_URL='https://oycurbgzzgfzilpflwks.supabase.co';
-const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95Y3VyYmd6emdmemlscGZsd2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MjkwMDMsImV4cCI6MjA5MzIwNTAwM30.B9KujxSHzhzpKM_IhVvpTqImVPjF4Yrv3RKn6mgtqxg';
+/* sb now comes from js/common/supabase.js, loaded before this file. */
 /* Phase 4.7: same constant name/value as index.html — one reusable
    Geoapify key for reverse geocoding + routing on this dashboard. */
 const GEOAPIFY_API_KEY = "a89cdf24c2ae454585c82225c630f28c";
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
-  auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}
-});
 
 let W=null;            /* current worker record (merged users + workers row) */
 let bookings=[];        /* raw bookings rows for this worker, snake_case as-is from Supabase */
