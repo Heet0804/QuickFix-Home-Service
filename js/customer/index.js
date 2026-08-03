@@ -1081,7 +1081,7 @@ function goPage(id){
   window.scrollTo({top:0,behavior:'smooth'});
 
   if(id==='services') renderServices();
-  if(id==='home'){ renderHomeCats(); renderHomeWorkers(); }
+  if(id==='home'){ renderHomeCats(); }
   if(id==='bookings') renderBookings();
   if(id==='account') renderAccount();
   if(id==='househelp') renderHousehelp();
@@ -1144,26 +1144,6 @@ function renderHomeCats(){
     mwCard+
     (e?`<div style="grid-column:1/-1;text-align:center;font-size:.76rem;color:var(--emerg);font-weight:600;padding:.4rem .875rem;background:var(--emerg-light);border-radius:var(--radius-sm);border:1px solid var(--emerg-border)">🚨 Emergency hours — Only Electrician &amp; Plumber available (8:30 PM – 8:30 AM IST)</div>`:'');
 }
-async function renderHomeWorkers(){
-  const container = document.getElementById('homeWorkers');
-  if(!container) return;
-
-  const e = isEmerg();
-  let ws = await DB.workers();
-
-  if(e){
-    ws = ws.filter(w =>
-      ['Electrician','Plumber'].includes(w.role) && w.ea
-    );
-  }
-
-  container.innerHTML = ws
-    .sort((a,b)=>b.rating-a.rating)
-    .slice(0,3)
-    .map(wCard)
-    .join('');
-}
-
 /* ── HOUSEHELP PICKER ──────────────────────────────────────── */
 function renderHousehelp(){
   document.getElementById('hhSections').innerHTML=HH_SECTIONS.map(sec=>`
@@ -1193,11 +1173,6 @@ async function bookHousehelp(serviceName, price){
 
 /* ── MASSAGE & WELLNESS ──────────────────────────────────── */
 /* ── SMART SEARCH (other categories) ───────────────────────── */
-function openSmart(catId){
-  sst={catId,item:null,issue:''};
-  document.getElementById('smartBread').textContent=CATS.find(c=>c.id===catId).lb;
-  renderStep(1); goPage('smart');
-}
 
 async function renderStep(step){
   drawStepBar(step);
@@ -3426,4 +3401,3 @@ window.addEventListener('focus',()=>{
 });
 /* ── INIT ─────────────────────────────────────────────────── */
 renderHomeCats();
-renderHomeWorkers();

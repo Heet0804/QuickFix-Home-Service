@@ -1,17 +1,7 @@
 /* ===== QuickFix Worker Profile Script — extracted from worker-profile.html (Phase 5.2) ===== */
 
-/* Responsive-only addition: mobile nav drawer, identical mechanism to
-   worker-dashboard.html and index.html. */
-function toggleMenu(){
-  document.getElementById('navRight').classList.toggle('open');
-  document.getElementById('navOverlay').classList.toggle('on');
-}
-document.querySelectorAll('#navRight a, #navRight button').forEach(function(el){
-  el.addEventListener('click', function(){
-    document.getElementById('navRight').classList.remove('open');
-    document.getElementById('navOverlay').classList.remove('on');
-  });
-});
+/* toggleMenu() and its nav-close listener moved to js/common/nav.js
+   in Phase 5.3.7.1 — loaded before this file. */
 /* sb now comes from js/common/supabase.js, loaded before this file. */
 
 let W=null;

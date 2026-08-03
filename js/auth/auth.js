@@ -19,25 +19,18 @@ const LEFT_CONTENT={
    in. After a real signOut() on index.html, both the Supabase session
    AND qf_user are cleared, so this check correctly keeps the user on
    auth.html. */
-console.log('AUTH PAGE LOADED');
 (async()=>{
   const {data:{session}}=await sb.auth.getSession();
   const cachedUser=sessionStorage.getItem('qf_user');
 
   if(session && cachedUser){
-    console.log('SESSION FOUND');
     let cachedRole=null;
     try{ cachedRole=JSON.parse(cachedUser).role; }catch(e){}
     const role=cachedRole||session.user.user_metadata?.role;
 
     if(role){
-      console.log('REDIRECTING TO INDEX');
       redirect(role);
-    } else {
-      console.log('NO SESSION FOUND');
     }
-  } else {
-    console.log('NO SESSION FOUND');
   }
 })();
 

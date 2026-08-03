@@ -1,17 +1,7 @@
 /* ===== QuickFix Worker Dashboard Script — extracted from worker-dashboard.html (Phase 5.2) ===== */
 
-/* Responsive-only addition: mobile nav drawer, mirrors index.html's
-   toggleMenu() exactly. Does not touch any business logic below. */
-function toggleMenu(){
-  document.getElementById('navRight').classList.toggle('open');
-  document.getElementById('navOverlay').classList.toggle('on');
-}
-document.querySelectorAll('#navRight a, #navRight button').forEach(function(el){
-  el.addEventListener('click', function(){
-    document.getElementById('navRight').classList.remove('open');
-    document.getElementById('navOverlay').classList.remove('on');
-  });
-});
+/* toggleMenu() and its nav-close listener moved to js/common/nav.js
+   in Phase 5.3.7.1 — loaded before this file. */
 
 /* sb now comes from js/common/supabase.js, loaded before this file. */
 /* Phase 5.3.3: GEOAPIFY_API_KEY now comes from js/common/config.js
@@ -175,14 +165,12 @@ sb.channel('worker-bookings-' + W.id)
   },
   async () => {
 
-    console.log('Realtime booking update');
-
     await loadBookings();
 
   }
 )
 
-.subscribe((status, err) => { console.log('channel status:', status, err); });
+.subscribe();
 
 /* ---------- FALLBACK SYNC (same strategy as index.html) ----------
    postgres_changes only fires on row-level INSERT/UPDATE/DELETE.
@@ -1162,7 +1150,6 @@ function _scheduleGPSRetry(delay=5000){
 function _stopGPS(){
   _clearGPSRetry();
   _clearGPSWatch();
-  console.log('GPS stopped');
   _gpsActive = false;
 }
 
@@ -1184,7 +1171,6 @@ function _startGPS(){
          without needing a new watcher. */
       const activeIds = _getActiveBookingIds();
       if(!activeIds.length){ _stopGPS(); return; }
-      console.log('GPS update', latitude, longitude, 'bookings:', activeIds);
       const { error } = await sb.from('bookings').update({
         worker_live_lat:  latitude,
         worker_live_lng:  longitude,
@@ -1205,7 +1191,6 @@ function _startGPS(){
     },
     { enableHighAccuracy: false, maximumAge: 10000, timeout: 30000 }
   );
-  console.log('GPS started for bookings:', _getActiveBookingIds());
 }
 
 function syncGPS(immediateBookingId){
