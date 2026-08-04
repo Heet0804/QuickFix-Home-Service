@@ -8,6 +8,8 @@
 | Document Type | Product Requirements Document (PRD) |
 | Source of Truth | `index.html`, `worker-dashboard.html`, `worker-profile.html`, `admin.html`, `auth.html`, `landing.html`, `README.md` |
 | Prepared For | QuickFix Product Documentation (`docs/PRD.md`) |
+| Revision | v1.2 — v1.1 fixes retained; additionally: converted open QuickCoins rate and reliability-penalty weighting into tracked action items with owner/status, added Stakeholders (7A) and User Roles (7B) sections, closed the Achievement condition list, defined "area-eligible"/"nearest" (9.5.6), aligned OTP digit format between FR and Workflow sections, added refunds/disputes/support to Out of Scope, added a government-ID data-handling constraint (22A.5), added framing notes distinguishing Sections 11–16 from Section 9, and defined GPS-permission-denial behavior (9.6.8) |
+| Prior Revision | v1.1 — resolved emergency-hours contradiction, added Assumptions (4A), Business Rules (10A), and Constraints (22A) sections, reconciled worker onboarding field sets, added OTP-failure and payment-timeout rules, restructured Success Criteria into Success Metrics & Acceptance Criteria |
 
 ---
 
@@ -52,6 +54,16 @@ Booking a trustworthy local service professional (electrician, plumber, painter,
 
 ---
 
+## 4A. Assumptions
+
+1. The platform operates in a single country/region (India) and a single currency (INR); all payment amounts, ID verification (Aadhaar/PAN), and time windows (IST) are scoped to this market.
+2. Customers and workers have a smartphone or desktop with a modern browser, an active internet connection, and (for workers) a device capable of continuous GPS reporting via `navigator.geolocation.watchPosition()`.
+3. The platform is operated by a single administrative team; the current admin portal design assumes one active admin role rather than a multi-tenant or multi-role admin hierarchy.
+4. The UI is assumed to be English-only for the current phase; no localization requirement exists yet.
+5. All business logic currently executing client-side (in `index.html`, `worker-dashboard.html`, `admin.html`) is assumed to be temporary and is planned for migration to backend functions in Phase 6 (Section 21.2); this PRD does not assume production-grade server-side enforcement of business rules in the current phase.
+
+---
+
 ## 5. Existing Problems
 
 - No standardized way to verify a worker's identity or trade skill before they arrive at a customer's home.
@@ -91,6 +103,27 @@ QuickFix addresses these problems with an integrated marketplace that:
 
 ---
 
+## 7A. Stakeholders
+
+| Stakeholder | Interest |
+|---|---|
+| Product Owner | Owns feature prioritization, campaign strategy, and the open business-rule decisions flagged in Section 10A. |
+| Engineering Team | Implements and maintains the platform per this PRD and the downstream SRS/Architecture documents. |
+| Platform Administrators | Day-to-day operators of the admin portal (Section 9.15); a subset of the "Platform operators/administrators" audience in Section 7, but distinguished here as an internal operating stakeholder rather than an end-user segment. |
+| Customers and Workers | End users of the platform; represented as personas in Section 8. |
+
+## 7B. User Roles
+
+| Role | Access | Key capabilities |
+|---|---|---|
+| Customer | `index.html`, `auth.html` (customer path) | Book, pay, track, review, manage wallet/passes/account (Sections 9.2–9.11). |
+| Worker | `worker-dashboard.html`, `worker-profile.html`, `auth.html` (worker path), in-app registration on `index.html` | Manage availability, accept/reject jobs, track earnings/performance, manage profile (Sections 9.12–9.14). |
+| Admin | `admin.html` | Campaign management, purchased-pass oversight, analytics (Section 9.15). Access gated by account role per NFR 8. |
+
+No role is permitted to access another role's application shell; this is enforced today only for the Admin role (NFR 8) and is not yet specified for Customer/Worker cross-access, since the current source files do not describe that boundary.
+
+---
+
 ## 8. User Personas
 
 ### 8.1 Customer Persona — "Rahul, the Homeowner"
@@ -125,9 +158,9 @@ QuickFix addresses these problems with an integrated marketplace that:
 3. The system shall support a "Forgot password" flow.
 4. The system shall display, but not yet functionally implement, Google and Phone OTP social sign-in options (shown with a "coming soon" notice).
 5. Customer sign-up shall require first name, email, phone number, and password (minimum six characters). Last name is optional.
-6. Worker sign-up shall require full name, phone, email, skill/category, work radius (km), service area, years of experience, a government ID proof upload (Aadhaar/PAN — JPG, JPEG, PNG, or PDF, maximum 5MB), a profile photo upload (JPG, JPEG, PNG, maximum 5MB, with camera-capture support), and a password (minimum six characters).
+6. Worker sign-up shall require full name, phone, email, skill/category, service radius (km), service area, years of experience, a government ID proof upload (Aadhaar/PAN — JPG, JPEG, PNG, or PDF, maximum 5MB), a profile photo upload (JPG, JPEG, PNG, maximum 5MB, with camera-capture support), and a password (minimum six characters).
 7. Worker sign-up shall conditionally present an "Available During Emergency Hours" checkbox based on the selected skill category.
-8. The system shall also provide an in-app worker registration flow from the customer application (`index.html`, "Register as a Worker" page) requiring full name, phone, email, home area, category, years of experience, service radius, starting price, a short bio, an emergency-availability checkbox, Aadhaar number, optional PAN, and an Aadhaar photo upload.
+8. The system shall also provide an in-app worker registration flow from the customer application (`index.html`, "Register as a Worker" page), collecting the same core field set as the `auth.html` worker sign-up flow (full name, phone, email, skill/category, service area, service radius, years of experience, government ID proof — captured here specifically as Aadhaar number plus optional PAN — and a profile photo/Aadhaar photo upload), plus two fields unique to this entry point: a starting price and a short bio. Both flows shall write to the same worker profile fields; "service area" and "service radius" are the canonical field names used by both flows.
 9. Upon worker registration submission, the system shall display a confirmation screen stating that the team will call within 24 hours and that Aadhaar will be verified before the worker's profile is activated.
 10. The system shall provide a separate, hidden administrator authentication gate (`admin.html`) that checks the existing session and the account's role; only accounts with the `admin` role are granted access to the admin application shell. Non-admin visitors are shown a "not authorized" message and are not automatically redirected elsewhere.
 
@@ -156,6 +189,7 @@ QuickFix addresses these problems with an integrated marketplace that:
 2. For Google Pay, the system shall display a QR code with a five-minute countdown and confirm payment before proceeding.
 3. For Cash, the system shall inform the customer that payment is due in cash on arrival and that the worker will not begin work until arrival is confirmed via OTP.
 4. The system shall use a separate, GPay-only payment flow for Service Pass purchases, with its own two-minute countdown, independent of the booking payment flow.
+5. If the five-minute Google Pay countdown (booking payment) or the two-minute Google Pay countdown (Service Pass purchase) elapses without a confirmed payment, the system shall cancel the pending transaction, notify the customer that the payment window has expired, and return them to the payment method selection step to retry.
 
 ### 9.5 Worker Assignment
 
@@ -164,6 +198,7 @@ QuickFix addresses these problems with an integrated marketplace that:
 3. The system shall assign the booking to the nearest available worker who accepts within the window.
 4. If no worker accepts within the window, the system shall inform the customer and offer a retry.
 5. The system shall present pending job requests to eligible workers, who may accept or reject each request from their dashboard.
+6. "Area-eligible" means the worker's registered service area (Section 9.1.6) string-matches the booking's selected service area, and the booking address falls within the worker's registered service radius (km). "Nearest" is determined by straight-line distance between the worker's last published GPS coordinate and the customer's pinned booking location at the moment of broadcast.
 
 ### 9.6 Live Tracking
 
@@ -174,14 +209,16 @@ QuickFix addresses these problems with an integrated marketplace that:
 5. The system shall automatically fit the map view to show the worker, the customer, and the full route without requiring manual zoom.
 6. The system shall resolve and display the destination building/society name identically on both the customer's and the worker's tracking maps.
 7. The system shall automatically remove or collapse the tracking map once arrival is confirmed via OTP, and shall clean up map resources on booking completion or cancellation to prevent memory leaks.
+8. If the worker's device denies or revokes location permission while a booking is in progress, the system shall display a clear in-app message to the worker indicating that location sharing is required to continue live tracking, and shall show a "location unavailable" state on both dashboards' tracking maps in place of the worker's marker, without breaking or removing the map itself.
 
 ### 9.7 OTP Verification
 
-1. The system shall generate a unique arrival OTP for each booking, displayed to the customer once the worker is en route.
+1. The system shall generate a unique six-digit arrival OTP for each booking, displayed to the customer once the worker is en route.
 2. The system shall present the customer a fifteen-minute arrival countdown timer with the option to extend by five minutes or cancel the booking if the worker has not arrived.
 3. The system shall require the worker to obtain the arrival OTP from the customer in person and enter it on the worker's dashboard to confirm arrival before service can begin.
-4. The system shall generate a separate completion OTP, obtained from the customer and entered by the worker to confirm that the job is finished.
+4. The system shall generate a separate six-digit completion OTP, obtained from the customer and entered by the worker to confirm that the job is finished.
 5. The system shall block progression to payment finalization, review, and QuickCoins crediting until the completion OTP is successfully verified.
+6. If the worker enters an incorrect Arrival OTP or Completion OTP, the system shall reject the entry, display an error message, and allow re-entry without limit within the active countdown window; no lockout is imposed on OTP entry attempts in the current phase.
 
 ### 9.8 Reviews and Ratings
 
@@ -232,7 +269,7 @@ QuickFix addresses these problems with an integrated marketplace that:
 ### 9.14 Achievement System
 
 1. The system shall maintain a dynamic, database-driven achievement engine for workers, with no hardcoded or manually assigned unlocks.
-2. The system shall automatically unlock achievements when a worker meets the required conditions, computed live from booking history (examples include milestones such as first job completed, ten jobs completed, being a highly rated worker, perfect reliability, earnings milestones, and booking streaks).
+2. The system shall automatically unlock achievements when a worker meets one of the following conditions, computed live from booking history: first job completed; ten jobs completed; being a highly rated worker; perfect reliability; earnings milestones; and booking streaks. This is the complete set of achievement conditions for the current phase; any additional achievement types require a Product-approved update to this list before implementation.
 3. The system shall display an animated popup notification when an achievement is unlocked, and shall provide an in-dashboard and in-profile view of all badges earned.
 
 ### 9.15 Admin Portal
@@ -259,7 +296,28 @@ QuickFix addresses these problems with an integrated marketplace that:
 
 ---
 
+## 10A. Business Rules
+
+1. **QuickCoins earning rate.** QuickCoins are credited at a rate to be defined by Product.
+   - **Status:** OPEN — blocking for SRS Section covering QuickCoins crediting only.
+   - **Owner:** Product Manager.
+   - **Needed by:** before SRS drafting begins on Section 9.10 (QuickCoins Wallet).
+   - **Note to engineering:** do not implement crediting logic against an assumed value; treat this rule as unspecified until this row is updated with a confirmed number.
+2. **Worker assignment tie-break.** If two or more eligible workers accept the same broadcast within the same window, the booking is assigned to whichever acceptance the system receives first (server timestamp order); the losing worker(s) are notified the job is no longer available.
+3. **No-show definition and trigger.** A booking is marked "No-Show" when the fifteen-minute arrival window (Section 9.7.2) elapses without a successful Arrival OTP verification and the customer chooses to cancel rather than extend. No-show is attributed to the worker and is included in the worker's no-show count (Section 9.13.2).
+4. **Reliability-score cancellation penalty.** Each worker-initiated cancellation of an already-accepted booking, and each recorded no-show, reduces the worker's reliability score by a weighting to be defined by Product.
+   - **Status:** OPEN — blocking for SRS Section covering worker reliability scoring only.
+   - **Owner:** Product Manager.
+   - **Needed by:** before SRS drafting begins on Section 9.13 (Worker Earnings and Performance).
+   - **Note to engineering:** do not implement scoring logic against an assumed weighting; treat this rule as unspecified until this row is updated with a confirmed value.
+5. **Service Pass expiry.** A purchased Service Pass with visits remaining becomes unusable once its expiry date passes, regardless of the originating campaign's own end date; unused visits are forfeited and are not refunded or converted to QuickCoins.
+6. **Address reuse matching.** Reuse of a previously pinned location (Section 9.3.7) is offered on an exact string match of the normalized address (case-insensitive, whitespace-trimmed), not including flat/wing/house/apartment/room number, so that the geocoding-based unit-number tolerance in Section 9.3.5 and the reuse-detection logic in Section 9.3.7 are consistent.
+
+---
+
 ## 11. Customer Features
+
+*(This section restates the customer-facing Functional Requirements in Section 9 as a flat feature checklist, for stakeholders who need a scannable summary rather than numbered requirements. Section 9 remains the authoritative source for requirement wording.)*
 
 - Landing page with clear "I Need a Service" and "I Want to Work" entry paths.
 - Unified sign-in/sign-up with role selection.
@@ -287,6 +345,8 @@ QuickFix addresses these problems with an integrated marketplace that:
 
 ## 12. Worker Features
 
+*(This section restates the worker-facing Functional Requirements in Section 9 as a flat feature checklist, for stakeholders who need a scannable summary rather than numbered requirements. Section 9 remains the authoritative source for requirement wording.)*
+
 - Role-specific sign-up with skill/category, work radius, service area, experience, government ID upload, and profile photo upload.
 - Online/offline availability toggle and independent emergency-availability toggle.
 - Job request tabs: Pending, Accepted, Arrived, Completed, Cancelled, each with live counts.
@@ -306,6 +366,8 @@ QuickFix addresses these problems with an integrated marketplace that:
 
 ## 13. Admin Features
 
+*(This section restates the admin-facing Functional Requirements in Section 9.15 as a flat feature checklist, for stakeholders who need a scannable summary rather than numbered requirements. Section 9 remains the authoritative source for requirement wording.)*
+
 - Hidden, separately authenticated admin entry point checked against account role.
 - Campaign Dashboard: create, edit, search, and filter campaigns (by name, service, status, priority).
 - Single create/edit modal covering all campaign attributes (title, service, description, price, visits, validity, priority, start/end dates, emergency-included flag, priority-booking flag, status).
@@ -316,6 +378,8 @@ QuickFix addresses these problems with an integrated marketplace that:
 ---
 
 ## 14. Booking Workflow
+
+*(This section restates the relevant Functional Requirements from Section 9 as a sequential end-to-end flow, for readers tracing the booking lifecycle rather than looking up individual requirements.)*
 
 1. Customer logs in.
 2. Customer selects a service, date, time slot, and enters their address and service area.
@@ -338,6 +402,8 @@ QuickFix addresses these problems with an integrated marketplace that:
 
 ## 15. Tracking Workflow
 
+*(This section restates the relevant Functional Requirements from Section 9.6 as a sequential end-to-end flow, for readers tracing the tracking lifecycle rather than looking up individual requirements.)*
+
 1. Once a booking is accepted, both the customer's ("Track Worker") and the worker's ("Track Customer") live maps activate.
 2. The worker's device continuously publishes GPS coordinates while online, using continuous location watching rather than one-time fixes.
 3. A road-following route is generated between the worker's live location and the customer's pinned location and rendered as a solid route line on both dashboards.
@@ -350,6 +416,8 @@ QuickFix addresses these problems with an integrated marketplace that:
 ---
 
 ## 16. OTP Verification Workflow
+
+*(This section restates the relevant Functional Requirements from Section 9.7 as a sequential end-to-end flow, for readers tracing the OTP lifecycle rather than looking up individual requirements.)*
 
 1. The system generates a unique six-digit Arrival OTP for the booking and displays it to the customer once a worker is en route.
 2. When the worker physically arrives, the customer verbally shares the Arrival OTP; the worker enters it into the Arrival OTP modal on their dashboard to confirm arrival.
@@ -385,12 +453,10 @@ QuickFix addresses these problems with an integrated marketplace that:
 
 ## 19. Emergency Booking System
 
-- The customer application displays an emergency-hours banner indicating that only Electrician and Plumber services are available during defined emergency hours, shown as 8:30 PM–8:30 AM IST.
-- Workers may opt in to emergency-hours availability. The worker sign-up flow (`auth.html`) conditionally presents an "Available During Emergency Hours" checkbox, labeled with a 9:30 PM–9:30 AM window, for eligible skill categories; the in-app worker registration flow (`index.html`) presents an equivalent "Available for Emergency (24/7) service" checkbox at sign-up time.
+- The customer application displays an emergency-hours banner indicating that only Electrician and Plumber services are available during defined emergency hours, shown as 8:30 PM–8:30 AM IST. This is the single canonical emergency-hours window for the product.
+- Workers may opt in to emergency-hours availability. The worker sign-up flow (`auth.html`) conditionally presents an "Available During Emergency Hours" checkbox for eligible skill categories, labeled with the canonical 8:30 PM–8:30 AM window; the in-app worker registration flow (`index.html`) presents an equivalent "Available for Emergency" checkbox at sign-up time, using the same wording and the same window. The 9:30 PM–9:30 AM label and the "(24/7)" phrasing found in the current source files are known defects to be corrected in implementation to match this canonical window before SRS handoff.
 - Independently of the sign-up-time preference, the worker dashboard provides a live "Emergency" toggle that lets an onboarded worker switch their real-time emergency availability on or off.
 - Administrators can flag a campaign/Service Pass as including emergency service coverage.
-
-> Note: the customer-facing emergency window (8:30 PM–8:30 AM) and the worker-registration emergency window (9:30 PM–9:30 AM) are stated differently across the source files; this document reproduces both as found rather than reconciling them, since only the attached files were used as the source of truth.
 
 ---
 
@@ -445,6 +511,16 @@ This section is intentionally limited to a high-level technology overview; imple
 
 ---
 
+## 22A. Constraints
+
+1. **Third-party service dependency.** Live tracking, routing, and geocoding depend on Geoapify and Nominatim availability and rate limits; real-time sync depends on Firebase Realtime Database and Supabase Realtime availability. Outages in these services degrade tracking/notification functionality as described in Section 9.6.4 and NFR 9, but the product has no fallback provider.
+2. **Client-side business logic.** In the current phase, booking validation, worker-assignment logic, and QuickCoins crediting run client-side rather than in a hardened backend; this is a known constraint being addressed in Phase 6 (Section 21.2) and should not be treated as a production-security posture.
+3. **Browser geolocation dependency.** Live tracking requires the worker's browser/device to grant location permission continuously; there is no server-side or SMS-based location fallback if permission is denied or revoked mid-booking.
+4. **No modularized codebase yet.** The frontend is currently monolithic per-role HTML files rather than a modular component structure (Phase 5, Section 21.1); any SRS/architecture work done against the current codebase should account for this pre-refactor state.
+5. **Government ID data handling.** Aadhaar and PAN documents are collected at worker onboarding (Section 9.1.6, 9.1.8) but the current source files define no retention, encryption-at-rest, or deletion policy for this data. This is flagged as an open compliance item; a data-handling policy must be defined (likely in Architecture.md or a dedicated privacy addendum) before production launch.
+
+---
+
 ## 23. Project Scope
 
 The current, implemented scope of QuickFix covers:
@@ -466,10 +542,24 @@ The following are explicitly identified in the project roadmap as not yet implem
 3. QuickCoins redemption against real offers, expanded promotional campaign tooling, and a broader offers ecosystem (planned for Phase 7).
 4. Functional Google and Phone OTP social sign-in (currently displayed as "coming soon" placeholders with no backing implementation).
 5. Any features, workflows, or data not represented in the attached source files.
+6. Refund processing, dispute resolution, and dedicated customer-support/complaint-handling tooling — none of these are represented in the attached source files and are out of scope for the current version.
 
 ---
 
-## 25. Success Criteria
+## 25. Success Metrics & Acceptance Criteria
+
+### 25.1 Success Metrics
+
+1. ≥90% of started bookings reach payment confirmation without customer drop-off due to address-validation errors.
+2. ≥95% of broadcast bookings are accepted by a worker within the acceptance window (Section 9.5.2), without requiring a retry.
+3. Average time from booking confirmation to worker acceptance is under a target to be defined by Product.
+   - **Status:** OPEN — not blocking for implementation (this is a monitoring target, not a feature dependency), but should be confirmed before this metric is reported against.
+   - **Owner:** Product Manager.
+   - **Needed by:** before this metric is used in any launch or post-launch reporting.
+4. ≥98% of completed bookings result in a successful arrival + completion OTP verification pair with no manual override.
+5. Month-over-month repeat-booking rate among customers holding an active Service Pass or nonzero QuickCoins balance is higher than among customers with neither.
+
+### 25.2 Acceptance Criteria
 
 1. A customer can complete an entire booking — from service selection through payment, worker assignment, live tracking, arrival OTP, completion OTP, QuickCoins crediting, and review — without needing a phone call or manual intervention.
 2. Address validation correctly blocks bookings where the entered address does not match the selected service area, and correctly geocodes and pins valid addresses at building level.
