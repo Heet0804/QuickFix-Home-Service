@@ -1,0 +1,69 @@
+-- ============================================================
+-- functions.sql
+-- Generated strictly from DATABASE.md Section 4: SQL Functions
+-- Scope: function definitions only.
+-- No tables, indexes, policies, storage, migrations, or seed data.
+-- ============================================================
+--
+-- DATABASE.md documents the EXISTENCE of the following functions but does
+-- NOT document their parameter signatures, return types, or bodies:
+--   is_admin()
+--   get_worker_stats
+--   get_worker_stats_bulk
+--   rls_auto_enable
+--   handle_new_user
+--
+-- Per instructions, no signature or body may be invented. A CREATE FUNCTION
+-- statement requires a parameter list and return type, neither of which is
+-- documented, so emitting one would constitute inventing information.
+-- Each function is therefore recorded as a TODO stub below rather than a
+-- runnable CREATE FUNCTION statement.
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- Function: is_admin()
+-- Confirmed usage: referenced in `users` RLS policy "Admins read all users"
+-- ------------------------------------------------------------
+-- TODO:
+-- Function body unavailable in DATABASE.md
+-- (parameter signature and return type also unavailable in DATABASE.md)
+
+-- ------------------------------------------------------------
+-- Function: get_worker_stats
+-- Confirmed usage: not referenced by any RLS policy; presumed single-worker stats RPC
+-- ------------------------------------------------------------
+-- TODO:
+-- Function body unavailable in DATABASE.md
+-- (parameter signature and return type also unavailable in DATABASE.md)
+
+-- ------------------------------------------------------------
+-- Function: get_worker_stats_bulk
+-- Confirmed usage: not referenced by any RLS policy; presumed bulk-stats RPC
+-- ------------------------------------------------------------
+-- TODO:
+-- Function body unavailable in DATABASE.md
+-- (parameter signature and return type also unavailable in DATABASE.md)
+
+-- ------------------------------------------------------------
+-- Function: rls_auto_enable
+-- Confirmed usage: not referenced by any RLS policy; presumed RLS setup/maintenance routine
+-- ------------------------------------------------------------
+-- TODO:
+-- Function body unavailable in DATABASE.md
+-- (parameter signature and return type also unavailable in DATABASE.md)
+
+-- ------------------------------------------------------------
+-- Function: handle_new_user
+-- Confirmed usage: not referenced by any RLS policy; not bound to any trigger
+-- ------------------------------------------------------------
+-- TODO:
+-- Function body unavailable in DATABASE.md
+-- (parameter signature and return type also unavailable in DATABASE.md)
+
+-- ============================================================
+-- AUDIT RESULT
+-- Functions Verified: is_admin(), get_worker_stats, get_worker_stats_bulk, rls_auto_enable, handle_new_user — 5/5 present, matching DATABASE.md Section 4
+-- Missing Bodies: is_admin(), get_worker_stats, get_worker_stats_bulk, rls_auto_enable, handle_new_user — all 5 marked TODO (no body, parameter list, or return type documented in DATABASE.md)
+-- Corrections Made: None — no CREATE FUNCTION statements were emitted since signatures are undocumented; emitting one would require inventing types not present in DATABASE.md
+-- Final Status: PASS ✅
+-- ============================================================
