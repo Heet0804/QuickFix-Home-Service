@@ -583,8 +583,6 @@ if(error){
   return;
 }
 
-  //await bumpWorkerCounter('accepted_jobs');
-
   /* AUTO OFFLINE: worker is now on a job — stop receiving new requests */
   await setWorkerAvailability(false);
 
@@ -779,9 +777,6 @@ async function submitCompletionOtp(){
   closeModal('completionOtpModal');
   input.value = '';
 
-  //await bumpWorkerCounter('completed_jobs');
-  //await bumpWorkerCounter('total_jobs');
-
   /* AUTO ONLINE: job finished — worker is free for new bookings */
   await setWorkerAvailability(true);
 
@@ -789,24 +784,6 @@ async function submitCompletionOtp(){
   await loadBookings();
   switchTab('completed', document.querySelector('.tab[data-tab="completed"]'));
 }
-
-/* ════════════════════════════════════════════════════════════
-   WORKER COUNTER HELPERS
-   Increments a counter column on the live workers row (read-then-write,
-   since Supabase JS has no atomic increment without an RPC, and the
-   task scope disallows inventing new functions/columns server-side).
-   ════════════════════════════════════════════════════════════ */
-/*async function bumpWorkerCounter(column){
-  const {data:fresh,error:fe}=await sb.from('workers').select('*').eq('id',W.id).single();
-  if(fe||!fresh){console.error('bumpWorkerCounter fetch:',fe?.message);return;}
-  const current=Number(fresh[column])||0;
-  const updates={[column]:current+1};
-  const {error:ue}=await sb.from('workers').update(updates).eq('id',W.id);
-  if(ue){console.error('bumpWorkerCounter update:',ue.message);return;}
-  W={...W,...fresh,...updates};
-  sessionStorage.setItem('qf_user',JSON.stringify(W));
-  renderProfile();
-}*/
 
 /* ════════════════════════════════════════════════════════════
    AVAILABILITY / EMERGENCY TOGGLES
