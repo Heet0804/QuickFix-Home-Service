@@ -1,3 +1,5 @@
+/* ===== QuickFix Admin Script — extracted from admin.html (Phase 5.2) ===== */
+
 /* sb now comes from js/common/supabase.js, loaded before this file. */
 
 let _allCampaigns = [];

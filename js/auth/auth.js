@@ -1,3 +1,5 @@
+/* ===== QuickFix Auth Script — extracted from auth.html (Phase 5.2) ===== */
+
 /* sb now comes from js/common/supabase.js, loaded before this file. */
 
 let curRole='user',curForm='login';
