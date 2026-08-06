@@ -1,0 +1,22 @@
+window.CONSTANTS = {
+  AUTH_REDIRECT_DELAY_MS: 800,
+  WORKER_PROFILE_LOAD_FAIL_REDIRECT_MS: 1500,
+  MAX_UPLOAD_FILE_SIZE_BYTES: 5 * 1024 * 1024,
+  MIN_PASSWORD_LENGTH: 6,
+  STORAGE_UPLOAD_CACHE_CONTROL: '3600',
+  CLOCK_TICK_INTERVAL_MS: 1000,
+  MAP_INVALIDATE_DELAY_MS: 50,
+  TRACKING_MAP_BUILD_DELAY_MS: 420,
+  PULSE_LAYER_REMOVE_DELAY_MS: 2600,
+  BOOKING_STATUS: {
+    PENDING:       'Pending',
+    SCHEDULED:     'Scheduled',
+    CONFIRMED:     'Confirmed',
+    ACCEPTED:      'Accepted',
+    WORKER_ON_WAY: 'Worker on Way',
+    ARRIVED:       'Arrived',
+    COMPLETED:     'Completed',
+    CANCELLED:     'Cancelled',
+    REJECTED:      'Rejected'
+  }
+};

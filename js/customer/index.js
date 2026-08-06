@@ -84,7 +84,7 @@ function normalizeBookings(raw){
   return raw.filter(Boolean).map(b=>({
     ...b,
     id: b.id ?? b.booking_id ?? String(Date.now()+Math.random()),
-    status: b.status || 'Confirmed',
+    status: b.status || CONSTANTS.BOOKING_STATUS.CONFIRMED,
     workerRole: b.workerRole || b.worker_role || 'Service',
     workerName: b.workerName || b.worker_name || 'Worker',
     workerPhone: b.workerPhone || b.worker_phone || '',
@@ -269,7 +269,7 @@ const DB = {
   pass_id:        bk.passId || null,
   worker_earning: bk.workerEarning ?? bk.basePrice ?? 0,
   status:         bk.status,
-  w_status:       bk.wStatus||'Pending',
+  w_status:       bk.wStatus||CONSTANTS.BOOKING_STATUS.PENDING,
   arrival_otp:    bk.arrivalOtp,
   completion_otp: bk.completionOtp,
   is_emergency:   bk.isEmergency||false,
@@ -495,7 +495,7 @@ const EROLES = ['Electrician','Plumber'];
    areas(id,name,lat,lng) + workers(area,lat,lng,radius).
    No external geocoding API — coordinates come straight from the
    areas table, selected via the booking-form Area dropdown. */
-const MAX_ASSIGN_KM = 10;
+const MAX_ASSIGN_KM = CONSTANTS.MAX_ASSIGN_KM;
 let AREAS_CACHE = null;   /* populated once on first booking-form open */
 
 /* Haversine formula — great-circle distance in km between two lat/lng points */
@@ -583,13 +583,13 @@ function revealAt(time){
 function isAdv(date,time){
   const ist=getIST(), [h,m]=time.split(':').map(Number);
   const slot=new Date(date); slot.setHours(h,m,0,0);
-  return slot-ist>10*60*1000;
+  return slot-ist>CONSTANTS.ADVANCE_BOOKING_REVEAL_WINDOW_MS;
 }
 function shouldReveal(bk){
   if(!bk.isAdvance) return true;
   const ist=getIST(), [h,m]=bk.time.split(':').map(Number);
   const slot=new Date(bk.date); slot.setHours(h,m,0,0);
-  return slot-ist<=10*60*1000;
+  return slot-ist<=CONSTANTS.ADVANCE_BOOKING_REVEAL_WINDOW_MS;
 }
 
 /* ── CLOCK ─────────────────────────────────────────────────── */
@@ -626,15 +626,15 @@ function syncEmergFilters(e){
 /* ── STATE ─────────────────────────────────────────────────── */
 const filters={cat:'all',sort:'default',search:''};
 let curW=null, curTab='all';
-let accInt=null, accLeft=120;
-let arrInt=null, arrLeft=900, arrExt=false;
+let accInt=null, accLeft=CONSTANTS.WORKER_ACCEPT_TIMEOUT_SECONDS;
+let arrInt=null, arrLeft=CONSTANTS.ARRIVAL_TIMEOUT_SECONDS, arrExt=false;
 let pendBk=null, pendBkId=null, otpMode=null;
 let payMethod=null, sst={catId:null,item:null,issue:''};
 let pollInt=null, pollCnt=0, qrInt=null;
 let revRat=0, revId=null, aadhaarData=null;
-const POLL_MAX=60, POLL_MS=3000;
+const POLL_MAX=CONSTANTS.PAYMENT_POLL_MAX_ATTEMPTS, POLL_MS=CONSTANTS.PAYMENT_POLL_INTERVAL_MS;
 
-setInterval(tickClock,1000); tickClock();
+setInterval(tickClock,CONSTANTS.CLOCK_TICK_INTERVAL_MS); tickClock();
 
 /* ── HELPERS ───────────────────────────────────────────────── */
 function stars(r){ return Array.from({length:5},(_,i)=>`<span class="star${i<Math.round(r)?'':' empty'}">★</span>`).join(''); }
@@ -1407,7 +1407,7 @@ async function changeAccountPassword(){
   const msg=document.getElementById('acctPwMsg');
   msg.textContent='';
 
-  if(!pw||pw.length<6){
+  if(!pw||pw.length<CONSTANTS.MIN_PASSWORD_LENGTH){
     msg.innerHTML=`<p style="color:var(--danger);font-size:.82rem;margin-bottom:.75rem">Password must be at least 6 characters.</p>`;
     return;
   }
@@ -1762,7 +1762,7 @@ function _openPinPicker(addr, areaId, geo, saved){
     _pinMap.on('click', (ev)=>{
       _pinMarker.setLatLng(ev.latlng);
     });
-    setTimeout(()=>{ _pinMap.invalidateSize(); }, 50);
+    setTimeout(()=>{ _pinMap.invalidateSize(); }, CONSTANTS.MAP_INVALIDATE_DELAY_MS);
   }, 30);
 
   document.getElementById('confirmPinBtn').onclick = async ()=>{
@@ -1913,7 +1913,7 @@ function selectPay(m){
 
 function startPoll(){
   stopPoll(); pollCnt=0;
-  let qrSecs=300;
+  let qrSecs=CONSTANTS.QR_PAYMENT_EXPIRY_SECONDS;
   document.getElementById('qrExpiry').style.display='';
   qrInt=setInterval(()=>{
     qrSecs--;
@@ -1963,7 +1963,7 @@ function drawQR(amount){
 
 /* ── BROADCAST ────────────────────────────────────────────── */
 async function startBroadcast(){
-  accLeft=120;
+  accLeft=CONSTANTS.WORKER_ACCEPT_TIMEOUT_SECONDS;
   clearInterval(accInt);
 
   const bkId = Date.now();
@@ -2032,8 +2032,8 @@ async function startBroadcast(){
     // Same basePrice already computed in initiateBooking() for every
     // booking (normal or pass-covered) — reused as-is, never recalculated.
     workerEarning: pendBk.basePrice,
-    status:       'Pending',
-    wStatus:      'Pending',
+    status:       CONSTANTS.BOOKING_STATUS.PENDING,
+    wStatus:      CONSTANTS.BOOKING_STATUS.PENDING,
     arrivalOtp,
     completionOtp,
     rated:        false,
@@ -2058,7 +2058,7 @@ async function startBroadcast(){
     const all = await DB.bookings();
     const current = all.find(x => String(x.id) === String(pendBkId));
 
-    if(current && current.status === 'Accepted'){
+    if(current && current.status === CONSTANTS.BOOKING_STATUS.ACCEPTED){
       clearInterval(accInt);
       closeModal('acceptModal');
 
@@ -2120,7 +2120,7 @@ async function onAccepted(){
   // NEVER downgrade an already accepted booking
   status: bkBase.status,
 
-  wStatus: bkBase.w_status || 'Accepted'
+  wStatus: bkBase.w_status || CONSTANTS.BOOKING_STATUS.ACCEPTED
 };
 
     const saved = await DB.save(bk);
@@ -2296,7 +2296,7 @@ function fmtTlTs(iso){
 }
 
 function buildTimeline(b){
-  const cancelled = b.status === 'Cancelled';
+  const cancelled = b.status === CONSTANTS.BOOKING_STATUS.CANCELLED;
   const activeIdx = cancelled
     ? (TL_STATUS_IDX[b.w_status||''] ?? TL_STATUS_IDX['Pending'])
     : (TL_STATUS_IDX[b.status] ?? 0);
@@ -2669,7 +2669,7 @@ async function _buildTrackingMap(b){
     recenterBtn.style.display = 'block';
   });
 
-  setTimeout(()=>{ map.invalidateSize(); }, 50);
+  setTimeout(()=>{ map.invalidateSize(); }, CONSTANTS.MAP_INVALIDATE_DELAY_MS);
 
   /* ── Customer marker + route + ONE-TIME overview fit ──────────
      Everything below runs once per map instance. Wrapped so a
@@ -2740,14 +2740,15 @@ function updateTrackingMaps(bookingList){
      always the full set (renderBookings passes `all`), so this never
      misses a booking that's just off the current tab. */
   const _activeTrkIds = new Set(
-    bookingList.filter(b=>['Accepted','Worker on Way'].includes(b.status)).map(b=>String(b.id))
+    bookingList.filter(b=>[CONSTANTS.BOOKING_STATUS.ACCEPTED,CONSTANTS.BOOKING_STATUS.WORKER_ON_WAY].includes(b.status)).map(b=>String(b.id))
+
   );
   Object.keys(_trkState).forEach(id=>{
     if(!_activeTrkIds.has(String(id))) _destroyTrackingMap(id);
   });
 
   bookingList.forEach(b=>{
-    if(!['Accepted','Worker on Way'].includes(b.status)) return;
+    if(![CONSTANTS.BOOKING_STATUS.ACCEPTED,CONSTANTS.BOOKING_STATUS.WORKER_ON_WAY].includes(b.status)) return;
 
     if(!shouldReveal(b)){
       _showTrackingLockPlaceholder(b);
@@ -2822,9 +2823,9 @@ async function renderBookings(){
   checkQuickCoinsRewards(all);
   checkServicePassConsumption(all);
   let list=all;
-  if(curTab==='upcoming') list=all.filter(b=>['Scheduled','Confirmed','Accepted','Worker on Way','Arrived'].includes(b.status));
-  if(curTab==='completed') list=all.filter(b=>b.status==='Completed');
-  if(curTab==='cancelled') list=all.filter(b=>b.status==='Cancelled');
+  if(curTab==='upcoming') list=all.filter(b=>[CONSTANTS.BOOKING_STATUS.SCHEDULED,CONSTANTS.BOOKING_STATUS.CONFIRMED,CONSTANTS.BOOKING_STATUS.ACCEPTED,CONSTANTS.BOOKING_STATUS.WORKER_ON_WAY,CONSTANTS.BOOKING_STATUS.ARRIVED].includes(b.status));
+  if(curTab==='completed') list=all.filter(b=>b.status===CONSTANTS.BOOKING_STATUS.COMPLETED);
+  if(curTab==='cancelled') list=all.filter(b=>b.status===CONSTANTS.BOOKING_STATUS.CANCELLED);
   const c=document.getElementById('bkList');
   if(!list.length){
     c.innerHTML=`<div class="empty"><div class="emptyico">📋</div><h3>No bookings here</h3><p>Your bookings will appear here.</p>${curTab==='all'?`<button class="btn bp" style="margin-top:1rem" onclick="goPage('services')">Browse Services</button>`:''}</div>`;
@@ -2839,8 +2840,8 @@ async function renderBookings(){
        separate status check for any of them. */
     const rev=shouldReveal(b);
     const show =
-  b.status==='Completed'
-  || (['Accepted','Confirmed','Worker on Way','Arrived','Scheduled'].includes(b.status)&&rev);
+ b.status===CONSTANTS.BOOKING_STATUS.COMPLETED
+  || ([CONSTANTS.BOOKING_STATUS.ACCEPTED,CONSTANTS.BOOKING_STATUS.CONFIRMED,CONSTANTS.BOOKING_STATUS.WORKER_ON_WAY,CONSTANTS.BOOKING_STATUS.ARRIVED,CONSTANTS.BOOKING_STATUS.SCHEDULED].includes(b.status)&&rev);
     const rf=b.isAdvance?revealAt(b.time):null;
     const payLabel=b.paymentMethod==='gpay'?'📱 GPay (Paid)':'💵 Cash on Arrival';
     const km = Number(b.workerDist || 0);
@@ -2882,39 +2883,40 @@ const contactHtml = show
     const otpHtml=show?(()=>{
       /* Sequential OTP: never show both at once.
          arrival_otp is nulled after verification; completion_otp only exists after Arrived. */
-      if(b.status==='Arrived'&&b.completion_otp){
+      if(b.status===CONSTANTS.BOOKING_STATUS.ARRIVED&&b.completion_otp){
         return `<div class="otppair" style="grid-template-columns:1fr">
           <div class="otpbox c2"><div class="otplbl">Completion OTP</div><div class="otpcode c2">${b.completion_otp}</div><div style="font-size:.72rem;color:var(--text2);margin-top:.3rem">Share this OTP with the worker after the service is completed.</div></div></div>`;
       }
-      if(['Accepted','Confirmed','Worker on Way'].includes(b.status)&&b.arrival_otp){
+            if([CONSTANTS.BOOKING_STATUS.ACCEPTED,CONSTANTS.BOOKING_STATUS.CONFIRMED,CONSTANTS.BOOKING_STATUS.WORKER_ON_WAY].includes(b.status)&&b.arrival_otp){
         return `<div class="otppair" style="grid-template-columns:1fr">
           <div class="otpbox"><div class="otplbl">🚗 Arrival OTP — Share with worker on arrival</div><div class="otpcode">${b.arrival_otp}</div></div></div>`;
       }
       return '';
     })():'';
-    const payHtml=(show||b.status==='Scheduled')?`<div style="font-size:.72rem;color:var(--text2);margin-top:.3rem">${payLabel}</div>`:'';
-    const schedNote=b.status==='Scheduled'&&!rev?`<div style="font-size:.76rem;color:var(--brand);font-weight:600;margin-top:.4rem">📅 Scheduled for ${fmt12(b.time)} · Worker assigned</div>`:'';
-    const trackBtn=(['Accepted','Confirmed'].includes(b.status)&&show)?`<button class="btn bt" style="font-size:.72rem;padding:5px 10px" onclick="openArrival(${b.id})">🚗 Track</button>`:'';
+    const payHtml=(show||b.status===CONSTANTS.BOOKING_STATUS.SCHEDULED)?`<div style="font-size:.72rem;color:var(--text2);margin-top:.3rem">${payLabel}</div>`:'';
+    const schedNote=b.status===CONSTANTS.BOOKING_STATUS.SCHEDULED&&!rev?`<div style="font-size:.76rem;color:var(--brand);font-weight:600;margin-top:.4rem">📅 Scheduled for ${fmt12(b.time)} · Worker assigned</div>`:'';
+    const trackBtn=([CONSTANTS.BOOKING_STATUS.ACCEPTED,CONSTANTS.BOOKING_STATUS.CONFIRMED].includes(b.status)&&show)?`<button class="btn bt" style="font-size:.72rem;padding:5px 10px" onclick="openArrival(${b.id})">🚗 Track</button>`:'';
     const compBtn='';
-    const canCancel=['Accepted','Confirmed','Scheduled'].includes(b.status)&&!rev;
+    const canCancel=[CONSTANTS.BOOKING_STATUS.ACCEPTED,CONSTANTS.BOOKING_STATUS.CONFIRMED,CONSTANTS.BOOKING_STATUS.SCHEDULED].includes(b.status)&&!rev;
 const cancelBtn=canCancel
   ?`<div><button class="btn bd" style="font-size:.72rem;padding:5px 10px" onclick="cancelBk(${b.id})">❌ Cancel</button><div style="font-size:.65rem;color:var(--text3);margin-top:3px">Free cancellation up to 10 min before</div></div>`
-  :(['Confirmed','Scheduled'].includes(b.status)&&rev)?`<div style="font-size:.65rem;color:var(--danger);font-weight:600;margin-top:4px">🔒 Cancellation locked — worker is on the way</div>`:'' ;
-    const bookAgainBtn=b.status==='Cancelled'?`<button class="btn bp" style="font-size:.72rem;padding:5px 10px" onclick="goPage('services')">🔄 Book Again</button>`:'';
-    const rateBtn=b.status==='Completed'&&!b.rated?`<button class="btn" style="font-size:.72rem;padding:5px 10px;background:var(--amber);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:600" onclick="openReview('${b.id}')">⭐ Rate</button>`:'';
+  :([CONSTANTS.BOOKING_STATUS.CONFIRMED,CONSTANTS.BOOKING_STATUS.SCHEDULED].includes(b.status)&&rev)?`<div style="font-size:.65rem;color:var(--danger);font-weight:600;margin-top:4px">🔒 Cancellation locked — worker is on the way</div>`:'' ;
+    const bookAgainBtn=b.status===CONSTANTS.BOOKING_STATUS.CANCELLED?`<button class="btn bp" style="font-size:.72rem;padding:5px 10px" onclick="goPage('services')">🔄 Book Again</button>`:'';
+    const rateBtn=b.status===CONSTANTS.BOOKING_STATUS.COMPLETED&&!b.rated?`<button class="btn" style="font-size:.72rem;padding:5px 10px;background:var(--amber);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:600" onclick="openReview('${b.id}')">⭐ Rate</button>`:'';
     return `<div class="bkitem">
       <div class="bkico">${b.workerEmoji}</div>
       <div class="bkdet">
         <div class="bktit">${b.service}
           ${b.isEmergency?'&nbsp;<span class="bdg bge">🚨 Emergency</span>':''}
-          ${b.isAdvance&&b.status==='Scheduled'?'&nbsp;<span class="bdg bgb">📅 Advance</span>':''}
+          ${b.isAdvance&&b.status===CONSTANTS.BOOKING_STATUS.SCHEDULED?'&nbsp;<span class="bdg bgb">📅 Advance</span>':''}
+
         </div>
         <div class="bkmeta"><span>${b.workerRole}</span><span>${fmtDate(b.date)} · ${fmt12(b.time)}</span><span>₹${b.price}</span></div>
         ${schedNote}${contactHtml}${otpHtml}${payHtml}
         <div class="bkacts">${trackBtn}${compBtn}${cancelBtn}${bookAgainBtn}${rateBtn}</div>
         <button class="tl-toggle" id="tl-btn-${b.id}" onclick="toggleTimeline('${b.id}')">▼ View Timeline <span class="tl-arr">▼</span></button>
         <div class="tl-wrap" id="tl-wrap-${b.id}">${buildTimeline(b)}</div>
-        ${['Accepted','Worker on Way'].includes(b.status)?`
+        ${[CONSTANTS.BOOKING_STATUS.ACCEPTED,CONSTANTS.BOOKING_STATUS.WORKER_ON_WAY].includes(b.status)?`
          <button class="trk-toggle" id="trk-btn-${b.id}" onclick="toggleTracking('${b.id}')">📍 Track Worker <span class="trk-arr">▼</span></button>
         <div class="trk-wrap" id="trk-wrap-${b.id}">
           <div class="trk-body">
@@ -2961,7 +2963,7 @@ openTrks.forEach(id=>{
   if(_trkState[id]?.map){
     _reattachTrackingDom(id);
   } else {
-    setTimeout(()=>{ _buildTrackingMap(booking); }, 420);
+    setTimeout(()=>{ _buildTrackingMap(booking); }, CONSTANTS.TRACKING_MAP_BUILD_DELAY_MS);
   }
 });
   /* Pass full booking list so active bookings are always tracked
@@ -2970,7 +2972,7 @@ openTrks.forEach(id=>{
 }
 
 async function cancelBk(id){
-  await DB.update(id,{status:'Cancelled'});
+  await DB.update(id,{status:CONSTANTS.BOOKING_STATUS.CANCELLED});
   showToast('🗑 Booking cancelled'); renderBookings();
 }
 function clearHistory(){ document.getElementById('clrModal').classList.add('on'); }
@@ -2991,10 +2993,11 @@ function switchTab(tab,btn){
 async function openArrival(bkId){
   const all=await DB.bookings(); const b=all.find(x=>x.id===bkId); if(!b) return;
   await DB.update(bkId,{
-  status:'Worker on Way',
+  status:CONSTANTS.BOOKING_STATUS.WORKER_ON_WAY,
+
   on_way_at:new Date().toISOString()
 });
-  pendBkId=bkId; arrExt=false; arrLeft=900;
+  pendBkId=bkId; arrExt=false; arrLeft=CONSTANTS.ARRIVAL_TIMEOUT_SECONDS;
   document.getElementById('arrOtpShow').textContent=b.arrivalOtp||'——';
   document.getElementById('arrivalModal').classList.add('on');
   startArr(); renderBookings();
@@ -3004,12 +3007,12 @@ function startArr(){
   arrInt=setInterval(()=>{ arrLeft--; updateArr(); if(arrLeft<=0){ clearInterval(arrInt); closeModal('arrivalModal'); if(!arrExt) document.getElementById('notArrivedModal').classList.add('on'); else autoCancel(); } },1000);
 }
 function updateArr(){
-  const tot=arrExt?300:900, mn=Math.floor(arrLeft/60), sc=arrLeft%60;
+  const tot=arrExt?CONSTANTS.ARRIVAL_EXTENDED_TIMEOUT_SECONDS:CONSTANTS.ARRIVAL_TIMEOUT_SECONDS, mn=Math.floor(arrLeft/60), sc=arrLeft%60;
   document.getElementById('arrivalTimer').textContent=`${mn}:${String(sc).padStart(2,'0')}`;
   document.getElementById('arrivalBar').style.width=((arrLeft/tot)*100)+'%';
 }
 function extendTimer(){
-  closeModal('notArrivedModal'); arrExt=true; arrLeft=300;
+  closeModal('notArrivedModal'); arrExt=true; arrLeft=CONSTANTS.ARRIVAL_EXTENDED_TIMEOUT_SECONDS;
   document.getElementById('arrivalModal').classList.add('on'); startArr(); showToast('⏱ Extended by 5 minutes');
 }
 async function autoCancel(){
@@ -3017,7 +3020,7 @@ async function autoCancel(){
   /* Worker did not arrive within the timer window — this is a no-show,
      not a generic cancellation. Track it separately since no_show_count
      carries a heavier reliability penalty than cancelled_jobs. */
-  await DB.update(pendBkId,{status:'Cancelled', is_no_show:true});
+  await DB.update(pendBkId,{status:CONSTANTS.BOOKING_STATUS.CANCELLED, is_no_show:true});
   showToast('❌ Auto-cancelled — worker did not arrive'); renderBookings();
 }
 
@@ -3059,7 +3062,7 @@ async function verifyOtp(){
     await DB.update(
   pendBkId,
   {
-    status:'Arrived',
+    status:CONSTANTS.BOOKING_STATUS.ARRIVED,
     arrived_at:new Date().toISOString()
   }
 );
@@ -3080,7 +3083,7 @@ async function verifyOtp(){
     await DB.update(
   pendBkId,
   {
-    status:'Completed',
+     status:CONSTANTS.BOOKING_STATUS.COMPLETED,
     completed_at:new Date().toISOString()
   }
 );
@@ -3124,7 +3127,7 @@ function checkQuickCoinsRewards(all){
       return;
     }
 
-    if(prevStatus==='Arrived' && b.status==='Completed' && !qcRewardedIds.has(b.id)){
+   if(prevStatus===CONSTANTS.BOOKING_STATUS.ARRIVED && b.status===CONSTANTS.BOOKING_STATUS.COMPLETED && !qcRewardedIds.has(b.id)){
       // Mark rewarded BEFORE awaiting the DB call so an overlapping
       // poll tick can never double-trigger the award for this booking.
       qcRewardedIds.add(b.id);
@@ -3258,7 +3261,7 @@ async function consumeServicePassVisit(booking){
       layer.appendChild(p);
     }
     modalEl.appendChild(layer);
-    setTimeout(()=>layer.remove(), 2600);
+    setTimeout(()=>layer.remove(), CONSTANTS.PULSE_LAYER_REMOVE_DELAY_MS);
   }
 
   function spawnCoins(){
@@ -3273,7 +3276,7 @@ async function consumeServicePassVisit(booking){
       layer.appendChild(c);
     }
     modalEl.appendChild(layer);
-    setTimeout(()=>layer.remove(), 2600);
+    setTimeout(()=>layer.remove(), CONSTANTS.PULSE_LAYER_REMOVE_DELAY_MS);
   }
 
   const observer = new MutationObserver(()=>{

@@ -31,7 +31,7 @@ let UnlockedAchievements=[];  /* worker_achievements rows — profile never deci
   const {data:wp,error:we}=await sb.from('workers').select('*').eq('id',cached.id).single();
   if(we||!wp){
     showToast('⚠️ Could not load profile. Please sign in again.');
-    setTimeout(()=>{ window.location.href='auth.html?role=worker'; },1500);
+    setTimeout(()=>{ window.location.href='auth.html?role=worker'; },CONSTANTS.WORKER_PROFILE_LOAD_FAIL_REDIRECT_MS);
     return;
   }
   W={...cached,...wp};
@@ -44,7 +44,7 @@ let UnlockedAchievements=[];  /* worker_achievements rows — profile never deci
   const {data:bks}=await sb.from('bookings')
     .select('id,status,worker_earning,service,created_at,scheduled_date,scheduled_time,review_rating')
     .eq('worker_id',W.id)
-    .eq('status','Completed')
+    .eq('status',CONSTANTS.BOOKING_STATUS.COMPLETED)
     .order('created_at',{ascending:false})
     .limit(100);
   completedBookings=bks||[];

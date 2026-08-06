@@ -33,7 +33,8 @@ async function loadStats(){
   if(error){ console.error('get_worker_stats:',error.message); return; }
   const s=Array.isArray(data)?data[0]:data;
   if(!s) return;
-  Stats={...s, has5Star: bookings.some(b=>b.status==='Completed'&&Number(b.review_rating)===5)};
+  Stats={...s, has5Star: bookings.some(b=>b.status===CONSTANTS.BOOKING_STATUS.COMPLETED&&Number(b.review_rating)===5)};
+
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -134,7 +135,7 @@ function showAchievementUnlockPopup(row){
   if(we||!wp){
     console.error('Failed to load worker record:',we?.message);
     showToast('⚠️ Could not load your worker profile. Please sign in again.');
-    setTimeout(()=>{ window.location.href='auth.html?role=worker'; },1500);
+    setTimeout(()=>{ window.location.href='auth.html?role=worker'; },CONSTANTS.WORKER_PROFILE_LOAD_FAIL_REDIRECT_MS);
     return;
   }
   W={...cached,...wp};
@@ -149,7 +150,7 @@ switchTab(
 );
 
 tickClock();
-setInterval(tickClock,1000);
+setInterval(tickClock,CONSTANTS.CLOCK_TICK_INTERVAL_MS);
 
 /* ---------- REALTIME BOOKING SYNC ---------- */
 
@@ -332,32 +333,33 @@ function bookingsByTab(tab){
 
   if(tab==='pending'){
     return bookings.filter(b=>
-      b.w_status==='Pending'
+       b.w_status===CONSTANTS.BOOKING_STATUS.PENDING
     );
   }
 
   if(tab==='accepted'){
     return bookings.filter(b=>
-      b.w_status==='Accepted'
+      b.w_status===CONSTANTS.BOOKING_STATUS.ACCEPTED
     );
   }
 
   if(tab==='arrived'){
     return bookings.filter(b=>
-      b.status==='Arrived'
+      b.status===CONSTANTS.BOOKING_STATUS.ARRIVED
     );
   }
 
   if(tab==='completed'){
     return bookings.filter(b=>
-      b.status==='Completed'
+      b.status===CONSTANTS.BOOKING_STATUS.COMPLETED
+
     );
   }
 
   if(tab==='cancelled'){
     return bookings.filter(b=>
-      b.status==='Rejected' ||
-      b.status==='Cancelled'
+      b.status===CONSTANTS.BOOKING_STATUS.REJECTED ||
+      b.status===CONSTANTS.BOOKING_STATUS.CANCELLED
     );
   }
 
@@ -434,7 +436,7 @@ function renderJobs(){
     if(_trkStateW[id]?.map){
       _reattachTrackCustomerDom(id);
     } else {
-      setTimeout(()=>{ _buildCustomerTrackMap(booking); }, 420);
+      setTimeout(()=>{ _buildCustomerTrackMap(booking); }, CONSTANTS.TRACKING_MAP_BUILD_DELAY_MS);
     }
   });
 }
@@ -453,26 +455,28 @@ function statusBadge(status){
 }
 
 function renderJobCard(b){
-  const cardCls = b.status==='Accepted' ? 'accepted'
-                : b.status==='Completed' ? 'completed-card'
-                : (b.status==='Rejected'||b.status==='Cancelled') ? 'cancelled-card'
+  const cardCls = b.status===CONSTANTS.BOOKING_STATUS.ACCEPTED ? 'accepted'
+                : b.status===CONSTANTS.BOOKING_STATUS.COMPLETED ? 'completed-card'
+                : (b.status===CONSTANTS.BOOKING_STATUS.REJECTED||b.status===CONSTANTS.BOOKING_STATUS.CANCELLED) ? 'cancelled-card'
                 : (b.is_emergency ? 'urgent' : '');
   const earning = b.worker_earning!=null ? Number(b.worker_earning) : Math.round((Number(b.price)||0)*0.80);
 
   let actions='';
-  if(['Pending','Confirmed','Scheduled'].includes(b.status)){
+  if([CONSTANTS.BOOKING_STATUS.PENDING,CONSTANTS.BOOKING_STATUS.CONFIRMED,CONSTANTS.BOOKING_STATUS.SCHEDULED].includes(b.status)){
     actions=`
       <div class="job-acts">
         <button class="jbtn jbtn-accept" onclick="promptAccept('${b.id}')">✅ Accept</button>
         <button class="jbtn jbtn-reject" onclick="promptReject('${b.id}')">✖ Reject</button>
       </div>`;
-  } else if(b.status==='Accepted'){
+  } else if(b.status===CONSTANTS.BOOKING_STATUS.ACCEPTED){
+
     actions=`
       <div class="job-acts">
         <button class="jbtn jbtn-arrive" onclick="markArrived('${b.id}')">📍 Mark Arrived</button>
         <button class="jbtn jbtn-reject" onclick="promptCancelAccepted('${b.id}')">✖ Cancel Booking</button>
       </div>`;
-  } else if(b.status==='Arrived'){
+  } else if(b.status===CONSTANTS.BOOKING_STATUS.ARRIVED){
+
     /* Arrival OTP already verified (arrival_otp is null in DB at this point).
        Only Completion OTP remains. */
     actions=`
@@ -487,7 +491,8 @@ function renderJobCard(b){
      the action buttons. Uses the same trk-* markup/classes as
      index.html's Track Worker panel; content is built lazily by
      toggleTrackCustomer() the first time it's opened. */
-  const trackCustomerHtml = b.status==='Accepted' ? `
+  const trackCustomerHtml = b.status===CONSTANTS.BOOKING_STATUS.ACCEPTED ? `
+
          <button class="trk-toggle" id="trkc-btn-${b.id}" onclick="toggleTrackCustomer('${b.id}')">📍 Track Customer <span class="trk-arr">▼</span></button>
         <div class="trk-wrap" id="trkc-wrap-${b.id}">
           <div class="trk-body">
@@ -557,9 +562,9 @@ if(fetchErr){
 
 /* Someone already accepted/completed it */
 if(
-  live.status!=='Pending' &&
-  live.status!=='Scheduled' &&
-  live.status!=='Confirmed'
+  live.status!==CONSTANTS.BOOKING_STATUS.PENDING &&
+  live.status!==CONSTANTS.BOOKING_STATUS.SCHEDULED &&
+  live.status!==CONSTANTS.BOOKING_STATUS.CONFIRMED
 ){
   showToast('⚠️ This booking has already been accepted by another worker.');
   await loadBookings();
@@ -569,13 +574,14 @@ if(
 /* Safe to accept */
 /* Read current timeline */
 const {error}=await sb.from('bookings').update({
-  status:'Accepted',
-  w_status:'Accepted',
+  status:CONSTANTS.BOOKING_STATUS.ACCEPTED,
+  w_status:CONSTANTS.BOOKING_STATUS.ACCEPTED,
+
   worker_earning:earning,
   accepted_at:new Date().toISOString()
 })
 .eq('id',id)
-.in('status',['Pending','Scheduled','Confirmed']);
+.in('status',[CONSTANTS.BOOKING_STATUS.PENDING,CONSTANTS.BOOKING_STATUS.SCHEDULED,CONSTANTS.BOOKING_STATUS.CONFIRMED]);
 
 if(error){
   console.error('confirmAccept:',error.message);
@@ -607,8 +613,8 @@ async function confirmReject(){
   const id=pendRejectId; pendRejectId=null;
 
   const {error}=await sb.from('bookings').update({
-    status:'Rejected',
-    w_status:'Rejected'
+    status:CONSTANTS.BOOKING_STATUS.REJECTED,
+    w_status:CONSTANTS.BOOKING_STATUS.REJECTED
   }).eq('id',id);
   if(error){
     console.error('confirmReject:',error.message);
@@ -638,9 +644,9 @@ async function confirmCancelAccepted(){
   const id=pendCancelAcceptedId; pendCancelAcceptedId=null;
 
   const {error}=await sb.from('bookings').update({
-    status:'Cancelled',
-    w_status:'Cancelled'
-  }).eq('id',id).eq('status','Accepted'); /* guard: only ever cancels a still-Accepted booking */
+    status:CONSTANTS.BOOKING_STATUS.CANCELLED,
+    w_status:CONSTANTS.BOOKING_STATUS.CANCELLED
+  }).eq('id',id).eq('status',CONSTANTS.BOOKING_STATUS.ACCEPTED); /* guard: only ever cancels a still-Accepted booking */
 
   if(error){
     console.error('confirmCancelAccepted:',error.message);
@@ -709,8 +715,8 @@ async function submitArrivalOtp() {
   const { error } = await sb
   .from('bookings')
   .update({
-    status:         'Arrived',
-    w_status:       'Arrived',
+    status:         CONSTANTS.BOOKING_STATUS.ARRIVED,
+    w_status:       CONSTANTS.BOOKING_STATUS.ARRIVED,
     arrival_otp:    null,
     completion_otp: newCompletionOtp,
     arrived_at:     new Date().toISOString(),
@@ -763,8 +769,9 @@ async function submitCompletionOtp(){
   }
 
   const { error } = await sb.from('bookings').update({
-    status:         'Completed',
-    w_status:       'Completed',
+    status:         CONSTANTS.BOOKING_STATUS.COMPLETED,
+    w_status:       CONSTANTS.BOOKING_STATUS.COMPLETED,
+
     completion_otp: null,          /* invalidate completion OTP immediately */
     completed_at:   new Date().toISOString()
   }).eq('id', b.id);
@@ -943,7 +950,7 @@ function renderEarnings(){
 
   let eToday=0,eWeek=0,eMonth=0;
   bookings.forEach(b=>{
-    if(b.status!=='Completed')return;
+    if(b.status!==CONSTANTS.BOOKING_STATUS.COMPLETED)return;
     const earn=Number(b.worker_earning)||0;
     const ts=b.completed_at||b.created_at;
     if(!ts)return;
@@ -967,11 +974,12 @@ function renderEarnings(){
 function renderAcceptanceRate(){
 
   const accepted = bookings.filter(b =>
-    ['Accepted','Arrived','Completed'].includes(b.status)
+    [CONSTANTS.BOOKING_STATUS.ACCEPTED,CONSTANTS.BOOKING_STATUS.ARRIVED,CONSTANTS.BOOKING_STATUS.COMPLETED].includes(b.status)
+
   ).length;
 
   const rejected = bookings.filter(b =>
-    b.status === 'Rejected' || b.w_status === 'Rejected'
+    b.status === CONSTANTS.BOOKING_STATUS.REJECTED || b.w_status === CONSTANTS.BOOKING_STATUS.REJECTED
   ).length;
 
   const total = accepted + rejected;
@@ -1057,7 +1065,7 @@ function renderReliabilityPill(){
    ════════════════════════════════════════════════════════════ */
 function renderTimeline(){
   const wrap=document.getElementById('bookingTimeline');
-  const activeStatuses=['Pending','Confirmed','Scheduled','Accepted','Arrived'];
+  const activeStatuses=[CONSTANTS.BOOKING_STATUS.PENDING,CONSTANTS.BOOKING_STATUS.CONFIRMED,CONSTANTS.BOOKING_STATUS.SCHEDULED,CONSTANTS.BOOKING_STATUS.ACCEPTED,CONSTANTS.BOOKING_STATUS.ARRIVED];
   const upcoming=bookings
     .filter(b=>activeStatuses.includes(b.status))
     .slice() /* don't mutate global */
@@ -1116,7 +1124,7 @@ let _gpsWatchId   = null;   /* navigator.geolocation watch handle */
 let _gpsActive    = false;  /* whether the watcher is currently running */
 let _gpsRetryTimer = null;  /* retry timer for transient GPS failures */
 
-const GPS_ACTIVE_STATUSES = ['Accepted', 'Worker on Way', 'Arrived'];
+const GPS_ACTIVE_STATUSES = [CONSTANTS.BOOKING_STATUS.ACCEPTED, CONSTANTS.BOOKING_STATUS.WORKER_ON_WAY, CONSTANTS.BOOKING_STATUS.ARRIVED];
 
 function _getActiveBookingIds(){
   /* bookings is the module-level array kept by loadBookings() */
@@ -1139,7 +1147,7 @@ function _clearGPSWatch(){
   }
 }
 
-function _scheduleGPSRetry(delay=5000){
+function _scheduleGPSRetry(delay=CONSTANTS.GPS_RETRY_DELAY_MS){
   _clearGPSRetry();
   _gpsRetryTimer = setTimeout(()=>{
     _gpsRetryTimer = null;
@@ -1458,7 +1466,7 @@ async function _buildCustomerTrackMap(b){
   });
 
   if(msgEl) msgEl.textContent = '📍 Live tracking';
-  setTimeout(()=>{ map.invalidateSize(); }, 50);
+  setTimeout(()=>{ map.invalidateSize(); }, CONSTANTS.MAP_INVALIDATE_DELAY_MS);
 
   try{
     await _drawOrUpdateRouteW(b.id, {lat:wLat,lng:wLng}, customer);
@@ -1483,7 +1491,7 @@ async function _buildCustomerTrackMap(b){
    + no map → build it now. */
 function updateCustomerTrackMaps(bookingList){
   (bookingList||[]).forEach(b=>{
-    if(b.status !== 'Accepted') return;
+    if(b.status !== CONSTANTS.BOOKING_STATUS.ACCEPTED) return;
 
     const wLat = b.worker_live_lat != null ? Number(b.worker_live_lat) : null;
     const wLng = b.worker_live_lng != null ? Number(b.worker_live_lng) : null;

@@ -148,7 +148,7 @@ async function doLogin(){
   sessionStorage.setItem('qf_user',JSON.stringify(sess));
   sessionStorage.setItem('qf_role',authRole);
   showToast('✅ Signed in! Redirecting…');
-  setTimeout(()=>redirect(authRole),800);
+  setTimeout(()=>redirect(authRole),CONSTANTS.AUTH_REDIRECT_DELAY_MS);
 }
 
 /* ── DOCUMENT UPLOAD PREVIEW ── */
@@ -172,7 +172,7 @@ function handleDocUpload(input){
     nameEl.style.display='none';
     return;
   }
-  if(file.size>5*1024*1024){
+  if(file.size>CONSTANTS.MAX_UPLOAD_FILE_SIZE_BYTES){
     showErr('File too large. Maximum size is 5MB.');
     input.value='';
     label.classList.remove('has-file');
@@ -236,7 +236,7 @@ async function doSignup(role){
     if(!phone)markErr('suPhone');
     if(!pass) markErr('suPass');
     if(!fname||!email||!phone||!pass){showErr('Please fill in all required fields.');return;}
-    if(pass.length<6){showErr('Password must be at least 6 characters.');return;}
+    if(pass.length<CONSTANTS.MIN_PASSWORD_LENGTH){showErr('Password must be at least 6 characters.');return;}
 
     const name=(fname+' '+lname).trim();
     setBtn('signupUserBtn','suBtnTxt',true,'Creating account…');
@@ -269,7 +269,7 @@ async function doSignup(role){
     sessionStorage.setItem('qf_role','user');
     setBtn('signupUserBtn','suBtnTxt',false,'Create Account →');
     showToast('🎉 Account created! Redirecting…');
-    setTimeout(()=>redirect('user'),800);
+    setTimeout(()=>redirect('user'),CONSTANTS.AUTH_REDIRECT_DELAY_MS);
 
   /* ── WORKER SIGNUP ── */
   }else{
@@ -319,7 +319,7 @@ async function doSignup(role){
       docFileName='worker_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+ext;
       const {data:uploadData,error:uploadErr}=await sb.storage
         .from('worker-documents')
-        .upload(docFileName,docFile,{cacheControl:'3600',upsert:false});
+        .upload(docFileName,docFile,{cacheControl:CONSTANTS.STORAGE_UPLOAD_CACHE_CONTROL,upsert:false});
       if(uploadErr)throw uploadErr;
       const {data:publicData}=sb.storage.from('worker-documents').getPublicUrl(docFileName);
       docUrl=publicData.publicUrl||'';
@@ -342,7 +342,7 @@ async function doSignup(role){
       const photoFileName='profile_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+pext;
       const {data:photoUploadData,error:photoUploadErr}=await sb.storage
         .from('worker-photos')
-        .upload(photoFileName,photoFile,{cacheControl:'3600',upsert:false});
+        .upload(photoFileName,photoFile,{cacheControl:CONSTANTS.STORAGE_UPLOAD_CACHE_CONTROL,upsert:false});
       if(photoUploadErr)throw photoUploadErr;
       const {data:photoPublicData}=sb.storage.from('worker-photos').getPublicUrl(photoFileName);
       photoUrl=photoPublicData.publicUrl||'';
@@ -412,7 +412,7 @@ async function doSignup(role){
     sessionStorage.setItem('qf_role','worker');
     setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
     showToast('🎉 Registration successful. Document uploaded successfully.');
-    setTimeout(()=>redirect('worker'),800);
+    setTimeout(()=>redirect('worker'),CONSTANTS.AUTH_REDIRECT_DELAY_MS);
   }
 }
 
