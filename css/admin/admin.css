@@ -121,7 +121,6 @@ tbody tr:hover td{background:var(--brand-light)}
 .badge-active{background:var(--teal-light);color:var(--teal)}
 .badge-inactive{background:var(--gray-light);color:var(--gray)}
 .badge-expired{background:var(--danger-light);color:var(--danger)}
-.badge-upcoming{background:var(--blue-light);color:var(--blue)}
 .actionrow{display:flex;gap:.45rem;flex-wrap:wrap}
 
 /* ── Stat cards ────────────────────────────────────────────── */

@@ -629,7 +629,7 @@ let curW=null, curTab='all';
 let accInt=null, accLeft=CONSTANTS.WORKER_ACCEPT_TIMEOUT_SECONDS;
 let arrInt=null, arrLeft=CONSTANTS.ARRIVAL_TIMEOUT_SECONDS, arrExt=false;
 let pendBk=null, pendBkId=null, otpMode=null;
-let payMethod=null, sst={catId:null,item:null,issue:''};
+let sst={catId:null,item:null,issue:''};
 let pollInt=null, pollCnt=0, qrInt=null;
 let revRat=0, revId=null, aadhaarData=null;
 const POLL_MAX=CONSTANTS.PAYMENT_POLL_MAX_ATTEMPTS, POLL_MS=CONSTANTS.PAYMENT_POLL_INTERVAL_MS;
@@ -1756,9 +1756,7 @@ function _openPinPicker(addr, areaId, geo, saved){
     _pinMap = L.map(mapEl, { zoomControl:true, attributionControl:false }).setView([startLat, startLng], 17);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(_pinMap);
     _pinMarker = L.marker([startLat, startLng], { draggable:true }).addTo(_pinMap);
-    _pinMarker.on('dragend', ()=>{
-      const ll = _pinMarker.getLatLng();
-    });
+    _pinMarker.on('dragend', ()=>{});
     _pinMap.on('click', (ev)=>{
       _pinMarker.setLatLng(ev.latlng);
     });
@@ -2105,7 +2103,6 @@ async function onAccepted(){
     };
 
     const arrivalOtp   = bkBase.arrivalOtp || bkBase.arrival_otp;
-    const completionOtp = null;
     const advance      = bkBase.isAdvance ?? bkBase.is_advance ?? false;
 
     const bk = {
@@ -2844,17 +2841,7 @@ async function renderBookings(){
   || ([CONSTANTS.BOOKING_STATUS.ACCEPTED,CONSTANTS.BOOKING_STATUS.CONFIRMED,CONSTANTS.BOOKING_STATUS.WORKER_ON_WAY,CONSTANTS.BOOKING_STATUS.ARRIVED,CONSTANTS.BOOKING_STATUS.SCHEDULED].includes(b.status)&&rev);
     const rf=b.isAdvance?revealAt(b.time):null;
     const payLabel=b.paymentMethod==='gpay'?'📱 GPay (Paid)':'💵 Cash on Arrival';
-    const km = Number(b.workerDist || 0);
-
-let eta = "5 mins";
-
-if (km <= 2) eta = "5 mins";
-else if (km <= 5) eta = "12 mins";
-else if (km <= 8) eta = "18 mins";
-else if (km <= 12) eta = "25 mins";
-else eta = "35 mins";
-
-const contactHtml = show
+    const contactHtml = show
   ? `
     <div class="cbox" style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap">
       ${b.workerPhotoUrl?`<img src="${b.workerPhotoUrl}" alt="Worker profile photo" onclick="openPhotoLightbox('${b.workerPhotoUrl}')" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:1.5px solid var(--teal);flex-shrink:0;cursor:pointer">`:''}

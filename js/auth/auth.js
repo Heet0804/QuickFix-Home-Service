@@ -317,7 +317,7 @@ async function doSignup(role){
     try{
       const ext=docFile.name.split('.').pop().toLowerCase();
       docFileName='worker_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+ext;
-      const {data:uploadData,error:uploadErr}=await sb.storage
+      const {error:uploadErr}=await sb.storage
         .from('worker-documents')
         .upload(docFileName,docFile,{cacheControl:CONSTANTS.STORAGE_UPLOAD_CACHE_CONTROL,upsert:false});
       if(uploadErr)throw uploadErr;
@@ -340,7 +340,7 @@ async function doSignup(role){
     try{
       const pext=photoFile.name.split('.').pop().toLowerCase();
       const photoFileName='profile_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+pext;
-      const {data:photoUploadData,error:photoUploadErr}=await sb.storage
+      const {error:photoUploadErr}=await sb.storage
         .from('worker-photos')
         .upload(photoFileName,photoFile,{cacheControl:CONSTANTS.STORAGE_UPLOAD_CACHE_CONTROL,upsert:false});
       if(photoUploadErr)throw photoUploadErr;

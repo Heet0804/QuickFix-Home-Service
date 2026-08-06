@@ -189,9 +189,6 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 .badges-modal-hdr h3{font-size:1.05rem;font-weight:800;margin:0}
 .badges-modal-close{background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text3);line-height:1}
 .badges-modal-close:hover{color:var(--text)}
-.badges-modal-section{margin-bottom:1.1rem}
-.badges-modal-section:last-child{margin-bottom:0}
-.badges-modal-title{font-size:.8rem;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.6rem}
 .badge-modal-item{background:var(--surface2);border:1.5px solid var(--teal);border-radius:var(--radius-sm);padding:.9rem;margin-bottom:.5rem;display:flex;align-items:flex-start;gap:.75rem}
 .badge-modal-ico{font-size:2rem;line-height:1;flex-shrink:0}
 .badge-modal-body{flex:1;min-width:0}

@@ -205,13 +205,7 @@ function renderProfile(){
   document.getElementById('pcRadius').textContent=(W.radius!=null?`📍 ${W.radius} km radius`:'');
   document.getElementById('pcArea').textContent=W.area?`🏙️ ${W.area}`:'';
 
-  const ratedBookings = bookings.filter(
-    b =>
-        b.status === "Completed" &&
-        Number(b.review_rating || 0) > 0
-);
-
-const dashboardRating = Stats?.rating != null ? Number(Stats.rating).toFixed(1) : "0.0";
+  const dashboardRating = Stats?.rating != null ? Number(Stats.rating).toFixed(1) : "0.0";
 
 const dashboardTotalJobs =
     bookings.filter(b =>
@@ -1643,7 +1637,7 @@ function calSelectDate(key){
 }
 
 function calFormatDateLabel(key){
-  const [y,m,d]=key.split('-').map(Number);
+  const [,m,d]=key.split('-').map(Number);
   const monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return `${d} ${monthNames[m-1]}`;
 }

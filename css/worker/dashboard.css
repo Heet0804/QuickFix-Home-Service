@@ -82,7 +82,6 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 .hbg span{display:block;width:22px;height:2px;background:var(--text);border-radius:2px}
 .nav-overlay{display:none;position:fixed;inset:0;background:rgba(20,12,4,.45);z-index:498;opacity:0;pointer-events:none;transition:opacity .28s ease}
 .nav-close{display:none;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--surface3);border:1px solid var(--border);font-size:1.1rem;cursor:pointer;color:var(--text2);flex-shrink:0;margin-bottom:.5rem}
-.nav-mobile-name{display:none;font-family:'Sora',sans-serif;font-weight:700;font-size:.92rem;color:var(--text);flex:1;text-align:right;padding-right:.6rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* ── LAYOUT ── */
 .wrap{max-width:1100px;margin:0 auto;padding:1.75rem 1.5rem 5rem;flex:1;width:100%}
 
@@ -201,7 +200,6 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 @media(max-width:640px){.trk-map{height:220px}}
 
 
-.otp-chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface3);border:1px dashed var(--border);border-radius:var(--radius-sm);padding:.45rem .75rem;font-size:.78rem;font-weight:700;color:var(--text2);font-family:'Sora',sans-serif;letter-spacing:1px}
 
 /* ── EMPTY STATE ── */
 .empty{text-align:center;padding:3.5rem 1.5rem;background:var(--surface);border:1.5px dashed var(--border);border-radius:var(--radius)}
@@ -296,7 +294,6 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
   .nav-name,.nav-role{display:block}
   .nav-profile{display:flex}
   .nav-profile-btn,.nav-logout{min-height:44px}
-  .nav-mobile-name{display:block}
 }
 
 /* ── MOBILE (≤680px) ──────────────────────────────────────── */
