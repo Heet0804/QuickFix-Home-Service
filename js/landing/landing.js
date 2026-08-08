@@ -1,3 +1,5 @@
+/* ===== QuickFix Landing Script — extracted from landing.html (Phase 5.2) ===== */
+
 /* sb now comes from js/common/supabase.js, loaded before this file. */
 
 /* If already logged in, show dashboard link */
@@ -45,7 +47,8 @@ document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
     e.preventDefault();
     count++;
     if(timer)clearTimeout(timer);
-    timer=setTimeout(()=>{count=0;timer=null;},2000);
+    /* Phase 5.6.1: was a hardcoded 2000 — now CONSTANTS.LOGO_EASTER_EGG_WINDOW_MS */
+    timer=setTimeout(()=>{count=0;timer=null;},CONSTANTS.LOGO_EASTER_EGG_WINDOW_MS);
     if(count===3){
       count=0;
       clearTimeout(timer);
