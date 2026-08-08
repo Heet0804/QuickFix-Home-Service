@@ -20,5 +20,9 @@ function showToast(msg){
   t.textContent=msg;
   t.classList.add('on');
   clearTimeout(_tt);
-  _tt=setTimeout(()=>t.classList.remove('on'),3500);
+  /* Phase 5.6.1: was a hardcoded 3500 — now CONSTANTS.TOAST_DURATION_MS.
+     toast.js loads after constants.js on every page that uses it
+     (auth.html, index.html, worker-dashboard.html, worker-profile.html),
+     per each page's existing <script> order — no load-order change needed. */
+  _tt=setTimeout(()=>t.classList.remove('on'),CONSTANTS.TOAST_DURATION_MS);
 }
