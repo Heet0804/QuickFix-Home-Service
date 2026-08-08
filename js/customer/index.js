@@ -15,15 +15,53 @@
    redirected to auth.html immediately, before any booking/worker UI runs,
    so an unauthenticated visitor can never reach a state where DB.save()
    falls through to the localStorage fallback path. */
-(async()=>{
-  const {data:{session}}=await sb.auth.getSession();
+/* Phase 5.9 hotfix: DB.bookings()/DB.save()/etc. each used to call
+   sb.auth.getSession() fresh, independently of this gate. Fixing the
+   gate's own race (INITIAL_SESSION) didn't fix theirs — clicking "My
+   Bookings" (or the poll timer firing) in that same narrow post-login
+   window could still hit an independent getSession() call before the
+   client had fully synced, making real Supabase rows look empty. This
+   one shared variable, updated only by onAuthStateChange, becomes the
+   single source every DB.* function trusts instead of querying its own
+   getSession() — since onAuthStateChange by definition never fires
+   until the client is actually synced, there is no race left to hit. */
+let CURRENT_SESSION = null;
+sb.auth.onAuthStateChange(async (event, session)=>{
+  CURRENT_SESSION = session;
+  if(event !== 'INITIAL_SESSION') return;
+  /* Phase 5.9 hotfix: raw getSession() here could resolve a moment before
+     the Supabase client's REST calls actually carried that session's auth
+     header (same race fixed in admin.js). Any RLS-protected query fired
+     in that gap — including DB.bookings()'s "auth.uid() = user_id" check
+     — ran as anonymous, matched 0 rows, and made a real, still-present
+     Supabase row look like it had vanished from "My Bookings" right after
+     a fresh login. onAuthStateChange's INITIAL_SESSION event fires only
+     once the client is fully rehydrated, removing the race entirely. */
   if(!session?.user){
     sessionStorage.clear();
     window.location.replace('auth.html');
     return;
   }
-  const {data:u,error}=await sb.from('users').select('*').eq('id',session.user.id).single();
-  const profile = u && !error
+  let {data:u,error}=await sb.from('users').select('*').eq('id',session.user.id).single();
+  /* Self-heal: a session can exist with no matching public.users row if
+     the account was created outside the app's own signup flow (e.g. added
+     directly via Supabase Auth) or the original insert never completed.
+     Previously this silently fell back to a placeholder profile and let
+     the user proceed — right up until DB.save()'s bookings insert failed
+     with a 409/bookings_user_id_fkey violation. Upsert the missing row
+     here instead, so booking never breaks downstream on a legacy/orphaned
+     session. */
+  if(!u || error){
+    const {data:healed,error:healErr}=await sb.from('users').upsert({
+      id:    session.user.id,
+      email: session.user.email,
+      name:  session.user.user_metadata?.name || '',
+      phone: '',
+      role:  session.user.user_metadata?.role || 'user'
+    }).select('*').single();
+    if(!healErr) u = healed;
+  }
+  const profile = u
     ? {id:u.id, email:session.user.email, name:u.name||'', phone:u.phone||'', role:u.role||'user'}
     : {id:session.user.id, email:session.user.email, name:'', phone:'', role:'user'};
   sessionStorage.setItem('qf_user', JSON.stringify(profile));
@@ -38,11 +76,10 @@
   if(profile.role === 'user' && !sessionStorage.getItem('qf_campaign_shown')){
     await _loadActiveCampaignForPopup();
     if(CAMPAIGN_SAMPLE){
-      sessionStorage.setItem('qf_campaign_shown','1');
-      setTimeout(openCampaignModal, 500);
+      setTimeout(openCampaignModal, CONSTANTS.CAMPAIGN_POPUP_DELAY_MS);
     }
   }
-})();
+});
 
 /* Sign out
    - Explicitly attached to window so onclick="signOut()" resolves even if
@@ -243,6 +280,21 @@ const DB = {
       setLocalBookings(next);
       return true;
     }
+    /* Defense in depth: bookings.user_id has an FK to public.users(id).
+       The page-load auth gate already self-heals a missing users row, but
+       if DB.save() is ever reached before that finishes (fast refresh,
+       deep link straight into a booking action, stale tab), the insert
+       below would still fail with bookings_user_id_fkey and silently
+       return false — which looks exactly like "my booking history
+       disappeared" once nothing ever got written. Upsert defensively
+       right here too, so a booking save can never be blocked by this. */
+    const {error:userHealErr}=await sb.from('users').upsert({
+      id:    user.id,
+      email: user.email,
+      role:  user.user_metadata?.role || 'user'
+    }, { onConflict:'id', ignoreDuplicates:true });
+    if(userHealErr) console.error('DB.save: users self-heal failed:', userHealErr.message);
+
     const {error}=await sb.from('bookings').upsert({
   id:             String(bk.id),
   user_id:        user.id,
@@ -495,6 +547,9 @@ const EROLES = ['Electrician','Plumber'];
    areas(id,name,lat,lng) + workers(area,lat,lng,radius).
    No external geocoding API — coordinates come straight from the
    areas table, selected via the booking-form Area dropdown. */
+/* TODO(config): MAX_ASSIGN_KM has no value in constants.js yet — no
+   authoritative source found in this repo. Until set, this evaluates
+   to undefined and the distance-cap check below always fails. */
 const MAX_ASSIGN_KM = CONSTANTS.MAX_ASSIGN_KM;
 let AREAS_CACHE = null;   /* populated once on first booking-form open */
 
@@ -632,6 +687,9 @@ let pendBk=null, pendBkId=null, otpMode=null;
 let sst={catId:null,item:null,issue:''};
 let pollInt=null, pollCnt=0, qrInt=null;
 let revRat=0, revId=null, aadhaarData=null;
+/* TODO(config): PAYMENT_POLL_MAX_ATTEMPTS and PAYMENT_POLL_INTERVAL_MS
+   have no value in constants.js yet — no authoritative source found
+   in this repo. Until set, payment polling runs with undefined bounds. */
 const POLL_MAX=CONSTANTS.PAYMENT_POLL_MAX_ATTEMPTS, POLL_MS=CONSTANTS.PAYMENT_POLL_INTERVAL_MS;
 
 setInterval(tickClock,CONSTANTS.CLOCK_TICK_INTERVAL_MS); tickClock();
@@ -719,7 +777,7 @@ function openCampaignModal(){
   el.classList.add('on');
   _updateCampaignCountdown();
   clearInterval(window._campaignCountdownTimer);
-  window._campaignCountdownTimer = setInterval(_updateCampaignCountdown, 1000);
+  window._campaignCountdownTimer = setInterval(_updateCampaignCountdown, CONSTANTS.COUNTDOWN_TICK_MS);
 }
 
 function closeCampaignModal(){
@@ -727,7 +785,7 @@ function closeCampaignModal(){
   if(!el || !el.classList.contains('on')) return;
   el.classList.add('campaign-closing');
   clearInterval(window._campaignCountdownTimer);
-  setTimeout(()=>{ el.classList.remove('on','campaign-closing'); }, 200);
+  setTimeout(()=>{ el.classList.remove('on','campaign-closing'); }, CONSTANTS.CAMPAIGN_MODAL_CLOSE_ANIM_MS);
 }
 
 function campaignBuyPass(id){
@@ -741,7 +799,7 @@ function campaignBuyPass(id){
    one callback, onSuccess, and calls it once payment is confirmed —
    everything downstream (activatePass, UI states, timers) stays
    exactly the same regardless of how payment was actually confirmed. */
-let _paymentState = { campaign:null, countdownTimer:null, demoTimer:null, expired:false, succeeded:false, secondsLeft:120 };
+let _paymentState = { campaign:null, countdownTimer:null, demoTimer:null, expired:false, succeeded:false, secondsLeft:CONSTANTS.PASS_PAYMENT_COUNTDOWN_SECONDS };
 
 function openPaymentModal(campaign){
   if(!campaign) return;
@@ -749,7 +807,7 @@ function openPaymentModal(campaign){
   if(!el) return;
 
   _clearPaymentTimers();
-  _paymentState = { campaign, countdownTimer:null, demoTimer:null, expired:false, succeeded:false, secondsLeft:120 };
+  _paymentState = { campaign, countdownTimer:null, demoTimer:null, expired:false, succeeded:false, secondsLeft:CONSTANTS.PASS_PAYMENT_COUNTDOWN_SECONDS };
 
   document.getElementById('payTitle').textContent = campaign.title;
   document.getElementById('paySection').style.display = '';
@@ -768,7 +826,7 @@ function openPaymentModal(campaign){
     _paymentState.secondsLeft--;
     _updatePaymentTimerDisplay();
     if(_paymentState.secondsLeft <= 0) _onPaymentExpired();
-  }, 1000);
+  }, CONSTANTS.COUNTDOWN_TICK_MS);
 
   _simulatePaymentProvider(_onPaymentSuccess);
 }
@@ -810,10 +868,12 @@ function drawPassQR(campaign){
 }
 
 function _simulatePaymentProvider(onSuccess){
+  /* Phase 5.6.1: was 10000 — now CONSTANTS.DEMO_PAYMENT_PROVIDER_DELAY_MS.
+     Still the one function a real gateway integration needs to replace. */
   _paymentState.demoTimer = setTimeout(()=>{
     if(_paymentState.expired || _paymentState.succeeded) return;
     onSuccess();
-  }, 10000);
+  }, CONSTANTS.DEMO_PAYMENT_PROVIDER_DELAY_MS);
 }
 
 function _clearPaymentTimers(){
@@ -829,14 +889,14 @@ async function _onPaymentSuccess(){
   document.getElementById('paySection').style.display = 'none';
   document.getElementById('payOk').classList.add('on');
 
-  await new Promise(r=>setTimeout(r, 1000));
+  await new Promise(r=>setTimeout(r, CONSTANTS.PASS_ACTIVATION_DELAY_MS));
 
   const ok = await activatePass(_paymentState.campaign);
   if(ok){
     showToast('🎉 Pass activated! Check My Passes.');
     _removeOfferCardFromGrid(_paymentState.campaign.id);
   }
-  setTimeout(closePaymentModal, 1200);
+  setTimeout(closePaymentModal, CONSTANTS.PASS_PAYMENT_MODAL_CLOSE_DELAY_MS);
 }
 
 /* Removes a card the moment its pass is bought — same cleanup the
@@ -1113,7 +1173,7 @@ function goPage(id){
     window._bookingSnapshot = snapshot;
     renderBookings();
   }
-}, 2000);
+}, CONSTANTS.CUSTOMER_BOOKING_POLL_INTERVAL_MS);
   }
 }
 function toggleMenu(){
@@ -1930,7 +1990,7 @@ function stopPoll(){ clearInterval(pollInt); pollInt=null; pollCnt=0; clearInter
 async function checkPayStatus(){ return pollCnt>=3; }
 function onPayOk(){
   document.getElementById('gpayOk').classList.add('on');
-  setTimeout(()=>{ closeModal('payModal'); startBroadcast(); },1400);
+  setTimeout(()=>{ closeModal('payModal'); startBroadcast(); },CONSTANTS.GPAY_CONFIRM_REDIRECT_DELAY_MS);
 }
 function onCashConfirm(){ stopPoll(); closeModal('payModal'); startBroadcast(); }
 
@@ -2084,7 +2144,7 @@ async function startBroadcast(){
 function updateAcc(){
   const mn=Math.floor(accLeft/60), sc=accLeft%60;
   document.getElementById('acceptTimer').textContent=`${mn}:${String(sc).padStart(2,'0')}`;
-  document.getElementById('acceptBar').style.width=((accLeft/120)*100)+'%';
+  document.getElementById('acceptBar').style.width=((accLeft/CONSTANTS.WORKER_ACCEPT_TIMEOUT_SECONDS)*100)+'%';
 }
 
 /* ── ON ACCEPTED ──────────────────────────────────────────── */
@@ -3341,7 +3401,7 @@ async function submitReview(){
 /* ── AADHAAR UPLOAD ───────────────────────────────────────── */
 function handleUpload(input){
   const file=input.files[0]; if(!file) return;
-  if(file.size>5*1024*1024){ showToast('⚠️ File too large. Max 5MB.'); input.value=''; return; }
+  if(file.size>CONSTANTS.MAX_UPLOAD_FILE_SIZE_BYTES){ showToast('⚠️ File too large. Max 5MB.'); input.value=''; return; }
   if(!file.type.startsWith('image/')){ showToast('⚠️ Please upload an image file (JPG or PNG).'); input.value=''; return; }
   const reader=new FileReader();
   reader.onload=e=>{
