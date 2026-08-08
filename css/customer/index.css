@@ -196,7 +196,7 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);position:sti
 .fselect:focus{border-color:var(--brand);background-color:#fff;box-shadow:0 0 0 3px rgba(181,101,29,.08)}
 .pricebox{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:1.4rem;box-shadow:var(--sh0);position:sticky;top:80px}
 .prow{display:flex;justify-content:space-between;align-items:center;padding:.55rem 0;font-size:.845rem}
-.prow .lb{color:var(--text2)}.prow .vl{font-weight:600}
+.prow .lb{color:var(--text2);flex-shrink:0}.prow .vl{font-weight:600;text-align:right}
 .pdiv{border:none;border-top:1px solid var(--border);margin:.45rem 0}
 .ptotal .lb{font-weight:700;font-size:.9rem;color:var(--text)}
 .ptotal .vl{font-size:1.15rem;font-weight:800;color:var(--brand)}
