@@ -123,8 +123,9 @@ No phase-numbered comment names this work directly; it is inferred as already co
 - `docs/DEPLOYMENT.md` — Deployment and Operations Reference, produced and self-audited, documenting the static-site-plus-Supabase deployment model and flagging the hardcoded-configuration and absent-CI/CD/monitoring/backup gaps.
 - `docs/ROADMAP.md` — Program Roadmap and Phase History, produced and self-audited, consolidating completed phases, current status, and future work drawn from all prior documents.
 - `docs/CHANGELOG.md` — this document.
+- `docs/SECURITY.md` — Security Architecture and Reference Document, produced and self-audited, documenting current security posture and known gaps.
 
-**Status.** In progress. `docs/SECURITY.md` remains an empty, unauthored placeholder identified during this phase but not yet completed (per `docs/ROADMAP.md` §3).
+**Status.** Complete. `docs/SECURITY.md` — Security Architecture and Reference Document, produced and self-audited against the client-side source and every prior Phase 5.4 document, documenting the current security posture, unverifiable RLS enforcement, plaintext client-side API keys, and client-side business-logic risks — was completed after this entry was originally drafted; this changelog was not updated at the time. It now exists as a full document, not a placeholder.
 
 ---
 
@@ -147,3 +148,48 @@ Per `docs/ROADMAP.md` §4 and §9, the next planned work is:
 - **Phase 7 — QuickCoins Ecosystem** (`PRD.md` §21.3) — a redemption write path for `users.quickcoins_redeemed` and expanded campaign/offer tooling.
 
 No release date is committed for any of the above anywhere in `PRD.md`, `SRS.md`, or `ROADMAP.md`; this document does not fabricate one.
+
+---
+
+## [Phase 5.6] — Code Quality
+
+### Changed
+- Consolidated remaining hardcoded delay/interval/countdown literals in `admin.js`, `index.js`, `landing.js`, `toast.js`, and `dashboard.js` into named entries on `window.CONSTANTS` (`js/common/constants.js`), with no change to any value or behavior.
+- Added `js/common/constants.js` to the `<script>` load order of `admin.html` and `landing.html`, which previously did not load it.
+- Added a header banner comment to `landing.js`, the one page script that was missing one.
+
+### Added
+- `.editorconfig`, encoding the indentation/line-ending/whitespace conventions the codebase already followed in practice.
+
+### Verified
+- No `console.log` debug statements or commented-out dead code found anywhere in the JS codebase.
+- Function/variable naming left as-is where renaming risked breaking existing call sites, consistent with the precedent set in `maps.js`/`nav.js`.
+- Checked every `.js`/`.css` file for tabs, trailing whitespace, and line-ending consistency: all clean, 100% spaces, 100% CRLF. The single/double-quote mix is not an inconsistency — it's the correct, uniformly-applied convention (single quotes for JS strings, double quotes for HTML attributes inside template literals).
+
+### Status
+Complete.
+
+## [Phase 5.7] — GitHub Professionalization
+
+### Added
+- `.gitignore` at repo root.
+- License section and corrected badges in root `README.md`.
+
+### Fixed
+- Root `README.md`'s "Notifications" entry incorrectly listed Firebase Realtime Database; the codebase uses only Supabase Realtime (confirmed — zero Firebase references anywhere in source). Corrected.
+- Root `README.md`'s Project Structure section updated to reflect the actual `css/`, `js/common/`, `js/<section>/`, `sql/`, `docs/` folder layout from Phase 5.1 onward.
+- The SQL package's own `README.md` (previously colliding in name with the project root README) correctly placed at `sql/README.md`.
+
+### Skipped
+- `CONTRIBUTING.md` intentionally not created — single-developer project, no external contributors to onboard.
+
+### Status
+Complete.
+
+## [Phase 5.8] — Final Verification
+
+### Added
+- `docs/VERIFICATION.md` — manual end-to-end sign-off checklist covering landing, auth, customer, worker, and admin flows, plus cross-cutting checks.
+
+### Status
+Pending manual sign-off against `docs/VERIFICATION.md`.
