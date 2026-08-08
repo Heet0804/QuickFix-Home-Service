@@ -7,11 +7,23 @@ let _allPasses = [];
 let _editingId = null;
 
 /* ── AUTH GATE ─────────────────────────────────────────────── */
-(async()=>{
-  const {data:{session}} = await sb.auth.getSession();
+/* Phase 5.9 hotfix: calling getSession() the instant this script runs
+   could race the Supabase client's own session rehydration on a hard
+   refresh — getSession() resolved with the persisted session from
+   localStorage a moment before that session's auth header was actually
+   attached to outgoing REST calls. The very next request (the `admins`
+   SELECT in checkAdminRole, gated by "email = auth.email()" under RLS)
+   then ran as anonymous, matched 0 rows, and got treated as "not an
+   admin" — signing a valid admin out and triggering the 10s
+   ADMIN_ACCESS_DENIED_RETRY_MS cooldown on every single refresh.
+   onAuthStateChange's first event (INITIAL_SESSION) fires only once the
+   client has fully finished rehydrating from storage, so gating
+   checkAdminRole on that instead removes the race. */
+sb.auth.onAuthStateChange((event, session)=>{
+  if(event !== 'INITIAL_SESSION') return;
   if(!session?.user){ showLoginForm(); return; }
-  await checkAdminRole(session.user.email);
-})();
+  checkAdminRole(session.user.email);
+});
 
 function showLoginForm(){
   document.getElementById('gate').style.display = 'grid';
@@ -36,10 +48,11 @@ function denyAccess(){
   document.getElementById('gateLoginForm').style.display = 'none';
   document.getElementById('gateErr').textContent = '';
   document.getElementById('gateMsg').textContent = '🚫 Access Denied — this account is not an authorized admin.';
+  /* Phase 5.6.1: was a hardcoded 10000 — now CONSTANTS.ADMIN_ACCESS_DENIED_RETRY_MS */
   setTimeout(()=>{
     document.getElementById('gateMsg').textContent = 'Sign in with an admin account.';
     document.getElementById('gateLoginForm').style.display = 'block';
-  }, 10000);
+  }, CONSTANTS.ADMIN_ACCESS_DENIED_RETRY_MS);
 }
 
 async function adminLogin(){
@@ -65,6 +78,18 @@ async function initAdminApp(){
   renderCampaignsTable();
   renderPassesTable();
   renderAnalytics();
+
+  /* Phase 5.9 hotfix: index.js/dashboard.js both poll on an interval so
+     their views stay in sync with table changes made directly in
+     Supabase. admin.js never had an equivalent poll — it only loaded
+     data once here. Same pattern, applied for parity, so clearing/
+     editing rows shows up on the admin panel without a manual refresh. */
+  setInterval(async ()=>{
+    await Promise.all([loadCampaigns(), loadPasses()]);
+    renderCampaignsTable();
+    renderPassesTable();
+    renderAnalytics();
+  }, CONSTANTS.ADMIN_DASHBOARD_POLL_INTERVAL_MS);
 }
 
 function switchAdminTab(name){
