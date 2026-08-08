@@ -182,9 +182,10 @@ sb.channel('worker-bookings-' + W.id)
    as a safety net — does not replace or alter the realtime channel
    above, which still remains the primary way updates travel. */
 clearInterval(window._workerBookingPoll);
+/* Phase 5.6.1: was a hardcoded 5000 — now CONSTANTS.WORKER_BOOKING_POLL_INTERVAL_MS */
 window._workerBookingPoll = setInterval(async () => {
   await loadBookings();
-}, 5000);
+}, CONSTANTS.WORKER_BOOKING_POLL_INTERVAL_MS);
 
 window.addEventListener('focus', () => {
   loadBookings();
@@ -1118,6 +1119,9 @@ function _clearGPSWatch(){
   }
 }
 
+/* TODO(config): GPS_RETRY_DELAY_MS has no value in constants.js yet —
+   no authoritative source found in this repo. Until set, this default
+   param evaluates to undefined and setTimeout fires with no delay. */
 function _scheduleGPSRetry(delay=CONSTANTS.GPS_RETRY_DELAY_MS){
   _clearGPSRetry();
   _gpsRetryTimer = setTimeout(()=>{
