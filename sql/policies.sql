@@ -124,15 +124,21 @@ FOR SELECT
 TO public
 USING (true);
 
--- NOTE: reproduced verbatim from DATABASE.md. "users.role = 'admin'" is
--- documented as a bare expression with no join/subquery shown; not
--- expanded or corrected here since that would be fabrication.
-CREATE POLICY "Admins manage campaigns"
-ON campaigns
-FOR ALL
-TO authenticated
-USING (users.role = 'admin')
-WITH CHECK (users.role = 'admin');
+-- TODO: "Admins manage campaigns" (ALL, authenticated) — DATABASE.md
+-- documents the predicate only as the bare expression `users.role = 'admin'`
+-- (no join/subquery). As literal SQL this references an undeclared
+-- table (`users`) inside a policy on `campaigns` and will very likely
+-- fail with "missing FROM-clause entry for table users" if run as-is.
+-- Not converted to a guessed EXISTS(...) subquery, since the real
+-- join condition is not documented anywhere in this repo — that would
+-- be fabricating access-control logic. Left as a stub pending the
+-- actual predicate from whoever owns the RLS design.
+-- CREATE POLICY "Admins manage campaigns"
+-- ON campaigns
+-- FOR ALL
+-- TO authenticated
+-- USING ( -- exact predicate to be confirmed against live DB )
+-- WITH CHECK ( -- exact predicate to be confirmed against live DB );
 
 -- =====================================================
 -- REVIEWS
@@ -164,14 +170,20 @@ FOR INSERT
 TO authenticated
 WITH CHECK (auth.uid() = user_id);
 
--- NOTE: reproduced verbatim from DATABASE.md. "users.role = 'admin'" is
--- documented as a bare expression with no join/subquery shown; not
--- expanded or corrected here since that would be fabrication.
-CREATE POLICY "Admins read all passes"
-ON user_passes
-FOR SELECT
-TO authenticated
-USING (users.role = 'admin');
+-- TODO: "Admins read all passes" (SELECT, authenticated) — DATABASE.md
+-- documents the predicate only as the bare expression `users.role = 'admin'`
+-- (no join/subquery). As literal SQL this references an undeclared
+-- table (`users`) inside a policy on `user_passes` and will very likely
+-- fail with "missing FROM-clause entry for table users" if run as-is.
+-- Not converted to a guessed EXISTS(...) subquery, since the real
+-- join condition is not documented anywhere in this repo — that would
+-- be fabricating access-control logic. Left as a stub pending the
+-- actual predicate from whoever owns the RLS design.
+-- CREATE POLICY "Admins read all passes"
+-- ON user_passes
+-- FOR SELECT
+-- TO authenticated
+-- USING ( -- exact predicate to be confirmed against live DB );
 
 CREATE POLICY "Users can view their own passes"
 ON user_passes
