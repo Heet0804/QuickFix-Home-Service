@@ -208,7 +208,7 @@ function handlePhotoUpload(input){
     nameEl.style.display='none';
     return;
   }
-  if(file.size>5*1024*1024){
+  if(file.size>CONSTANTS.MAX_UPLOAD_FILE_SIZE_BYTES){
     showErr('File too large. Maximum size is 5MB.');
     input.value='';
     label.classList.remove('has-file');
@@ -293,7 +293,7 @@ async function doSignup(role){
     if(!areaId)markErr('swArea');
     if(!pass)  markErr('swPass');
     if(!name||!email||!phone||!skill||!radius||!areaId||!pass){showErr('Please fill in all required fields.');return;}
-    if(pass.length<6){showErr('Password must be at least 6 characters.');return;}
+    if(pass.length<CONSTANTS.MIN_PASSWORD_LENGTH){showErr('Password must be at least 6 characters.');return;}
     if(isNaN(parseInt(radius))||parseInt(radius)<1){markErr('swRadius');showErr('Work radius must be a number greater than 0.');return;}
 
     const selectedArea=areasData.find(a=>String(a.id)===String(areaId));
@@ -326,15 +326,11 @@ async function doSignup(role){
       const {data:publicData}=sb.storage.from('worker-documents').getPublicUrl(docFileName);
       docUrl=publicData.publicUrl||'';
     }catch(uploadEx){
-  console.error("UPLOAD ERROR OBJECT:", uploadEx);
-  console.error("MESSAGE:", uploadEx?.message);
-  console.error("FULL:", JSON.stringify(uploadEx,null,2));
-
-  alert(uploadEx?.message || JSON.stringify(uploadEx,null,2));
-
-  setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
-  return;
-}
+      console.error('Document upload error:', uploadEx?.message || uploadEx);
+      alert(uploadEx?.message || JSON.stringify(uploadEx,null,2));
+      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
+      return;
+    }
 
     /* Step 0b: Upload Profile Photo — separate, customer-visible bucket.
        Deliberately NOT the same bucket as the Government ID document. */
