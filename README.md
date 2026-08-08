@@ -1,8 +1,12 @@
 # ⚡ QuickFix – Smart Home Service Booking Platform
 
+![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
+![Status](https://img.shields.io/badge/status-active--development-yellow.svg)
+![Backend](https://img.shields.io/badge/backend-Supabase-3ECF8E.svg)
+
 <p align="center">
   <b>Book trusted home service professionals in just a few clicks.</b><br>
-  A complete full-stack service marketplace built using HTML, CSS, JavaScript, Supabase and Firebase.
+  A complete full-stack service marketplace built using HTML, CSS, JavaScript, and Supabase.
 </p>
 
 ---
@@ -333,7 +337,7 @@ Achievements
 
 ### Notifications
 
-- Firebase Realtime Database
+- Supabase Realtime — used for live booking status updates across customer and worker dashboards
 
 ---
 
@@ -488,6 +492,12 @@ Tracking System Stabilization & Resource Cleanup
 v4.10
 Responsive UI Overhaul & Hamburger Navigation (Landing, Customer App, Admin Portal)
 ```
+
+---
+
+# 📄 License
+
+MIT — see [`LICENSE`](./LICENSE).
 
 ---
 
