@@ -470,15 +470,20 @@ for select
 to public
 using (true);
 
--- NOTE: reproduced verbatim from DATABASE.md. "users.role = 'admin'" is
--- documented as a bare expression with no join/subquery shown; not
--- expanded or corrected here since that would be fabrication.
-create policy "Admins manage campaigns"
-on campaigns
-for all
-to authenticated
-using (users.role = 'admin')
-with check (users.role = 'admin');
+-- TODO: "Admins manage campaigns" (ALL, authenticated) — DATABASE.md
+-- documents the predicate only as the bare expression `users.role = 'admin'`
+-- (no join/subquery). As literal SQL this references an undeclared
+-- table (`users`) inside a policy on `campaigns` and will very likely
+-- fail with "missing FROM-clause entry for table users" if run as-is.
+-- Not converted to a guessed EXISTS(...) subquery, since the real join
+-- condition is not documented anywhere in this repo. Left as a stub
+-- pending the actual predicate from whoever owns the RLS design.
+-- create policy "Admins manage campaigns"
+-- on campaigns
+-- for all
+-- to authenticated
+-- using ( -- exact predicate to be confirmed against live DB )
+-- with check ( -- exact predicate to be confirmed against live DB );
 
 -- ------------------------------------------------------------
 -- 4.5 reviews
@@ -508,14 +513,19 @@ for insert
 to authenticated
 with check (auth.uid() = user_id);
 
--- NOTE: reproduced verbatim from DATABASE.md. "users.role = 'admin'" is
--- documented as a bare expression with no join/subquery shown; not
--- expanded or corrected here since that would be fabrication.
-create policy "Admins read all passes"
-on user_passes
-for select
-to authenticated
-using (users.role = 'admin');
+-- TODO: "Admins read all passes" (SELECT, authenticated) — DATABASE.md
+-- documents the predicate only as the bare expression `users.role = 'admin'`
+-- (no join/subquery). As literal SQL this references an undeclared
+-- table (`users`) inside a policy on `user_passes` and will very likely
+-- fail with "missing FROM-clause entry for table users" if run as-is.
+-- Not converted to a guessed EXISTS(...) subquery, since the real join
+-- condition is not documented anywhere in this repo. Left as a stub
+-- pending the actual predicate from whoever owns the RLS design.
+-- create policy "Admins read all passes"
+-- on user_passes
+-- for select
+-- to authenticated
+-- using ( -- exact predicate to be confirmed against live DB );
 
 create policy "Users can view their own passes"
 on user_passes
@@ -777,6 +787,6 @@ comment on schema storage is
 -- AUDIT RESULT
 -- Migration Order: Tables -> Constraints -> Indexes -> RLS -> Storage -> Functions -> Comments (7/7 phases present, in required order)
 -- Dependency Check: areas created before users (saved_area_id FK); users and workers created before bookings; bookings/users/workers created before reviews; users/campaigns created before user_passes; workers created before worker_achievements; all constraints added only after every referenced table exists; no circular dependencies found among public-schema tables
--- Corrections Made: (Phase 5.5.11 master audit) six "Active admins ..." policies on campaigns/user_passes/users, previously implemented with a fabricated EXISTS(...) subquery not present in DATABASE.md, converted to commented-out TODO stubs to match the conservative, verbatim-only approach used in policies.sql; "Admins manage campaigns" and "Admins read all passes" reverted from an invented EXISTS(auth.uid()...) expansion back to the literal bare expression `users.role = 'admin'` exactly as documented in DATABASE.md; campaigns_status_check, users_role_check, reviews_rating_check left undocumented as TODOs (no ALTER TABLE ADD CONSTRAINT emitted) rather than inventing conditions; auth.users-referencing FKs (admins_auth_user_id_fkey, users_id_fkey, workers_id_fkey, user_passes_user_id_fkey) marked inferred per DATABASE.md wording, not asserted as confirmed; function bodies/signatures left as TODO stubs, no CREATE FUNCTION invented
+-- Corrections Made: (Phase 5.5.11 master audit) six "Active admins ...` policies on campaigns/user_passes/users, previously implemented with a fabricated EXISTS(...) subquery not present in DATABASE.md, converted to commented-out TODO stubs to match the conservative, verbatim-only approach used in policies.sql; "Admins manage campaigns" and "Admins read all passes" — reverted in that same pass to the literal bare expression `users.role = 'admin'` exactly as documented in DATABASE.md — were subsequently found to be invalid standalone SQL as written (bare reference to an undeclared `users` table inside a policy on a different table) and are now also commented-out TODO stubs, not live CREATE POLICY statements; campaigns_status_check, users_role_check, reviews_rating_check left undocumented as TODOs (no ALTER TABLE ADD CONSTRAINT emitted) rather than inventing conditions; auth.users-referencing FKs (admins_auth_user_id_fkey, users_id_fkey, workers_id_fkey, user_passes_user_id_fkey) marked inferred per DATABASE.md wording, not asserted as confirmed; function bodies/signatures left as TODO stubs, no CREATE FUNCTION invented
 -- Final Status: PASS ✅
 -- ============================================================
