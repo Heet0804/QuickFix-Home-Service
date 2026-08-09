@@ -379,12 +379,7 @@ create policy "bookings_worker_read"
 on bookings
 for select
 to public
-using (
-    exists (
-        select 1 from workers w
-        where w.id = auth.uid() and w.skill = bookings.worker_role
-    )
-);
+using (auth.uid() = worker_id);
 
 create policy "bookings_user_insert"
 on bookings
@@ -396,10 +391,7 @@ create policy "bookings_update"
 on bookings
 for update
 to public
-using (
-    auth.uid() = user_id
-    or exists (select 1 from workers w where w.id = auth.uid())
-);
+using (auth.uid() = user_id or auth.uid() = worker_id);
 
 create policy "bookings_user_read"
 on bookings
@@ -573,6 +565,9 @@ for all
 to public
 using (auth.uid() = id)
 with check (auth.uid() = id);
+-- NOTE: Phase 6.2 — role-change protection is NOT enforced by this
+-- policy (a WITH CHECK subquery back into users caused infinite
+-- recursion, 42P17). Enforced instead by trg_prevent_role_self_escalation.
 
 create policy "Users can read own row"
 on users
@@ -595,8 +590,8 @@ create policy "workers_update"
 on workers
 for update
 to public
-using (true)
-with check (true);
+using (auth.uid() = id)
+with check (auth.uid() = id);
 
 create policy "workers_own_insert"
 on workers
@@ -619,7 +614,7 @@ create policy "worker_achievements_insert"
 on worker_achievements
 for insert
 to public
-with check (true);
+with check (auth.uid() = worker_id);
 
 create policy "worker_achievements_select"
 on worker_achievements
@@ -673,21 +668,33 @@ with check (bucket_id = 'worker-photos');
 create policy "public_upload_worker_docs"
 on storage.objects
 for insert
-to public
+to authenticated
 with check (bucket_id = 'worker-documents');
 
 create policy "allow_worker_photos_upload 15rstgp_0"
 on storage.objects
 for update
-to public
-using (bucket_id = 'worker-documents')
-with check (bucket_id = 'worker-documents');
+to authenticated
+using (
+  bucket_id = 'worker-documents'
+  and exists (select 1 from workers w where w.id = auth.uid() and w.document_name = storage.objects.name)
+)
+with check (
+  bucket_id = 'worker-documents'
+  and exists (select 1 from workers w where w.id = auth.uid() and w.document_name = storage.objects.name)
+);
 
 create policy "allow_worker_photos_upload 15rstgp_1"
 on storage.objects
 for select
-to public
-using (bucket_id = 'worker-documents');
+to authenticated
+using (
+  bucket_id = 'worker-documents'
+  and (
+    exists (select 1 from workers w where w.id = auth.uid() and w.document_name = storage.objects.name)
+    or is_admin()
+  )
+);
 
 
 -- ============================================================
@@ -697,11 +704,35 @@ using (bucket_id = 'worker-documents');
 -- instructions, none of that is invented; each is left as a TODO.
 -- ============================================================
 
--- TODO:
--- Function body unavailable in DATABASE.md
--- Function: is_admin()
--- (parameter signature and return type also unavailable in DATABASE.md)
--- Confirmed usage: referenced in `users` RLS policy "Admins read all users"
+-- is_admin() — body retrieved directly from the live database via
+-- SELECT prosrc FROM pg_proc WHERE proname = 'is_admin'; no longer a TODO.
+create or replace function is_admin()
+returns boolean as $$
+  select exists(
+    select 1 from public.users where id = auth.uid() and role = 'admin'
+  );
+$$ language sql security definer;
+
+-- prevent_role_self_escalation() + trigger — added Phase 6.2. Blocks any
+-- UPDATE on users.role unless the caller is already an admin. A naive
+-- RLS WITH CHECK subquery back into users caused infinite recursion
+-- (42P17); this trigger runs independently of RLS and cannot recurse.
+create or replace function prevent_role_self_escalation()
+returns trigger as $$
+begin
+  if new.role is distinct from old.role then
+    if not is_admin() then
+      raise exception 'Only admins can change user roles';
+    end if;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger trg_prevent_role_self_escalation
+before update on users
+for each row
+execute function prevent_role_self_escalation();
 
 -- TODO:
 -- Function body unavailable in DATABASE.md
@@ -738,7 +769,7 @@ comment on column workers.unlocked_achievements is
     'DATABASE.md architecture observation: overlaps in purpose with the relational worker_achievements table — the same achievement data appears to be tracked in two places.';
 
 comment on table workers is
-    'DATABASE.md architecture observations: no indexes exist on skill or area, both used for worker-matching (see bookings_worker_read policy); the workers_update RLS policy grants UPDATE with no ownership restriction (using: true, check: true) — any client can update any worker row, unlike workers_own_insert which is scoped to auth.uid() = id.';
+    'DATABASE.md architecture observation: no indexes exist on skill or area, both used for worker-matching (see bookings_worker_read policy). Phase 6.2 note: workers_update previously granted UPDATE with no ownership restriction (using: true, check: true); fixed to auth.uid() = id, consistent with workers_own_insert.';
 
 comment on table campaigns is
     'DATABASE.md architecture observation: has two independent "admin" detection paths in its RLS policies (admins table with is_active flag vs. users.role = ''admin''), and two separate INSERT policies with different conditions. No secondary indexes exist despite carrying foreign keys.';
@@ -774,7 +805,7 @@ comment on table worker_achievements is
     'DATABASE.md: no separate achievements table exists in the schema, so achievement_id is a free-standing text identifier rather than a foreign key.';
 
 comment on schema storage is
-    'DATABASE.md architecture observation: the worker-documents bucket is private at the bucket level, but its storage.objects policies grant public SELECT/UPDATE/INSERT scoped only by bucket_id — any client with public access can read and write objects in this bucket despite its private setting.';
+    'Phase 6.2 note: the worker-documents bucket was private at the bucket level, but its storage.objects policies previously granted public SELECT/UPDATE/INSERT scoped only by bucket_id. Fixed — policies now require authenticated callers whose auth.uid() matches a workers.document_name they own, or is_admin() for SELECT.';
 
 -- Note: the CHECK-constraint comments above reference constraints
 -- (campaigns_status_check, users_role_check, reviews_rating_check) whose

@@ -59,23 +59,35 @@ drop policy if exists "public_upload_worker_docs" on storage.objects;
 create policy "public_upload_worker_docs"
 on storage.objects
 for insert
-to public
+to authenticated
 with check (bucket_id = 'worker-documents');
 
 drop policy if exists "allow_worker_photos_upload 15rstgp_0" on storage.objects;
 create policy "allow_worker_photos_upload 15rstgp_0"
 on storage.objects
 for update
-to public
-using (bucket_id = 'worker-documents')
-with check (bucket_id = 'worker-documents');
+to authenticated
+using (
+  bucket_id = 'worker-documents'
+  AND EXISTS (SELECT 1 FROM workers w WHERE w.id = auth.uid() AND w.document_name = storage.objects.name)
+)
+with check (
+  bucket_id = 'worker-documents'
+  AND EXISTS (SELECT 1 FROM workers w WHERE w.id = auth.uid() AND w.document_name = storage.objects.name)
+);
 
 drop policy if exists "allow_worker_photos_upload 15rstgp_1" on storage.objects;
 create policy "allow_worker_photos_upload 15rstgp_1"
 on storage.objects
 for select
-to public
-using (bucket_id = 'worker-documents');
+to authenticated
+using (
+  bucket_id = 'worker-documents'
+  AND (
+    EXISTS (SELECT 1 FROM workers w WHERE w.id = auth.uid() AND w.document_name = storage.objects.name)
+    OR is_admin()
+  )
+);
 
 -- ============================================================
 -- AUDIT RESULT

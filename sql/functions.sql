@@ -23,10 +23,17 @@
 -- ------------------------------------------------------------
 -- Function: is_admin()
 -- Confirmed usage: referenced in `users` RLS policy "Admins read all users"
+-- and in prevent_role_self_escalation() (Phase 6.2).
+-- Body retrieved directly from the live database via:
+--   SELECT prosrc FROM pg_proc WHERE proname = 'is_admin';
+-- No longer a TODO — this is the actual, confirmed definition.
 -- ------------------------------------------------------------
--- TODO:
--- Function body unavailable in DATABASE.md
--- (parameter signature and return type also unavailable in DATABASE.md)
+CREATE OR REPLACE FUNCTION is_admin()
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS(
+    SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin'
+  );
+$$ LANGUAGE sql SECURITY DEFINER;
 
 -- ------------------------------------------------------------
 -- Function: get_worker_stats
@@ -59,6 +66,38 @@
 -- TODO:
 -- Function body unavailable in DATABASE.md
 -- (parameter signature and return type also unavailable in DATABASE.md)
+
+-- ------------------------------------------------------------
+-- Function: prevent_role_self_escalation()
+-- Added: Phase 6.2 — blocks any UPDATE on users.role unless the
+-- caller is an admin (per is_admin()). Runs as SECURITY DEFINER so
+-- it can check role changes without re-triggering RLS on `users`
+-- (avoids the infinite-recursion failure a naive RLS-only fix hits).
+-- ------------------------------------------------------------
+CREATE OR REPLACE FUNCTION prevent_role_self_escalation()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.role IS DISTINCT FROM OLD.role THEN
+    IF NOT is_admin() THEN
+      RAISE EXCEPTION 'Only admins can change user roles';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ------------------------------------------------------------
+-- Trigger: trg_prevent_role_self_escalation
+-- Added: Phase 6.2 — enforces prevent_role_self_escalation() on
+-- every UPDATE to users. Created here (not schema.sql) since it
+-- depends on prevent_role_self_escalation() existing first, and
+-- functions.sql runs after schema.sql in the documented install
+-- order.
+-- ------------------------------------------------------------
+CREATE TRIGGER trg_prevent_role_self_escalation
+BEFORE UPDATE ON users
+FOR EACH ROW
+EXECUTE FUNCTION prevent_role_self_escalation();
 
 -- ============================================================
 -- AUDIT RESULT

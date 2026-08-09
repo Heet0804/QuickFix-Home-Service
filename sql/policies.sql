@@ -44,7 +44,7 @@ CREATE POLICY bookings_worker_read
 ON bookings
 FOR SELECT
 TO public
-USING (EXISTS (SELECT 1 FROM workers w WHERE w.id = auth.uid() AND w.skill = bookings.worker_role));
+USING (auth.uid() = worker_id);
 
 CREATE POLICY bookings_user_insert
 ON bookings
@@ -56,7 +56,7 @@ CREATE POLICY bookings_update
 ON bookings
 FOR UPDATE
 TO public
-USING (auth.uid() = user_id OR EXISTS (SELECT 1 FROM workers w WHERE w.id = auth.uid()));
+USING (auth.uid() = user_id OR auth.uid() = worker_id);
 
 CREATE POLICY bookings_user_read
 ON bookings
@@ -230,6 +230,11 @@ FOR ALL
 TO public
 USING (auth.uid() = id)
 WITH CHECK (auth.uid() = id);
+-- NOTE: Phase 6.2 — role-change protection is NOT enforced by this
+-- policy. A WITH CHECK subquery back into `users` was tried and
+-- caused infinite recursion (error 42P17). Protection is instead
+-- enforced by the trg_prevent_role_self_escalation trigger (see
+-- functions.sql), which runs independently of RLS and cannot recurse.
 
 CREATE POLICY "Users can read own row"
 ON users
@@ -253,8 +258,8 @@ CREATE POLICY workers_update
 ON workers
 FOR UPDATE
 TO public
-USING (true)
-WITH CHECK (true);
+USING (auth.uid() = id)
+WITH CHECK (auth.uid() = id);
 
 CREATE POLICY workers_own_insert
 ON workers
@@ -278,7 +283,7 @@ CREATE POLICY worker_achievements_insert
 ON worker_achievements
 FOR INSERT
 TO public
-WITH CHECK (true);
+WITH CHECK (auth.uid() = worker_id);
 
 CREATE POLICY worker_achievements_select
 ON worker_achievements

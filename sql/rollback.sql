@@ -79,6 +79,8 @@ drop policy if exists "Admins can read their own row" on admins;
 -- If overloaded, this statement will need the specific signature added.
 -- ============================================================
 
+drop trigger if exists trg_prevent_role_self_escalation on users;
+drop function if exists prevent_role_self_escalation();
 drop function if exists is_admin();
 drop function if exists get_worker_stats;
 drop function if exists get_worker_stats_bulk;
