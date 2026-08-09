@@ -8,10 +8,10 @@
    else was intentionally left page-specific — see the Phase 5.3.3
    audit notes for the full reasoning on each constant considered. */
 window.CONFIG = {
-  /* Geoapify API key — reverse geocoding + routing.
-     Previously duplicated identically as GEOAPIFY_API_KEY in both
-     index.js and dashboard.js. */
-  GEOAPIFY_API_KEY: "a89cdf24c2ae454585c82225c630f28c",
+  /* Phase 6.1: GEOAPIFY_API_KEY removed from client config. The key now
+     lives only as a Supabase Edge Function secret (geoapify-proxy) and
+     is never shipped to the browser. See js/common/maps.js, which now
+     calls the proxy instead of api.geoapify.com directly. */
 
   /* Minimum accepted-jobs count before reliability_score / worker_score
      are treated as earned rather than an unqualified default.

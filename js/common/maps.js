@@ -13,9 +13,13 @@
    functions" while still sharing one implementation instead of two
    copies of the same code.
 
-   Requires CONFIG (js/common/config.js) to be loaded first for
-   CONFIG.GEOAPIFY_API_KEY. No DOM ids, no _trkState/_trkStateW,
-   no page-specific globals are referenced anywhere in this file. */
+   Phase 6.1: no longer requires CONFIG.GEOAPIFY_API_KEY — the key was
+   removed from the client and both Geoapify calls below now go through
+   the geoapify-proxy Supabase Edge Function instead. Requires
+   SUPABASE_URL (js/common/supabase.js) and window.sb to be loaded
+   first, for the proxy URL and the caller's session token. No DOM ids,
+   no _trkState/_trkStateW, no page-specific globals are referenced
+   anywhere in this file. */
 
 /* ── PHASE 4.7: GEOAPIFY REVERSE GEOCODING ───────────────────
    Resolves a lat/lng picked on the pin map to a human-readable
@@ -24,8 +28,11 @@
    street, suburb, locality. Read-only lookup — never writes
    anything, never touches pendBk or Supabase. */
 async function _geoapifyReverseGeocode(lat, lng){
-  const url = `https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lng}&apiKey=${CONFIG.GEOAPIFY_API_KEY}`;
-  const res = await fetch(url);
+  const { data: { session } } = await sb.auth.getSession();
+  const url = `${SUPABASE_URL}/functions/v1/geoapify-proxy?type=reverse&lat=${lat}&lon=${lng}`;
+  const res = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${session?.access_token}` }
+  });
   if(!res.ok) throw new Error('Geoapify reverse geocode HTTP '+res.status);
   const data = await res.json();
   const p = data?.features?.[0]?.properties || {};
@@ -40,8 +47,11 @@ async function _geoapifyReverseGeocode(lat, lng){
    null) is unchanged. */
 async function _fetchRoadRoute(from, to){
   try{
-    const url = `https://api.geoapify.com/v1/routing?waypoints=${from.lat},${from.lng}|${to.lat},${to.lng}&mode=drive&apiKey=${CONFIG.GEOAPIFY_API_KEY}`;
-    const res = await fetch(url);
+    const { data: { session } } = await sb.auth.getSession();
+    const url = `${SUPABASE_URL}/functions/v1/geoapify-proxy?type=routing&from=${from.lat},${from.lng}&to=${to.lat},${to.lng}&mode=drive`;
+    const res = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${session?.access_token}` }
+    });
     if(!res.ok) throw new Error('Geoapify routing HTTP '+res.status);
     const data = await res.json();
     const feature = data?.features?.[0];
