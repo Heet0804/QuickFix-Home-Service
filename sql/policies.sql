@@ -50,7 +50,7 @@ CREATE POLICY bookings_user_insert
 ON bookings
 FOR INSERT
 TO public
-WITH CHECK (auth.uid() = user_id);
+WITH CHECK (auth.uid() = user_id AND status = 'Pending');
 
 CREATE POLICY bookings_update
 ON bookings
@@ -80,65 +80,44 @@ ALTER TABLE campaigns ENABLE ROW LEVEL SECURITY;
 -- TO authenticated
 -- USING ( -- exact predicate to be confirmed against live DB );
 
+-- Phase 6.2, Finding 7 — was WITH CHECK (true): any authenticated user
+-- (not just admins) could create arbitrary "active" campaigns. Confirmed
+-- exploitable live, then fixed. Predicate matches admin.js's own
+-- checkAdminRole logic (admins.email = auth.email() AND is_active = true).
 CREATE POLICY "Admins can insert campaigns"
 ON campaigns
 FOR INSERT
 TO authenticated
-WITH CHECK (true);
+WITH CHECK (
+  EXISTS (SELECT 1 FROM admins a WHERE a.email = auth.email() AND a.is_active = true)
+);
 
--- TODO: "Active admins can insert campaigns" (INSERT, authenticated)
--- DATABASE.md documents this predicate only in prose: "admin exists in
--- `admins` and `is_active = true`". No literal SQL expression is given,
--- so the exact EXISTS(...) subquery is not fabricated here.
--- CREATE POLICY "Active admins can insert campaigns"
--- ON campaigns
--- FOR INSERT
--- TO authenticated
--- WITH CHECK ( -- exact predicate to be confirmed against live DB );
+-- Phase 6.2, Finding 7 — previously missing entirely (RLS default-deny),
+-- meaning even legitimate admins could not update or delete campaigns.
+CREATE POLICY "Admins can update campaigns"
+ON campaigns
+FOR UPDATE
+TO authenticated
+USING (
+  EXISTS (SELECT 1 FROM admins a WHERE a.email = auth.email() AND a.is_active = true)
+)
+WITH CHECK (
+  EXISTS (SELECT 1 FROM admins a WHERE a.email = auth.email() AND a.is_active = true)
+);
 
--- TODO: "Active admins can view campaigns" (SELECT, authenticated)
--- DATABASE.md documents this predicate only in prose: "admin exists in
--- `admins` and `is_active = true`". No literal SQL expression is given,
--- so the exact EXISTS(...) subquery is not fabricated here.
--- CREATE POLICY "Active admins can view campaigns"
--- ON campaigns
--- FOR SELECT
--- TO authenticated
--- USING ( -- exact predicate to be confirmed against live DB );
-
--- TODO: "Active admins can update campaigns" (UPDATE, authenticated,
--- documented as using + check) — DATABASE.md documents this predicate
--- only in prose: "admin exists in `admins` and `is_active = true`". No
--- literal SQL expression is given, so the exact EXISTS(...) subquery is
--- not fabricated here.
--- CREATE POLICY "Active admins can update campaigns"
--- ON campaigns
--- FOR UPDATE
--- TO authenticated
--- USING ( -- exact predicate to be confirmed against live DB )
--- WITH CHECK ( -- exact predicate to be confirmed against live DB );
+CREATE POLICY "Admins can delete campaigns"
+ON campaigns
+FOR DELETE
+TO authenticated
+USING (
+  EXISTS (SELECT 1 FROM admins a WHERE a.email = auth.email() AND a.is_active = true)
+);
 
 CREATE POLICY "Anyone can read active campaigns"
 ON campaigns
 FOR SELECT
 TO public
 USING (true);
-
--- TODO: "Admins manage campaigns" (ALL, authenticated) — DATABASE.md
--- documents the predicate only as the bare expression `users.role = 'admin'`
--- (no join/subquery). As literal SQL this references an undeclared
--- table (`users`) inside a policy on `campaigns` and will very likely
--- fail with "missing FROM-clause entry for table users" if run as-is.
--- Not converted to a guessed EXISTS(...) subquery, since the real
--- join condition is not documented anywhere in this repo — that would
--- be fabricating access-control logic. Left as a stub pending the
--- actual predicate from whoever owns the RLS design.
--- CREATE POLICY "Admins manage campaigns"
--- ON campaigns
--- FOR ALL
--- TO authenticated
--- USING ( -- exact predicate to be confirmed against live DB )
--- WITH CHECK ( -- exact predicate to be confirmed against live DB );
 
 -- =====================================================
 -- REVIEWS
@@ -150,7 +129,15 @@ CREATE POLICY reviews_insert
 ON reviews
 FOR INSERT
 TO public
-WITH CHECK (auth.uid() = user_id);
+WITH CHECK (
+  auth.uid() = user_id
+  AND EXISTS (
+    SELECT 1 FROM bookings b
+    WHERE b.id = reviews.booking_id
+      AND b.user_id = auth.uid()
+      AND b.status = 'Completed'
+  )
+);
 
 CREATE POLICY reviews_read
 ON reviews
@@ -170,20 +157,16 @@ FOR INSERT
 TO authenticated
 WITH CHECK (auth.uid() = user_id);
 
--- TODO: "Admins read all passes" (SELECT, authenticated) — DATABASE.md
--- documents the predicate only as the bare expression `users.role = 'admin'`
--- (no join/subquery). As literal SQL this references an undeclared
--- table (`users`) inside a policy on `user_passes` and will very likely
--- fail with "missing FROM-clause entry for table users" if run as-is.
--- Not converted to a guessed EXISTS(...) subquery, since the real
--- join condition is not documented anywhere in this repo — that would
--- be fabricating access-control logic. Left as a stub pending the
--- actual predicate from whoever owns the RLS design.
--- CREATE POLICY "Admins read all passes"
--- ON user_passes
--- FOR SELECT
--- TO authenticated
--- USING ( -- exact predicate to be confirmed against live DB );
+-- Phase 6.2 — resolved using the same admins-table predicate confirmed
+-- correct for campaigns (matches admin.js's own checkAdminRole logic:
+-- admins.email = auth.email() AND admins.is_active = true).
+CREATE POLICY "Admins read all passes"
+ON user_passes
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (SELECT 1 FROM admins a WHERE a.email = auth.email() AND a.is_active = true)
+);
 
 CREATE POLICY "Users can view their own passes"
 ON user_passes
@@ -191,15 +174,15 @@ FOR SELECT
 TO authenticated
 USING (auth.uid() = user_id);
 
--- TODO: "Active admins can view all user passes" (SELECT, authenticated)
--- DATABASE.md documents this predicate only in prose: "admin exists in
--- `admins` and `is_active = true`". No literal SQL expression is given,
--- so the exact EXISTS(...) subquery is not fabricated here.
--- CREATE POLICY "Active admins can view all user passes"
--- ON user_passes
--- FOR SELECT
--- TO authenticated
--- USING ( -- exact predicate to be confirmed against live DB );
+-- Confirmed already live during Phase 6.2 audit (SELECT * FROM
+-- pg_policies) — not a TODO, was already correctly enforced pre-audit.
+CREATE POLICY "Active admins can view all user passes"
+ON user_passes
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (SELECT 1 FROM admins a WHERE a.email = (auth.jwt() ->> 'email') AND a.is_active = true)
+);
 
 CREATE POLICY "Users can update their own passes"
 ON user_passes
@@ -214,15 +197,15 @@ WITH CHECK (auth.uid() = user_id);
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
--- TODO: "Active admins can view all users" (SELECT, authenticated)
--- DATABASE.md documents this predicate only in prose: "admin exists in
--- `admins` and `is_active = true`". No literal SQL expression is given,
--- so the exact EXISTS(...) subquery is not fabricated here.
--- CREATE POLICY "Active admins can view all users"
--- ON users
--- FOR SELECT
--- TO authenticated
--- USING ( -- exact predicate to be confirmed against live DB );
+-- Confirmed already live during Phase 6.2 audit (SELECT * FROM
+-- pg_policies) — not a TODO, was already correctly enforced pre-audit.
+CREATE POLICY "Active admins can view all users"
+ON users
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (SELECT 1 FROM admins a WHERE a.email = (auth.jwt() ->> 'email') AND a.is_active = true)
+);
 
 CREATE POLICY users_own
 ON users
