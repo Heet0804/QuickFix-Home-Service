@@ -79,6 +79,8 @@ drop policy if exists "Admins can read their own row" on admins;
 -- If overloaded, this statement will need the specific signature added.
 -- ============================================================
 
+drop trigger if exists trg_prevent_past_scheduled_date on bookings;
+drop function if exists prevent_past_scheduled_date();
 drop trigger if exists trg_prevent_role_self_escalation on users;
 drop function if exists prevent_role_self_escalation();
 drop function if exists is_admin();
@@ -139,10 +141,23 @@ alter table if exists admins drop constraint if exists admins_pkey;
 alter table if exists users drop constraint if exists users_pkey;
 alter table if exists areas drop constraint if exists areas_pkey;
 
--- Note: the three documented CHECK constraints (campaigns_status_check,
--- users_role_check, reviews_rating_check) were never created in
--- migrations.sql (their conditions are undocumented in DATABASE.md), so
--- there is nothing to drop for them here.
+-- Note: campaigns_status_check, users_role_check, reviews_rating_check
+-- were confirmed already live during the Phase 6.3 audit and were never
+-- created by this package — not dropped here, since that would remove a
+-- constraint this package did not create.
+-- Phase 6.3 CHECK constraints (created by this package) are dropped
+-- automatically when their tables are dropped in Step 5 below — Postgres
+-- drops all constraints on DROP TABLE, so no separate DROP CONSTRAINT is
+-- needed. Listed here for documentation completeness only: areas_lat_check,
+-- areas_lng_check, users_quickcoins_balance_check, users_quickcoins_earned_check,
+-- users_quickcoins_redeemed_check, users_saved_lat_check, users_saved_lng_check,
+-- workers_radius_check, workers_price_check, workers_rating_check,
+-- workers_lat_check, workers_lng_check, campaigns_price_check,
+-- campaigns_visits_check, campaigns_validity_check, campaigns_date_order_check,
+-- bookings_status_check, bookings_price_check, bookings_base_price_check,
+-- bookings_customer_lat_check, bookings_customer_lng_check,
+-- user_passes_visits_remaining_check, user_passes_total_visits_check,
+-- user_passes_expiry_check.
 
 
 -- ============================================================

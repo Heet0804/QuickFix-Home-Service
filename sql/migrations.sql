@@ -31,6 +31,9 @@ create table if not exists areas (
     lng     double precision not null
 );
 alter sequence areas_id_seq owned by areas.id;
+-- Phase 6.3
+alter table areas add constraint areas_lat_check check (lat >= -90 and lat <= 90);
+alter table areas add constraint areas_lng_check check (lng >= -180 and lng <= 180);
 
 -- ------------------------------------------------------------
 -- 1.2 users
@@ -51,6 +54,12 @@ create table if not exists users (
     saved_lat                   double precision,
     saved_lng                   double precision
 );
+-- Phase 6.3
+alter table users add constraint users_quickcoins_balance_check check (quickcoins_balance >= 0);
+alter table users add constraint users_quickcoins_earned_check check (quickcoins_earned >= 0);
+alter table users add constraint users_quickcoins_redeemed_check check (quickcoins_redeemed >= 0);
+alter table users add constraint users_saved_lat_check check (saved_lat is null or (saved_lat >= -90 and saved_lat <= 90));
+alter table users add constraint users_saved_lng_check check (saved_lng is null or (saved_lng >= -180 and saved_lng <= 180));
 
 -- ------------------------------------------------------------
 -- 1.3 admins
@@ -98,6 +107,12 @@ create table if not exists workers (
     unlocked_achievements    jsonb default '[]'::jsonb,
     profile_photo_url       text
 );
+-- Phase 6.3
+alter table workers add constraint workers_radius_check check (radius is null or (radius >= 1 and radius <= 100));
+alter table workers add constraint workers_price_check check (price is null or price >= 0);
+alter table workers add constraint workers_rating_check check (rating is null or (rating >= 0 and rating <= 5));
+alter table workers add constraint workers_lat_check check (lat is null or (lat >= -90 and lat <= 90));
+alter table workers add constraint workers_lng_check check (lng is null or (lng >= -180 and lng <= 180));
 
 -- ------------------------------------------------------------
 -- 1.5 campaigns
@@ -119,6 +134,11 @@ create table if not exists campaigns (
     created_at              timestamp without time zone default now()
 );
 alter sequence campaigns_id_seq owned by campaigns.id;
+-- Phase 6.3
+alter table campaigns add constraint campaigns_price_check check (price >= 0);
+alter table campaigns add constraint campaigns_visits_check check (number_of_visits >= 1);
+alter table campaigns add constraint campaigns_validity_check check (validity_days >= 1);
+alter table campaigns add constraint campaigns_date_order_check check (offer_end_date > offer_start_date);
 
 -- ------------------------------------------------------------
 -- 1.6 bookings
@@ -176,6 +196,27 @@ create table if not exists bookings (
     eta_minutes         integer,
     address_verified    boolean default false
 );
+-- Phase 6.3
+alter table bookings add constraint bookings_status_check check (status in ('Pending','Scheduled','Confirmed','Accepted','Worker on Way','Arrived','Completed','Cancelled','Rejected'));
+alter table bookings add constraint bookings_price_check check (price is null or price >= 0);
+alter table bookings add constraint bookings_base_price_check check (base_price is null or base_price >= 0);
+alter table bookings add constraint bookings_customer_lat_check check (customer_lat is null or (customer_lat >= -90 and customer_lat <= 90));
+alter table bookings add constraint bookings_customer_lng_check check (customer_lng is null or (customer_lng >= -180 and customer_lng <= 180));
+
+create or replace function prevent_past_scheduled_date()
+returns trigger as $$
+begin
+  if new.scheduled_date < current_date then
+    raise exception 'scheduled_date cannot be in the past';
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger trg_prevent_past_scheduled_date
+before insert on bookings
+for each row
+execute function prevent_past_scheduled_date();
 
 -- ------------------------------------------------------------
 -- 1.7 reviews
@@ -205,6 +246,10 @@ create table if not exists user_passes (
     priority_booking      boolean not null default false,
     status                text not null default 'active'::text
 );
+-- Phase 6.3
+alter table user_passes add constraint user_passes_visits_remaining_check check (visits_remaining >= 0);
+alter table user_passes add constraint user_passes_total_visits_check check (total_visits >= 1);
+alter table user_passes add constraint user_passes_expiry_check check (expiry_date > purchase_date);
 
 -- ------------------------------------------------------------
 -- 1.9 worker_achievements
@@ -385,7 +430,7 @@ create policy "bookings_user_insert"
 on bookings
 for insert
 to public
-with check (auth.uid() = user_id);
+with check (auth.uid() = user_id and status = 'Pending');
 
 create policy "bookings_update"
 on bookings
@@ -419,7 +464,28 @@ create policy "Admins can insert campaigns"
 on campaigns
 for insert
 to authenticated
-with check (true);
+with check (
+  exists (select 1 from admins a where a.email = auth.email() and a.is_active = true)
+);
+
+create policy "Admins can update campaigns"
+on campaigns
+for update
+to authenticated
+using (
+  exists (select 1 from admins a where a.email = auth.email() and a.is_active = true)
+)
+with check (
+  exists (select 1 from admins a where a.email = auth.email() and a.is_active = true)
+);
+
+create policy "Admins can delete campaigns"
+on campaigns
+for delete
+to authenticated
+using (
+  exists (select 1 from admins a where a.email = auth.email() and a.is_active = true)
+);
 
 -- TODO:
 -- "Active admins can insert campaigns" (INSERT, authenticated) —
@@ -486,7 +552,15 @@ create policy "reviews_insert"
 on reviews
 for insert
 to public
-with check (auth.uid() = user_id);
+with check (
+  auth.uid() = user_id
+  and exists (
+    select 1 from bookings b
+    where b.id = reviews.booking_id
+      and b.user_id = auth.uid()
+      and b.status = 'Completed'
+  )
+);
 
 create policy "reviews_read"
 on reviews
@@ -793,13 +867,13 @@ comment on constraint user_passes_user_id_fkey on user_passes is
     'DATABASE.md: inferred from the equivalent pattern in bookings/reviews and from RLS comparisons against auth.uid(); not directly confirmed by public-schema constraint metadata.';
 
 comment on constraint campaigns_status_check on campaigns is
-    'DATABASE.md: CHECK constraint confirmed to exist; allowed values not enumerated in schema metadata.';
+    'Phase 6.3 audit: confirmed already live via pg_constraint. CHECK (status IN (''active'',''inactive'')).';
 
 comment on constraint users_role_check on users is
-    'DATABASE.md: CHECK constraint confirmed to exist; allowed values not enumerated in schema metadata.';
+    'Phase 6.3 audit: confirmed already live via pg_constraint. CHECK (role IN (''user'',''worker'',''admin'')).';
 
 comment on constraint reviews_rating_check on reviews is
-    'DATABASE.md: CHECK constraint confirmed to exist; bounds not enumerated in schema metadata.';
+    'Phase 6.3 audit: confirmed already live via pg_constraint. CHECK (rating BETWEEN 1 AND 5).';
 
 comment on table worker_achievements is
     'DATABASE.md: no separate achievements table exists in the schema, so achievement_id is a free-standing text identifier rather than a foreign key.';
@@ -807,17 +881,36 @@ comment on table worker_achievements is
 comment on schema storage is
     'Phase 6.2 note: the worker-documents bucket was private at the bucket level, but its storage.objects policies previously granted public SELECT/UPDATE/INSERT scoped only by bucket_id. Fixed — policies now require authenticated callers whose auth.uid() matches a workers.document_name they own, or is_admin() for SELECT.';
 
--- Note: the CHECK-constraint comments above reference constraints
--- (campaigns_status_check, users_role_check, reviews_rating_check) whose
--- CREATE statements were intentionally omitted in Phase 2 because their
--- conditions are undocumented (see Phase 2 TODOs). If those constraints are
--- added later with the correct conditions, these comments remain valid
--- documentation of that gap and may be re-attached at that time.
+-- Note: campaigns_status_check, users_role_check, reviews_rating_check
+-- were confirmed already live on the actual database via pg_constraint
+-- during the Phase 6.3 audit — not fabricated, and deliberately not
+-- recreated here (would cause a duplicate-constraint error).
 
 -- ============================================================
 -- AUDIT RESULT
 -- Migration Order: Tables -> Constraints -> Indexes -> RLS -> Storage -> Functions -> Comments (7/7 phases present, in required order)
 -- Dependency Check: areas created before users (saved_area_id FK); users and workers created before bookings; bookings/users/workers created before reviews; users/campaigns created before user_passes; workers created before worker_achievements; all constraints added only after every referenced table exists; no circular dependencies found among public-schema tables
--- Corrections Made: (Phase 5.5.11 master audit) six "Active admins ...` policies on campaigns/user_passes/users, previously implemented with a fabricated EXISTS(...) subquery not present in DATABASE.md, converted to commented-out TODO stubs to match the conservative, verbatim-only approach used in policies.sql; "Admins manage campaigns" and "Admins read all passes" — reverted in that same pass to the literal bare expression `users.role = 'admin'` exactly as documented in DATABASE.md — were subsequently found to be invalid standalone SQL as written (bare reference to an undeclared `users` table inside a policy on a different table) and are now also commented-out TODO stubs, not live CREATE POLICY statements; campaigns_status_check, users_role_check, reviews_rating_check left undocumented as TODOs (no ALTER TABLE ADD CONSTRAINT emitted) rather than inventing conditions; auth.users-referencing FKs (admins_auth_user_id_fkey, users_id_fkey, workers_id_fkey, user_passes_user_id_fkey) marked inferred per DATABASE.md wording, not asserted as confirmed; function bodies/signatures left as TODO stubs, no CREATE FUNCTION invented
+-- Corrections Made (original Phase 5.5.11 pass): six "Active admins ...`
+-- policies on campaigns/user_passes/users, previously implemented with a
+-- fabricated EXISTS(...) subquery not present in DATABASE.md, converted to
+-- commented-out TODO stubs; "Admins manage campaigns" and "Admins read all
+-- passes" reverted to the literal bare `users.role = 'admin'` expression,
+-- found invalid as standalone SQL, left as commented-out TODO stubs.
+-- Phase 6.2 corrections: campaigns INSERT policy (was WITH CHECK (true),
+-- allowing any authenticated user to create campaigns) fixed to require
+-- admin status; campaigns UPDATE/DELETE policies added (previously
+-- missing entirely); reviews_insert now requires a completed, self-owned
+-- booking; bookings_user_insert now requires status = 'Pending' at
+-- creation; is_admin() given its real, confirmed body (no longer a TODO
+-- stub); prevent_role_self_escalation() trigger added, closing a
+-- critical self-role-escalation vulnerability found and live-verified
+-- during the Phase 6.2 audit.
+-- Phase 6.3 corrections: 24 CHECK constraints added across bookings,
+-- campaigns, workers, user_passes, users, and areas, plus the
+-- prevent_past_scheduled_date() INSERT-only trigger on bookings. Every
+-- constraint confirmed live-tested against the actual database.
+-- auth.users-referencing FKs (admins_auth_user_id_fkey, users_id_fkey,
+-- workers_id_fkey, user_passes_user_id_fkey) remain marked inferred per
+-- DATABASE.md wording, not asserted as confirmed.
 -- Final Status: PASS ✅
 -- ============================================================
