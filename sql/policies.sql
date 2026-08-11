@@ -140,7 +140,7 @@ WITH CHECK (
 );
 
 CREATE POLICY reviews_read
-ON reviews
+ON reviewsz
 FOR SELECT
 TO public
 USING (true);
@@ -151,10 +151,17 @@ USING (true);
 
 ALTER TABLE user_passes ENABLE ROW LEVEL SECURITY;
 
+-- Phase 6.4 — changed from TO authenticated to TO public. A SECURITY
+-- DEFINER function (activate_pass) executes as the function owner's
+-- role, not literally as "authenticated", so a TO authenticated-scoped
+-- policy silently didn't apply inside that context, causing every
+-- legitimate pass activation to fail with a false RLS violation. TO
+-- public matches the pattern already used successfully by users_own
+-- and every other policy touched by our Phase 6.4 functions.
 CREATE POLICY "Users can insert their own passes"
 ON user_passes
 FOR INSERT
-TO authenticated
+TO public
 WITH CHECK (auth.uid() = user_id);
 
 -- Phase 6.2 — resolved using the same admins-table predicate confirmed

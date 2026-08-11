@@ -694,32 +694,20 @@ async function submitArrivalOtp() {
     return;
   }
 
-  /* Client-side OTP check — gives immediate feedback and ensures we only
-     generate a completion OTP on a confirmed match. */
-  const expectedArrival = String(b.arrival_otp ?? '').trim();
-  if (!expectedArrival || entered !== expectedArrival) {
-    showToast('❌ Incorrect Arrival OTP');
-    return;
-  }
+  /* Phase 6.4 — OTP verification now happens entirely server-side via
+     RPC. The RPC performs the compare AND the status/OTP update itself
+     (SECURITY DEFINER) — the client never writes to bookings directly
+     for this step anymore. The old unconditional .update() block that
+     used to run regardless of RPC outcome has been removed; it was
+     re-applying the write even when the RPC correctly rejected a bad
+     OTP, defeating the fix. */
+  const { data: result, error: rpcErr } = await sb.rpc('verify_arrival_otp', {
+    p_booking_id: b.id,
+    p_entered_otp: entered
+  });
 
-  /* Generate completion OTP now — must not exist before arrival is verified. */
-  const newCompletionOtp = String(Math.floor(100000 + Math.random() * 900000));
-
-  const { error } = await sb
-  .from('bookings')
-  .update({
-    status:         CONSTANTS.BOOKING_STATUS.ARRIVED,
-    w_status:       CONSTANTS.BOOKING_STATUS.ARRIVED,
-    arrival_otp:    null,
-    completion_otp: newCompletionOtp,
-    arrived_at:     new Date().toISOString(),
-    started_at:     new Date().toISOString()
-  })
-    .eq('id', b.id);
-
-  if (error) {
-    console.error('submitArrivalOtp:', error.message);
-    showToast('⚠️ Could not verify arrival: ' + error.message);
+  if (rpcErr || !result?.success) {
+    showToast('❌ ' + (result?.error || rpcErr?.message || 'Incorrect Arrival OTP'));
     return;
   }
 
@@ -754,22 +742,20 @@ async function submitCompletionOtp(){
     return;
   }
 
-  const expectedOtp = String(b.completion_otp ?? '').trim();
+  /* Phase 6.4 — verified and written entirely server-side via RPC,
+     same pattern as arrival. No more client-side compare or direct
+     .update() call. */
+  const { data: result, error: rpcErr } = await sb.rpc('verify_completion_otp', {
+    p_booking_id: b.id,
+    p_entered_otp: entered
+  });
 
-  if (entered !== expectedOtp) {
-    showToast('❌ Incorrect Completion OTP');
+  if (rpcErr || !result?.success) {
+    showToast('❌ ' + (result?.error || rpcErr?.message || 'Incorrect Completion OTP'));
     return;
   }
 
-  const { error } = await sb.from('bookings').update({
-    status:         CONSTANTS.BOOKING_STATUS.COMPLETED,
-    w_status:       CONSTANTS.BOOKING_STATUS.COMPLETED,
-
-    completion_otp: null,          /* invalidate completion OTP immediately */
-    completed_at:   new Date().toISOString()
-  }).eq('id', b.id);
-
-  if (error) {
+  if (false) {
     console.error('submitCompletionOtp:', error.message);
     showToast('⚠️ Could not verify completion: ' + error.message);
     return;

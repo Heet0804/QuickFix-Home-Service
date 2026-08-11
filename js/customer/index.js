@@ -933,24 +933,14 @@ async function activatePass(campaign){
   const {data:{session}} = await sb.auth.getSession();
   if(!session?.user) return false;
 
-  const purchaseDate = new Date();
-  const expiryDate = new Date(purchaseDate.getTime() + (campaign.validityDays || 30) * 86400000);
+  /* Phase 6.4 — the client no longer decides visit counts, validity,
+     or perks. activate_pass() re-reads the real campaigns row
+     server-side. campaign.id is the only client-supplied value trusted. */
+  const {data:result, error} = await sb.rpc('activate_pass', { p_campaign_id: campaign.id });
 
-  const {error} = await sb.from('user_passes').insert({
-    user_id: session.user.id,
-    campaign_id: campaign.id,
-    purchase_date: purchaseDate.toISOString(),
-    expiry_date: expiryDate.toISOString(),
-    visits_remaining: campaign.totalVisits,
-    total_visits: campaign.totalVisits,
-    emergency_included: campaign.emergencyIncluded,
-    priority_booking: campaign.priorityBooking,
-    status: 'active'
-  });
-
-  if(error){
-    console.error('activatePass:', error.message);
-    showToast('⚠️ Could not activate pass — please contact support.');
+  if(error || !result?.success){
+    console.error('activatePass:', result?.error || error?.message);
+    showToast('⚠️ ' + (result?.error || 'Could not activate pass — please contact support.'));
     return false;
   }
   return true;
@@ -3080,63 +3070,47 @@ function triggerOtp(mode,id){
   document.getElementById('otpModal').classList.add('on');
 }
 async function verifyOtp(){
-
   const entered = document.getElementById('otpInput').value.trim();
-
-  const all = await DB.bookings();
-
-  const b = all.find(
-    x => String(x.id) === String(pendBkId)
-  );
-
-  if(!b){
-    showToast('⚠️ Booking not found');
+  if(!entered){
+    showToast('⚠️ Please enter the OTP');
     return;
   }
 
-  if(otpMode === 'arrival'){
+  /* Phase 6.4 — OTP verification now happens entirely server-side via RPC.
+     The RPC performs ownership check, OTP comparison, status update, and
+     OTP nulling atomically. The client never reads the OTP from the
+     booking response or writes status directly for this step. */
 
-    if(entered !== (b.arrivalOtp || b.arrival_otp)){
-      showToast('❌ Incorrect Arrival OTP');
+  if(otpMode === 'arrival'){
+    const {data:result, error:rpcErr} = await sb.rpc('verify_arrival_otp_customer', {
+      p_booking_id: String(pendBkId),
+      p_entered_otp: entered
+    });
+
+    if(rpcErr || !result?.success){
+      showToast('❌ ' + (result?.error || rpcErr?.message || 'Incorrect Arrival OTP'));
       return;
     }
 
     clearInterval(arrInt);
-
     closeModal('arrivalModal');
     closeModal('otpModal');
-
-    await DB.update(
-  pendBkId,
-  {
-    status:CONSTANTS.BOOKING_STATUS.ARRIVED,
-    arrived_at:new Date().toISOString()
-  }
-);
-
     showToast('✅ Arrival confirmed!');
-
     await renderBookings();
 
   } else {
+    const {data:result, error:rpcErr} = await sb.rpc('verify_completion_otp_customer', {
+      p_booking_id: String(pendBkId),
+      p_entered_otp: entered
+    });
 
-    if(entered !== (b.completionOtp || b.completion_otp)){
-      showToast('❌ Incorrect Completion OTP');
+    if(rpcErr || !result?.success){
+      showToast('❌ ' + (result?.error || rpcErr?.message || 'Incorrect Completion OTP'));
       return;
     }
 
     closeModal('otpModal');
-
-    await DB.update(
-  pendBkId,
-  {
-     status:CONSTANTS.BOOKING_STATUS.COMPLETED,
-    completed_at:new Date().toISOString()
-  }
-);
-
     showToast('🎉 Service marked as Completed!');
-
     await renderBookings();
   }
 }
@@ -3189,32 +3163,22 @@ async function awardQuickCoins(booking){
   const {data:{session}}=await sb.auth.getSession();
   if(!session?.user) return; // safety guard; this path is customer-only anyway
 
-  // QuickCoins must always be earned on the ORIGINAL service value,
-  // never on the discounted/payable amount (e.g. ₹0 Service Pass bookings).
-  // Prefer base_price/basePrice; only fall back to price if base_price is absent.
-  const rawPrice = Number(booking.base_price ?? booking.basePrice ?? booking.price ?? 0);
-  const coins = Math.round((Number(rawPrice)||0) * 0.05);
+  /* Phase 6.4 — the client no longer computes or writes the reward.
+     award_quickcoins() re-reads the real booking row server-side,
+     verifies ownership + Completed status, and is idempotent per
+     booking. booking.id is the only client-supplied value trusted. */
+  const {data:result, error} = await sb.rpc('award_quickcoins', { p_booking_id: booking.id });
 
-  const {data:u,error:selErr}=await sb.from('users')
-    .select('quickcoins_balance,quickcoins_earned,total_completed_bookings')
-    .eq('id',session.user.id).single();
-  if(selErr||!u){ console.error('awardQuickCoins select:',selErr?.message); return; }
+  if(error || !result?.success){
+    console.error('awardQuickCoins:', result?.error || error?.message);
+    return;
+  }
 
-  const newBalance  = (u.quickcoins_balance ?? 0) + coins;
-  const newEarned   = (u.quickcoins_earned ?? 0) + coins;
-  const newBookings = (u.total_completed_bookings ?? 0) + 1;
+  const coins = result.coins;
 
-  const {error:updErr}=await sb.from('users').update({
-    quickcoins_balance: newBalance,
-    quickcoins_earned:  newEarned,
-    total_completed_bookings: newBookings
-  }).eq('id',session.user.id);
+  const {data:u} = await sb.from('users').select('quickcoins_balance').eq('id',session.user.id).single();
+  const newBalance = u?.quickcoins_balance ?? 0;
 
-  if(updErr){ console.error('awardQuickCoins update:',updErr.message); return; }
-
-  // Popup shown ONLY after the DB update above succeeds.
-  // Continue button (existing markup) still only closes the modal —
-  // see closeRewardModal() below, untouched.
   const rewardModalEl   = document.getElementById('rewardModal');
   const rewardCoinsEl   = document.getElementById('rewardCoins');
   const rewardBalanceEl = document.getElementById('rewardBalance');
