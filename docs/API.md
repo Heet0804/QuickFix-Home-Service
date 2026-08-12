@@ -131,12 +131,12 @@ This section consolidates every distinct database interaction found across all p
 
 ## 7. Geoapify APIs
 
-Both endpoints require `CONFIG.GEOAPIFY_API_KEY` (a plaintext client-side constant) as a query parameter, called from `js/common/maps.js`.
+Both endpoints are called through the `geoapify-proxy` Supabase Edge Function from `js/common/maps.js`, authenticated with the caller's Supabase session token — no Geoapify API key is present in client code.
 
 | API | Endpoint (verified) | Caller | Purpose | Behavior |
 |---|---|---|---|---|
-| Reverse Geocoding | `GET https://api.geoapify.com/v1/geocode/reverse?lat={lat}&lon={lng}&apiKey={key}` | `maps.js: _geoapifyReverseGeocode()` | Resolves a pinned/tracking-destination coordinate to a human-readable building/society name | Field preference order: `building`, then `amenity`, `name`, `housename`, `street`, `suburb`, `locality`; returns `null` if none present. Called once per booking's fixed destination point, never re-queried. |
-| Routing | `GET https://api.geoapify.com/v1/routing?waypoints={fromLat},{fromLng}|{toLat},{toLng}&mode=drive&apiKey={key}` | `maps.js: _fetchRoadRoute()` | Road-following route between the worker's live location and the customer destination | Returns an array of `[lat,lng]` pairs with non-enumerable `distance`/`duration` properties attached, or `null` on any failure. Throttled to at most once per 8 seconds per booking, and additionally skipped if the worker has moved less than 10 meters since the last successful fetch. |
+| Reverse Geocoding | `GET {SUPABASE_URL}/functions/v1/geoapify-proxy?type=reverse&lat={lat}&lon={lng}` (Authorization: Bearer {session token}) | `maps.js: _geoapifyReverseGeocode()` | Resolves a pinned/tracking-destination coordinate to a human-readable building/society name | Field preference order: `building`, then `amenity`, `name`, `housename`, `street`, `suburb`, `locality`; returns `null` if none present. Called once per booking's fixed destination point, never re-queried. |
+| Routing | `GET {SUPABASE_URL}/functions/v1/geoapify-proxy?type=routing&from={fromLat},{fromLng}&to={toLat},{toLng}&mode=drive` (Authorization: Bearer {session token}) | `maps.js: _fetchRoadRoute()` | Road-following route between the worker's live location and the customer destination | Returns an array of `[lat,lng]` pairs with non-enumerable `distance`/`duration` properties attached, or `null` on any failure. Throttled to at most once per 8 seconds per booking, and additionally skipped if the worker has moved less than 10 meters since the last successful fetch. |
 
 **Forward Geocoding.** Geoapify is **not** used for forward geocoding (address → coordinates) anywhere in the codebase. That responsibility belongs to Nominatim (Section 7's own separate entry, and `DATABASE.md`/`SRS.md` both document this same split). This document does not invent a Geoapify forward-geocoding call that does not exist.
 
@@ -219,7 +219,7 @@ No HTTP status code, retry-after header, or rate-limit response from Supabase, G
 |---|---|---|
 | Authentication | Supabase Auth session, `persistSession:true`/`autoRefreshToken:true` | — |
 | Authorization | Client-side role/session checks per page (dual-signal for workers, `admins.is_active` lookup for admin); no server-side authorization layer confirmed beyond whatever Supabase RLS may or may not enforce (unverifiable from client code, per `DATABASE.md` §9) | Cannot confirm RLS is actually enforcing these same restrictions at the database layer |
-| API key usage | `CONFIG.GEOAPIFY_API_KEY` sent as a plaintext query parameter on every Geoapify call, directly from the browser | No server-side proxy; key is visible in every network request |
+| API key usage | No Geoapify API key exists in client code; both Geoapify calls are routed through the `geoapify-proxy` Supabase Edge Function, authenticated with the caller's Supabase session token | Key is held server-side only (Edge Function secret), not visible in browser network traffic |
 | Sensitive data | Government ID documents/photos (Storage, public-URL retrieval per `SRS.md` §2.6); OTPs stored in plaintext `bookings` columns with no attempt limit | No encryption-at-rest/retention/deletion policy for ID documents (`PRD.md` §22A.5, open item); no OTP lockout |
 | Validation | Entirely client-side (field checks, status-guarded writes); no server-side validation function or Postgres check constraint confirmed | Business-rule enforcement (price, eligibility, QuickCoins) is not verified to be re-checked server-side |
 
