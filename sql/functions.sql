@@ -33,7 +33,7 @@ RETURNS BOOLEAN AS $$
   SELECT EXISTS(
     SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin'
   );
-$$ LANGUAGE sql SECURITY DEFINER;
+$$ LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp;
 
 -- ------------------------------------------------------------
 -- Function: get_worker_stats
@@ -78,13 +78,13 @@ CREATE OR REPLACE FUNCTION prevent_role_self_escalation()
 RETURNS TRIGGER AS $$
 BEGIN
   IF NEW.role IS DISTINCT FROM OLD.role THEN
-    IF NOT is_admin() THEN
+    IF NOT public.is_admin() THEN
       RAISE EXCEPTION 'Only admins can change user roles';
     END IF;
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
 -- ------------------------------------------------------------
 -- Trigger: trg_prevent_role_self_escalation
