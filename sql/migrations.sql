@@ -202,6 +202,11 @@ alter table bookings add constraint bookings_price_check check (price is null or
 alter table bookings add constraint bookings_base_price_check check (base_price is null or base_price >= 0);
 alter table bookings add constraint bookings_customer_lat_check check (customer_lat is null or (customer_lat >= -90 and customer_lat <= 90));
 alter table bookings add constraint bookings_customer_lng_check check (customer_lng is null or (customer_lng >= -180 and customer_lng <= 180));
+alter table bookings add constraint bookings_review_rating_check check (review_rating is null or (review_rating >= 1 and review_rating <= 5));
+alter table bookings add constraint bookings_worker_earning_check check (worker_earning is null or worker_earning >= 0);
+alter table bookings add constraint bookings_eta_minutes_check check (eta_minutes is null or eta_minutes >= 0);
+alter table bookings add constraint bookings_route_distance_km_check check (route_distance_km is null or route_distance_km >= 0);
+alter table bookings add constraint bookings_worker_dist_check check (worker_dist is null or worker_dist >= 0);
 
 create or replace function prevent_past_scheduled_date()
 returns trigger as $$
@@ -284,6 +289,7 @@ alter table workers               add constraint workers_pkey primary key (id);
 alter table campaigns             add constraint campaigns_pkey primary key (id);
 alter table bookings              add constraint bookings_pkey primary key (id);
 alter table reviews               add constraint reviews_pkey primary key (id);
+alter table reviews               add constraint reviews_booking_id_key unique (booking_id);
 alter table user_passes           add constraint user_passes_pkey primary key (id);
 alter table worker_achievements   add constraint worker_achievements_pkey primary key (id);
 
@@ -295,6 +301,49 @@ alter table admins   add constraint admins_email_key unique (email);
 alter table worker_achievements
     add constraint worker_achievements_worker_id_achievement_id_key
     unique (worker_id, achievement_id);
+
+alter table worker_achievements add constraint worker_achievements_achievement_id_check check (achievement_id in (
+    'job-1','job-10','job-25','job-50','job-100',
+    'rate-5first','rate-45','rate-48','rate-50',
+    'rel-90','rel-95','rel-100',
+    'act-25','act-50','act-75',
+    'wsc-40','wsc-60','wsc-80','wsc-95'
+));
+
+create or replace function enforce_achievement_catalog()
+returns trigger as $$
+begin
+  if (new.achievement_id, new.category, new.name, new.description) not in (
+    ('job-1','Jobs','First Job','Complete your very first job.'),
+    ('job-10','Jobs','10 Jobs Completed','A seasoned professional.'),
+    ('job-25','Jobs','25 Jobs Completed','Making your mark.'),
+    ('job-50','Jobs','50 Jobs Completed','Half a century of service!'),
+    ('job-100','Jobs','100 Jobs Completed','A true QuickFix veteran.'),
+    ('rate-5first','Rating','First 5★ Review','Earn your first perfect rating.'),
+    ('rate-45','Rating','4.5+ Rated','Consistently excellent service.'),
+    ('rate-48','Rating','4.8+ Rated','Near-perfect performance.'),
+    ('rate-50','Rating','Perfect 5.0 Rating','The gold standard.'),
+    ('rel-90','Reliability','Reliable Worker','Reliability score ≥ 90.'),
+    ('rel-95','Reliability','Trusted Worker','Reliability score ≥ 95.'),
+    ('rel-100','Reliability','Perfect Reliability','Reliability score of 100.'),
+    ('act-25','Activity','Active Worker','Activity score ≥ 25.'),
+    ('act-50','Activity','Super Active','Activity score ≥ 50.'),
+    ('act-75','Activity','Workaholic','Activity score ≥ 75.'),
+    ('wsc-40','Worker Score','Bronze Worker','Worker score ≥ 40.'),
+    ('wsc-60','Worker Score','Silver Worker','Worker score ≥ 60.'),
+    ('wsc-80','Worker Score','Gold Worker','Worker score ≥ 80.'),
+    ('wsc-95','Worker Score','Platinum Worker','Worker score ≥ 95.')
+  ) then
+    raise exception 'achievement_id/category/name/description do not match the canonical achievement catalog';
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer set search_path = public, pg_temp;
+
+create trigger trg_enforce_achievement_catalog
+before insert on worker_achievements
+for each row
+execute function enforce_achievement_catalog();
 
 -- Foreign keys (internal to public schema)
 alter table users
@@ -440,6 +489,12 @@ begin
     end if;
     if new.is_no_show is distinct from old.is_no_show then
       raise exception 'Customers cannot set is_no_show';
+    end if;
+    if (new.rated is distinct from old.rated
+        or new.review_rating is distinct from old.review_rating
+        or new.review_comment is distinct from old.review_comment)
+       and old.status != 'Completed' then
+      raise exception 'Customers can only review a Completed booking';
     end if;
     if new.worker_id is distinct from old.worker_id then
       raise exception 'Customers cannot reassign the worker on a booking';
