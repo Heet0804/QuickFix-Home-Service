@@ -70,6 +70,17 @@ BEGIN
     IF NEW.is_no_show IS DISTINCT FROM OLD.is_no_show THEN
       RAISE EXCEPTION 'Customers cannot set is_no_show';
     END IF;
+    -- Phase 6.3 — matches the already-established rule on the reviews
+    -- table's own INSERT policy (status must be 'Completed'). Without
+    -- this, a customer could write a "review" onto a booking that was
+    -- never completed by updating bookings.rated/review_rating directly,
+    -- bypassing the reviews table entirely.
+    IF (NEW.rated IS DISTINCT FROM OLD.rated
+        OR NEW.review_rating IS DISTINCT FROM OLD.review_rating
+        OR NEW.review_comment IS DISTINCT FROM OLD.review_comment)
+       AND OLD.status != 'Completed' THEN
+      RAISE EXCEPTION 'Customers can only review a Completed booking';
+    END IF;
     IF NEW.worker_id IS DISTINCT FROM OLD.worker_id THEN
       RAISE EXCEPTION 'Customers cannot reassign the worker on a booking';
     END IF;
