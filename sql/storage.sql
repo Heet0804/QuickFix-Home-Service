@@ -42,14 +42,14 @@ drop policy if exists "allow_worker_photos_upload v5d3u8_2" on storage.objects;
 create policy "allow_worker_photos_upload v5d3u8_2"
 on storage.objects
 for insert
-to public
+to authenticated
 with check (bucket_id = 'worker-photos');
 
 drop policy if exists "allow_worker_photos_upload v5d3u8_0" on storage.objects;
 create policy "allow_worker_photos_upload v5d3u8_0"
 on storage.objects
 for update
-to public
+to authenticated
 using (bucket_id = 'worker-photos')
 with check (bucket_id = 'worker-photos');
 
