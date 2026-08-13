@@ -418,7 +418,74 @@ create policy "worker update own booking location"
 on bookings
 for update
 to public
-using (auth.uid()::text = worker_id::text);
+using (auth.uid()::text = worker_id::text)
+with check (auth.uid()::text = worker_id::text);
+
+-- Phase 6.2 — column-level protection cannot be expressed in RLS alone
+-- (WITH CHECK only sees the NEW row, not OLD). Enforced via a BEFORE
+-- UPDATE trigger instead, applied to both UPDATE policies below.
+create or replace function enforce_booking_update_boundaries()
+returns trigger as $$
+begin
+  if is_admin() then
+    return new;
+  end if;
+
+  if auth.uid() = old.user_id then
+    if new.status is distinct from old.status then
+      if new.status != 'Cancelled'
+         or old.status in ('Completed','Cancelled','Rejected') then
+        raise exception 'Customers may only cancel a booking that has not already completed, been cancelled, or been rejected';
+      end if;
+    end if;
+    if new.is_no_show is distinct from old.is_no_show then
+      raise exception 'Customers cannot set is_no_show';
+    end if;
+    if new.worker_id is distinct from old.worker_id then
+      raise exception 'Customers cannot reassign the worker on a booking';
+    end if;
+    if new.worker_live_lat is distinct from old.worker_live_lat
+       or new.worker_live_lng is distinct from old.worker_live_lng
+       or new.worker_last_seen is distinct from old.worker_last_seen then
+      raise exception 'Customers cannot modify worker location fields';
+    end if;
+    if new.arrival_otp is distinct from old.arrival_otp
+       or new.completion_otp is distinct from old.completion_otp then
+      raise exception 'Customers cannot modify OTP fields';
+    end if;
+    if new.price is distinct from old.price
+       or new.base_price is distinct from old.base_price then
+      raise exception 'Customers cannot modify price fields';
+    end if;
+  end if;
+
+  if auth.uid() = old.worker_id then
+    if new.user_id is distinct from old.user_id then
+      raise exception 'Workers cannot reassign the customer on a booking';
+    end if;
+    if new.customer_lat is distinct from old.customer_lat
+       or new.customer_lng is distinct from old.customer_lng
+       or new.address is distinct from old.address then
+      raise exception 'Workers cannot modify customer location/address fields';
+    end if;
+    if new.payment_method is distinct from old.payment_method then
+      raise exception 'Workers cannot modify the payment method';
+    end if;
+    if new.rated is distinct from old.rated
+       or new.review_rating is distinct from old.review_rating
+       or new.review_comment is distinct from old.review_comment then
+      raise exception 'Workers cannot modify review fields';
+    end if;
+  end if;
+
+  return new;
+end;
+$$ language plpgsql security definer set search_path = public, pg_temp;
+
+create trigger trg_enforce_booking_update_boundaries
+before update on bookings
+for each row
+execute function enforce_booking_update_boundaries();
 
 create policy "bookings_worker_read"
 on bookings
@@ -436,7 +503,8 @@ create policy "bookings_update"
 on bookings
 for update
 to public
-using (auth.uid() = user_id or auth.uid() = worker_id);
+using (auth.uid() = user_id or auth.uid() = worker_id)
+with check (auth.uid() = user_id or auth.uid() = worker_id);
 
 create policy "bookings_user_read"
 on bookings
@@ -728,13 +796,13 @@ using (bucket_id = 'worker-photos');
 create policy "allow_worker_photos_upload v5d3u8_2"
 on storage.objects
 for insert
-to public
+to authenticated
 with check (bucket_id = 'worker-photos');
 
 create policy "allow_worker_photos_upload v5d3u8_0"
 on storage.objects
 for update
-to public
+to authenticated
 using (bucket_id = 'worker-photos')
 with check (bucket_id = 'worker-photos');
 
@@ -785,7 +853,7 @@ returns boolean as $$
   select exists(
     select 1 from public.users where id = auth.uid() and role = 'admin'
   );
-$$ language sql security definer;
+$$ language sql security definer set search_path = public, pg_temp;
 
 -- prevent_role_self_escalation() + trigger — added Phase 6.2. Blocks any
 -- UPDATE on users.role unless the caller is already an admin. A naive
@@ -795,13 +863,13 @@ create or replace function prevent_role_self_escalation()
 returns trigger as $$
 begin
   if new.role is distinct from old.role then
-    if not is_admin() then
+    if not public.is_admin() then
       raise exception 'Only admins can change user roles';
     end if;
   end if;
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public, pg_temp;
 
 create trigger trg_prevent_role_self_escalation
 before update on users
