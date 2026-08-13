@@ -242,7 +242,15 @@ CREATE TABLE bookings (
     CONSTRAINT bookings_price_check CHECK (price IS NULL OR price >= 0),
     CONSTRAINT bookings_base_price_check CHECK (base_price IS NULL OR base_price >= 0),
     CONSTRAINT bookings_customer_lat_check CHECK (customer_lat IS NULL OR (customer_lat >= -90 AND customer_lat <= 90)),
-    CONSTRAINT bookings_customer_lng_check CHECK (customer_lng IS NULL OR (customer_lng >= -180 AND customer_lng <= 180))
+    CONSTRAINT bookings_customer_lng_check CHECK (customer_lng IS NULL OR (customer_lng >= -180 AND customer_lng <= 180)),
+    -- Phase 6.3 — review_rating mirrors reviews.rating's already-live 1-5 range.
+    CONSTRAINT bookings_review_rating_check CHECK (review_rating IS NULL OR (review_rating >= 1 AND review_rating <= 5)),
+    -- Phase 6.3 — client-computed, physically non-negative measurement fields
+    -- that were missing the same floor already applied to price/base_price.
+    CONSTRAINT bookings_worker_earning_check CHECK (worker_earning IS NULL OR worker_earning >= 0),
+    CONSTRAINT bookings_eta_minutes_check CHECK (eta_minutes IS NULL OR eta_minutes >= 0),
+    CONSTRAINT bookings_route_distance_km_check CHECK (route_distance_km IS NULL OR route_distance_km >= 0),
+    CONSTRAINT bookings_worker_dist_check CHECK (worker_dist IS NULL OR worker_dist >= 0)
     -- NOTE: area_id and pass_id have no enforced FK per DATABASE.md.
 );
 
@@ -283,6 +291,7 @@ CREATE TABLE reviews (
     created_at  TIMESTAMP WITH TIME ZONE DEFAULT now(),
 
     CONSTRAINT reviews_pkey PRIMARY KEY (id),
+    CONSTRAINT reviews_booking_id_key UNIQUE (booking_id),
     CONSTRAINT reviews_booking_id_fkey FOREIGN KEY (booking_id)
         REFERENCES bookings (id),
     CONSTRAINT reviews_worker_id_fkey FOREIGN KEY (worker_id)
@@ -315,10 +324,59 @@ CREATE TABLE worker_achievements (
     CONSTRAINT worker_achievements_worker_id_achievement_id_key
         UNIQUE (worker_id, achievement_id),
     CONSTRAINT worker_achievements_worker_id_fkey FOREIGN KEY (worker_id)
-        REFERENCES workers (id)
+        REFERENCES workers (id),
+    -- Phase 6.3 — restricts achievement_id to the exact 18-item catalog
+    -- already hardcoded client-side in dashboard.js's ACHIEVEMENTS array.
+    -- Prevents a direct API call from inserting a fabricated achievement_id.
+    CONSTRAINT worker_achievements_achievement_id_check CHECK (achievement_id IN (
+        'job-1','job-10','job-25','job-50','job-100',
+        'rate-5first','rate-45','rate-48','rate-50',
+        'rel-90','rel-95','rel-100',
+        'act-25','act-50','act-75',
+        'wsc-40','wsc-60','wsc-80','wsc-95'
+    ))
 );
 
 ALTER SEQUENCE worker_achievements_id_seq OWNED BY worker_achievements.id;
+
+-- Phase 6.3 — the CHECK above only validates achievement_id in isolation.
+-- This trigger validates that category/name/description exactly match
+-- the canonical record for that ID too, so a real ID can't be paired
+-- with fabricated display text.
+CREATE OR REPLACE FUNCTION enforce_achievement_catalog()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (NEW.achievement_id, NEW.category, NEW.name, NEW.description) NOT IN (
+    ('job-1','Jobs','First Job','Complete your very first job.'),
+    ('job-10','Jobs','10 Jobs Completed','A seasoned professional.'),
+    ('job-25','Jobs','25 Jobs Completed','Making your mark.'),
+    ('job-50','Jobs','50 Jobs Completed','Half a century of service!'),
+    ('job-100','Jobs','100 Jobs Completed','A true QuickFix veteran.'),
+    ('rate-5first','Rating','First 5★ Review','Earn your first perfect rating.'),
+    ('rate-45','Rating','4.5+ Rated','Consistently excellent service.'),
+    ('rate-48','Rating','4.8+ Rated','Near-perfect performance.'),
+    ('rate-50','Rating','Perfect 5.0 Rating','The gold standard.'),
+    ('rel-90','Reliability','Reliable Worker','Reliability score ≥ 90.'),
+    ('rel-95','Reliability','Trusted Worker','Reliability score ≥ 95.'),
+    ('rel-100','Reliability','Perfect Reliability','Reliability score of 100.'),
+    ('act-25','Activity','Active Worker','Activity score ≥ 25.'),
+    ('act-50','Activity','Super Active','Activity score ≥ 50.'),
+    ('act-75','Activity','Workaholic','Activity score ≥ 75.'),
+    ('wsc-40','Worker Score','Bronze Worker','Worker score ≥ 40.'),
+    ('wsc-60','Worker Score','Silver Worker','Worker score ≥ 60.'),
+    ('wsc-80','Worker Score','Gold Worker','Worker score ≥ 80.'),
+    ('wsc-95','Worker Score','Platinum Worker','Worker score ≥ 95.')
+  ) THEN
+    RAISE EXCEPTION 'achievement_id/category/name/description do not match the canonical achievement catalog';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+CREATE TRIGGER trg_enforce_achievement_catalog
+BEFORE INSERT ON worker_achievements
+FOR EACH ROW
+EXECUTE FUNCTION enforce_achievement_catalog();
 
 -- NOTE: secondary index idx_worker_achievements_worker is created in
 -- indexes.sql, not here, to avoid creating the same index twice when
