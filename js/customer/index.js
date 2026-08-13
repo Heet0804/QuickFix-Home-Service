@@ -3029,11 +3029,11 @@ function switchTab(tab,btn){
 /* ── ARRIVAL TIMER ────────────────────────────────────────── */
 async function openArrival(bkId){
   const all=await DB.bookings(); const b=all.find(x=>x.id===bkId); if(!b) return;
-  await DB.update(bkId,{
-  status:CONSTANTS.BOOKING_STATUS.WORKER_ON_WAY,
-
-  on_way_at:new Date().toISOString()
-});
+  /* Phase 6.2 — status/'Worker on Way' and on_way_at are no longer
+     written from the customer client. That transition is worker/
+     backend-owned; the database now rejects this write from a
+     customer session regardless. This view is informational tracking
+     only — it no longer changes booking state. */
   pendBkId=bkId; arrExt=false; arrLeft=CONSTANTS.ARRIVAL_TIMEOUT_SECONDS;
   document.getElementById('arrOtpShow').textContent=b.arrivalOtp||'——';
   document.getElementById('arrivalModal').classList.add('on');
@@ -3054,11 +3054,13 @@ function extendTimer(){
 }
 async function autoCancel(){
   closeModal('notArrivedModal'); closeModal('arrivalModal'); if(!pendBkId) return;
-  /* Worker did not arrive within the timer window — this is a no-show,
-     not a generic cancellation. Track it separately since no_show_count
-     carries a heavier reliability penalty than cancelled_jobs. */
-  await DB.update(pendBkId,{status:CONSTANTS.BOOKING_STATUS.CANCELLED, is_no_show:true});
-  showToast('❌ Auto-cancelled — worker did not arrive'); renderBookings();
+  /* Phase 6.2 — disabled. There is no authoritative server-side no-show
+     rule yet, and a client-only countdown is not a security or business
+     boundary. Customers cannot set is_no_show themselves (enforced at
+     the database level as of Phase 6.2). This will be re-enabled once a
+     real no-show rule is defined and enforced server-side, not before. */
+  showToast('Worker has not arrived yet. This booking has not been auto-cancelled — you can cancel it manually if you no longer want it.');
+  renderBookings();
 }
 
 /* ── OTP VERIFICATION ─────────────────────────────────────── */
