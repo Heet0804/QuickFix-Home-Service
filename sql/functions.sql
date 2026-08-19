@@ -99,6 +99,16 @@ BEFORE UPDATE ON users
 FOR EACH ROW
 EXECUTE FUNCTION prevent_role_self_escalation();
 
+-- ------------------------------------------------------------
+-- Phase 6.4 additions — create_booking, accept_booking, reject_booking,
+-- cancel_accepted_booking, consume_pass_visit, verify_arrival_otp,
+-- verify_completion_otp, activate_pass, award_quickcoins, and the
+-- prevent_worker_stat_tampering / prevent_quickcoins_tampering /
+-- prevent_direct_pass_tampering triggers. See Phase 6.4 implementation
+-- notes for full bodies — award_quickcoins ships with the coin formula
+-- unset (BLOCKED — BUSINESS RULE REQUIRED) until product specifies it.
+-- ------------------------------------------------------------
+
 -- ============================================================
 -- AUDIT RESULT
 -- Functions Verified: is_admin(), get_worker_stats, get_worker_stats_bulk, rls_auto_enable, handle_new_user — 5/5 present, matching DATABASE.md Section 4
