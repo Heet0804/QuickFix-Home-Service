@@ -2155,6 +2155,16 @@ async function onAccepted(){
     const arrivalOtp   = bkBase.arrivalOtp || bkBase.arrival_otp;
     const advance      = bkBase.isAdvance ?? bkBase.is_advance ?? false;
 
+    /* Fix: the worker has ALREADY written worker_id/status/accepted_at
+       to this row — RLS scopes that write to auth.uid() = worker_id.
+       Re-upserting the SAME row from the customer's session here never
+       changed anything the customer is allowed to change, and whenever
+       the live row had moved even slightly further than this stale
+       poll snapshot, enforce_booking_update_boundaries() correctly
+       rejected the write, DB.save() returned false, and this function
+       returned BEFORE ever showing the Booking Summary modal.
+       onAccepted() now only READS bkBase (already fetched by the poll)
+       to build the display object — it never writes to bookings. */
     const bk = {
   ...bkBase,
   workerId: nearest.id,
@@ -2163,19 +2173,9 @@ async function onAccepted(){
   workerRole: nearest.role,
   workerEmoji: nearest.emoji,
   workerDist: Number(nearest.kmDist || 0),
-
-  // NEVER downgrade an already accepted booking
   status: bkBase.status,
-
   wStatus: bkBase.w_status || CONSTANTS.BOOKING_STATUS.ACCEPTED
 };
-
-    const saved = await DB.save(bk);
-
-    if(!saved){
-      showToast('⚠️ Booking could not be saved right now. Please try again.');
-      return;
-    }
 
     const sf = fmt12(bk.time);
     const rf = revealAt(bk.time);
