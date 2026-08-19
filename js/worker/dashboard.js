@@ -540,49 +540,49 @@ async function confirmAccept(){
   const id=pendAcceptId; pendAcceptId=null;
   const b=bookings.find(x=>String(x.id)===String(id));
   if(!b)return;
-  const earning=Math.round((Number(b.price)||0)*0.80);
 
   /* First check latest status from Supabase */
-const {data:live,error:fetchErr}=await sb
-  .from('bookings')
-  .select('status')
-  .eq('id',id)
-  .single();
+  const {data:live,error:fetchErr}=await sb
+    .from('bookings')
+    .select('status')
+    .eq('id',id)
+    .single();
 
-if(fetchErr){
-  console.error(fetchErr.message);
-  showToast('⚠️ Could not verify booking.');
-  return;
-}
+  if(fetchErr){
+    console.error(fetchErr.message);
+    showToast('⚠️ Could not verify booking.');
+    return;
+  }
 
-/* Someone already accepted/completed it */
-if(
-  live.status!==CONSTANTS.BOOKING_STATUS.PENDING &&
-  live.status!==CONSTANTS.BOOKING_STATUS.SCHEDULED &&
-  live.status!==CONSTANTS.BOOKING_STATUS.CONFIRMED
-){
-  showToast('⚠️ This booking has already been accepted by another worker.');
-  await loadBookings();
-  return;
-}
+  /* Someone already accepted/completed it */
+  if(
+    live.status!==CONSTANTS.BOOKING_STATUS.PENDING &&
+    live.status!==CONSTANTS.BOOKING_STATUS.SCHEDULED &&
+    live.status!==CONSTANTS.BOOKING_STATUS.CONFIRMED
+  ){
+    showToast('⚠️ This booking has already been accepted by another worker.');
+    await loadBookings();
+    return;
+  }
 
-/* Safe to accept */
-/* Read current timeline */
-const {error}=await sb.from('bookings').update({
-  status:CONSTANTS.BOOKING_STATUS.ACCEPTED,
-  w_status:CONSTANTS.BOOKING_STATUS.ACCEPTED,
+  /* Accept through the approved server-side RPC */
+  const {data:result,error}=await sb.rpc('accept_booking',{
+    p_booking_id:String(id)
+  });
 
-  worker_earning:earning,
-  accepted_at:new Date().toISOString()
-})
-.eq('id',id)
-.in('status',[CONSTANTS.BOOKING_STATUS.PENDING,CONSTANTS.BOOKING_STATUS.SCHEDULED,CONSTANTS.BOOKING_STATUS.CONFIRMED]);
+  if(error){
+    console.error('confirmAccept:',error);
+    showToast('⚠️ Could not accept job: '+error.message);
+    return;
+  }
 
-if(error){
-  console.error('confirmAccept:',error.message);
-  showToast('⚠️ Could not accept job: '+error.message);
-  return;
-}
+  if(!result?.success){
+    const message=result?.error || 'Unable to accept this booking.';
+    console.error('confirmAccept:',message);
+    showToast('⚠️ Could not accept job: '+message);
+    await loadBookings();
+    return;
+  }
 
   /* AUTO OFFLINE: worker is now on a job — stop receiving new requests */
   await setWorkerAvailability(false);
