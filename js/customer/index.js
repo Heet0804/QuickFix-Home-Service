@@ -221,22 +221,34 @@ const DB = {
   .order('created_at',{ascending:false});
     if(error){console.error('DB.bookings:',error.message);return [];}
 
-    /* Profile photos live on `workers`, not `bookings` — fetch in one
-       bulk call, same pattern as get_worker_stats_bulk above. Never
-       fetches document_url; that column is never read outside auth.html. */
+    /* Profile photos, name, and phone all live on `workers`, not
+       `bookings` — fetch in one bulk call, same pattern as
+       get_worker_stats_bulk above. Never fetches document_url; that
+       column is never read outside auth.html.
+       IMPORTANT: neither create_booking() nor accept_booking() writes
+       worker_name/worker_phone onto the bookings row — those columns
+       are never populated server-side, so bookings.worker_name/
+       worker_phone are always null/stale. Resolve them here from the
+       live workers table instead, exactly like profile_photo_url. */
     const workerIds=[...new Set((data||[]).map(b=>b.worker_id).filter(Boolean))];
-    let photoById={};
+    let photoById={}, nameById={}, phoneById={};
     if(workerIds.length){
-      const {data:photoRows,error:pe}=await sb.from('workers').select('id,profile_photo_url').in('id',workerIds);
-      if(pe){ console.error('worker photo fetch:',pe.message); }
-      else { (photoRows||[]).forEach(w=>{ photoById[w.id]=w.profile_photo_url||''; }); }
+      const {data:workerRows,error:pe}=await sb.from('workers').select('id,profile_photo_url,name,phone').in('id',workerIds);
+      if(pe){ console.error('worker photo/name/phone fetch:',pe.message); }
+      else {
+        (workerRows||[]).forEach(w=>{
+          photoById[w.id]=w.profile_photo_url||'';
+          nameById[w.id]=w.name||'';
+          phoneById[w.id]=w.phone||'';
+        });
+      }
     }
 
     /* Normalise DB column names → JS camelCase the UI uses */
     return normalizeBookings((data||[]).map(b=>({
       ...b,
-      workerName:    b.worker_name,
-      workerPhone:   b.worker_phone,
+      workerName:    nameById[b.worker_id]  || b.worker_name  || '',
+      workerPhone:   phoneById[b.worker_id] || b.worker_phone || '',
       workerRole:    b.worker_role,
       workerEmoji:   b.worker_emoji,
       workerPhotoUrl:photoById[b.worker_id]||'',
@@ -268,7 +280,17 @@ const DB = {
   return true;
 },
 
-  /* Save a single booking object to Supabase */
+  /* Save a single booking object to Supabase.
+     Booking creation is now enforced server-side via create_booking() —
+     trg_enforce_booking_insert_via_rpc rejects any direct client
+     insert/upsert into bookings. create_booking() also generates the
+     REAL arrival/completion OTPs itself; whatever bk.arrivalOtp/
+     bk.completionOtp the caller passed in is a client-only placeholder
+     and is discarded. The RPC's returned row (with the real OTPs,
+     status='Pending', w_status='Pending') is written back into bk
+     in place, so every caller downstream (acceptModal, confirmModal,
+     arrOtpShow) ends up showing the OTP that's actually stored in the
+     DB — not a value that will fail verifyOtp(). */
   save: async (bk) => {
     const {data:{session}}=await sb.auth.getSession();
     const user=session?session.user:null;
@@ -280,14 +302,6 @@ const DB = {
       setLocalBookings(next);
       return true;
     }
-    /* Defense in depth: bookings.user_id has an FK to public.users(id).
-       The page-load auth gate already self-heals a missing users row, but
-       if DB.save() is ever reached before that finishes (fast refresh,
-       deep link straight into a booking action, stale tab), the insert
-       below would still fail with bookings_user_id_fkey and silently
-       return false — which looks exactly like "my booking history
-       disappeared" once nothing ever got written. Upsert defensively
-       right here too, so a booking save can never be blocked by this. */
     const {error:userHealErr}=await sb.from('users').upsert({
       id:    user.id,
       email: user.email,
@@ -295,42 +309,41 @@ const DB = {
     }, { onConflict:'id', ignoreDuplicates:true });
     if(userHealErr) console.error('DB.save: users self-heal failed:', userHealErr.message);
 
-    const {error}=await sb.from('bookings').upsert({
-  id:             String(bk.id),
-  user_id:        user.id,
-  worker_id:      bk.workerId||null,
-  worker_name:    bk.workerName||'',
-  worker_phone:   bk.workerPhone||'',
-  worker_role:    bk.workerRole||'',
-  worker_emoji:   bk.workerEmoji||'',
-  worker_dist:    bk.workerDist!=null ? bk.workerDist : null,
-  service:        bk.service,
-  date:           bk.date,
-  time:           bk.time,
-  scheduled_date: bk.date,
-  scheduled_time: bk.time,
-  address:        bk.address,
-  area_id:        bk.areaId||null,
-  customer_lat:   bk.customer_lat != null ? bk.customer_lat : null,
-  customer_lng:   bk.customer_lng != null ? bk.customer_lng : null,
-  notes:          bk.notes||'',
-  price:          bk.price,
-  base_price:     bk.basePrice,
-  payment_method: bk.paymentMethod,
-  pass_used:      bk.passUsed || false,
-  pass_id:        bk.passId || null,
-  worker_earning: bk.workerEarning ?? bk.basePrice ?? 0,
-  status:         bk.status,
-  w_status:       bk.wStatus||CONSTANTS.BOOKING_STATUS.PENDING,
-  arrival_otp:    bk.arrivalOtp,
-  completion_otp: bk.completionOtp,
-  is_emergency:   bk.isEmergency||false,
-  is_advance:     bk.isAdvance||false,
-  rated:          bk.rated||false,
-  hidden_by_user: false,
-  created_at:     bk.createdAt
-});
-    if(error){ console.error('DB.save:',error.message); return false; }
+    const {data:result, error}=await sb.rpc('create_booking', {
+      p_id:             String(bk.id),
+      p_worker_id:      bk.workerId||null,
+      p_worker_role:    bk.workerRole||'',
+      p_worker_emoji:   bk.workerEmoji||'',
+      p_item_name:      bk.service,
+      p_is_emergency:   bk.isEmergency||false,
+      p_is_advance:     bk.isAdvance||false,
+      p_date:           bk.date,
+      p_time:           bk.time||'',
+      p_address:        bk.address,
+      p_notes:          bk.notes||'',
+      p_area_id:        bk.areaId||null,
+      p_customer_lat:   bk.customer_lat != null ? bk.customer_lat : null,
+      p_customer_lng:   bk.customer_lng != null ? bk.customer_lng : null,
+      p_payment_method: bk.paymentMethod,
+      p_pass_id:        bk.passId || null,
+      p_price:          bk.price,
+      p_base_price:     bk.basePrice
+    });
+
+    if(error || !result?.success){
+      console.error('DB.save:', result?.error || error?.message);
+      return false;
+    }
+
+    /* Write the authoritative server row back into bk so the caller's
+       in-memory object (pendBk._bk) matches what's actually in the DB —
+       critically the real arrival_otp/completion_otp, id, status. */
+    bk.arrivalOtp    = result.arrival_otp;
+    bk.completionOtp = result.completion_otp;
+    bk.status         = result.status;
+    bk.wStatus        = result.w_status;
+    bk.createdAt       = result.created_at;
+
     return true;
   },
 
