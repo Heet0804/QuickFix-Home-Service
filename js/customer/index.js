@@ -3229,21 +3229,19 @@ async function consumeServicePassVisit(booking){
   const {data:{session}}=await sb.auth.getSession();
   if(!session?.user) return;
 
-  const {data:pass, error:passErr} = await sb.from('user_passes')
-    .select('*')
-    .eq('id', booking.pass_id)
-    .single();
-  if(passErr || !pass) return;
+  /* Phase 6.4 — direct user_passes writes are blocked by
+     trg_prevent_direct_pass_tampering. consume_pass_visit() is the
+     only server-trusted path: it resolves the pass from the booking
+     row itself and decrements/expires it atomically, under
+     quickfix.trusted_write. */
+  const {data:result, error} = await sb.rpc('consume_pass_visit', {
+    p_booking_id: String(booking.id)
+  });
 
-  const newVisits = Math.max(0, (pass.visits_remaining ?? 0) - 1);
-  const newStatus = newVisits<=0 ? 'expired' : pass.status;
-
-  const {error} = await sb.from('user_passes').update({
-    visits_remaining: newVisits,
-    status: newStatus
-  }).eq('id', pass.id);
-
-  if(error){ console.error('consumeServicePassVisit update:', error.message); return; }
+  if(error || !result?.success){
+    console.error('consumeServicePassVisit:', result?.error || error?.message);
+    return;
+  }
 
   if(document.getElementById('page-passes')?.classList.contains('active')) renderMyPasses();
 }
