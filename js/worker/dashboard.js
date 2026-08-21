@@ -142,7 +142,9 @@ function showAchievementUnlockPopup(row){
   sessionStorage.setItem('qf_user',JSON.stringify(W));
 
   renderProfile();
-  await loadBookings();
+  /* Phase 6.5: skip loadBookings()'s own worker-row refresh here —
+     the fetch two lines above already got this exact row. */
+  await loadBookings(true);
 
 switchTab(
   'pending',
@@ -277,7 +279,7 @@ function tagScoreCard(id,val){
 /* ════════════════════════════════════════════════════════════
    LOAD BOOKINGS — only this worker's rows, ordered newest first.
    ════════════════════════════════════════════════════════════ */
-async function loadBookings(){
+async function loadBookings(skipWorkerRefresh=false){
   if(!W||!W.id)return;
 
   const {data,error}=await sb.from('bookings')
@@ -293,20 +295,25 @@ async function loadBookings(){
 
   bookings=data||[];
 
-/* refresh latest worker row */
-const {data:workerLive}=await sb
-  .from('workers')
-  .select('*')
-  .eq('id',W.id)
-  .single();
+/* Phase 6.5: refresh latest worker row — skipped when the caller
+   (boot) already fetched this exact row moments ago. Boot's own
+   fetch still runs first and still handles the "worker record
+   missing -> redirect to auth" case that this refresh does not. */
+if(!skipWorkerRefresh){
+  const {data:workerLive}=await sb
+    .from('workers')
+    .select('*')
+    .eq('id',W.id)
+    .single();
 
-if(workerLive){
-  W = {...W,...workerLive};
+  if(workerLive){
+    W = {...W,...workerLive};
 
-  sessionStorage.setItem(
-    'qf_user',
-    JSON.stringify(W)
-  );
+    sessionStorage.setItem(
+      'qf_user',
+      JSON.stringify(W)
+    );
+  }
 }
 
 await loadStats();
@@ -1508,8 +1515,8 @@ function _destroyCustomerTrackMap(bkId){
 
 /* ── Patch loadBookings to also refresh the new sections after bookings load ── */
 const _origLoadBookings=loadBookings;
-loadBookings=async function(){
-  await _origLoadBookings();
+loadBookings=async function(skipWorkerRefresh=false){
+  await _origLoadBookings(skipWorkerRefresh);
   renderEarnings();
   renderAcceptanceRate();
   renderTimeline();
@@ -1520,8 +1527,8 @@ loadBookings=async function(){
 /* Keep Track Customer maps live on every refresh — same "move marker,
    never recreate" contract as index.html's updateTrackingMaps(all). */
 const _origLoadBookingsForTrackCustomer = loadBookings;
-loadBookings = async function(){
-  await _origLoadBookingsForTrackCustomer();
+loadBookings = async function(skipWorkerRefresh=false){
+  await _origLoadBookingsForTrackCustomer(skipWorkerRefresh);
   updateCustomerTrackMaps(bookings);
 };
 
