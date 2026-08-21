@@ -311,7 +311,7 @@ async function renderPassesTable(){
   const campaignIds = [...new Set(_allPasses.map(p=>p.campaign_id))];
 
   const [{data:userRows}, {data:campaignRows}] = await Promise.all([
-    sb.from('users').select('*').in('id', userIds),
+    sb.from('users').select('id,name,email').in('id', userIds),
     sb.from('campaigns').select('id,title').in('id', campaignIds)
   ]);
 
