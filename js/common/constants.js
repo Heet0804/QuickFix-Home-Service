@@ -38,8 +38,21 @@ window.CONSTANTS = {
   PASS_PAYMENT_MODAL_CLOSE_DELAY_MS: 1200,
   PASS_PAYMENT_COUNTDOWN_SECONDS: 120,
   CUSTOMER_BOOKING_POLL_INTERVAL_MS: 2000,
-  WORKER_BOOKING_POLL_INTERVAL_MS: 5000,
-  ADMIN_DASHBOARD_POLL_INTERVAL_MS: 4000,
+  /* Phase 6.5: was 5000. Worker dashboard already has a realtime
+     channel as its primary sync mechanism — this poll is only a
+     fallback for missed postgres_changes events (TRUNCATE, bulk
+     resets, dropped connections). A fallback firing every 5s ran an
+     unconditional SELECT * on bookings that often, regardless of
+     whether realtime was working. 30s keeps the safety net without
+     hammering the DB continuously. */
+  WORKER_BOOKING_POLL_INTERVAL_MS: 30000,
+  /* Phase 6.5: was 4000. admin.js has no realtime channel at all —
+     this interval is the ONLY sync mechanism and ran 2 full SELECT *
+     queries every 4 seconds indefinitely, for the entire time
+     admin.html stayed open, regardless of which tab was active. 15s
+     is a reasonable refresh rate for an admin dashboard that isn't
+     time-critical the way live job tracking is. */
+  ADMIN_DASHBOARD_POLL_INTERVAL_MS: 15000,
   GPAY_CONFIRM_REDIRECT_DELAY_MS: 1400,
   LOGO_EASTER_EGG_WINDOW_MS: 2000,
   TOAST_DURATION_MS: 3500,
