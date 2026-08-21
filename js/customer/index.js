@@ -156,6 +156,36 @@ const DB = {
     return data||[];
   },
 
+  /* Phase 6.5: fetch exactly one worker by id — used by openProfile()
+     and openBooking(), which previously called DB.workers() (a full
+     table SELECT * plus a get_worker_stats_bulk RPC across every
+     worker) purely to .find() a single row by id. Same shape/derived
+     fields as DB.workers()'s per-row mapping, computed for one row
+     instead of all of them. */
+  workerById: async (id) => {
+    const {data:w,error}=await sb.from('workers').select('*').eq('id',id).single();
+    if(error||!w){ console.error('DB.workerById:',error?.message); return null; }
+    const {data:statsRows,error:se}=await sb.rpc('get_worker_stats_bulk',{p_worker_ids:[w.id]});
+    if(se){ console.error('get_worker_stats_bulk:',se.message); }
+    const s=(statsRows||[])[0]||{};
+    return {
+      ...w,
+      role: w.skill,
+      exp:  w.exp || 'N/A',
+      desc: w.bio || '',
+      emoji: '🔧',
+      ea:   Boolean(w.emergency_available),
+      dist: w.radius || 0,
+      rating: s.rating ?? 0,
+      reviews: s.completed_jobs ?? 0,
+      worker_score: s.worker_score ?? 0,
+      svcs: getCategorySections(w.skill)
+              .flatMap(sec=>sec.items)
+              .map(it=>({n:it.n, p:it.p})),
+      revs: []
+    };
+  },
+
   /* Fetch workers from Supabase, optional role filter */
   workers: async (role=null) => {
     /* workers table only — no worker_services table exists in this schema.
@@ -1356,7 +1386,19 @@ function setFilter(type,val,btn){
   btn.classList.add('on');
   applyFilters();
 }
-function applyFilters(){ filters.search=document.getElementById('svcSearch').value.toLowerCase(); renderServices(); }
+/* Phase 6.5: svcSearch fires oninput on every keystroke, and
+   renderServices() -> DB.workers() does a full workers SELECT * plus
+   a get_worker_stats_bulk RPC call each time it runs. Typing an
+   11-letter word previously fired 11 full fetches. Debounced to one
+   fetch, 300ms after the user stops typing. */
+let _applyFiltersDebounce=null;
+function applyFilters(){
+  clearTimeout(_applyFiltersDebounce);
+  _applyFiltersDebounce=setTimeout(()=>{
+    filters.search=document.getElementById('svcSearch').value.toLowerCase();
+    renderServices();
+  }, 300);
+}
 
 async function renderServices(){
   const e=isEmerg();
@@ -1374,7 +1416,7 @@ async function renderServices(){
 
 /* ── PROFILE ──────────────────────────────────────────────── */
 async function openProfile(id){
-  const ws=await DB.workers(); const w=ws.find(w=>w.id===id); if(!w) return;
+  const w=await DB.workerById(id); if(!w) return;
   curW=w;
   document.getElementById('profBread').textContent=w.role+' Professional';
   document.getElementById('profContent').innerHTML=`
@@ -1491,7 +1533,7 @@ async function changeAccountPassword(){
 
 /* ── BOOKING PAGE ─────────────────────────────────────────── */
 async function openBooking(id){
-  const ws=await DB.workers(); const w=ws.find(w=>w.id===id); if(!w) return;
+  const w=await DB.workerById(id); if(!w) return;
   curW=w;
   const e=isEmerg();
   document.getElementById('bkBread').textContent=w.role;
