@@ -9,7 +9,17 @@
    duplicated identically in index.html. */
 
 let W=null;            /* current worker record (merged users + workers row) */
-let bookings=[];        /* raw bookings rows for this worker, snake_case as-is from Supabase */
+let bookings=[];        /* raw bookings rows already assigned to this worker (any status) */
+/* Phase 6.6: broadcast model. availableJobs = unassigned Pending jobs
+   this worker is eligible for, from get_available_jobs(). Separate
+   from `bookings` because these rows have worker_id IS NULL — this
+   worker doesn't own them yet, RLS won't let a raw SELECT see them,
+   only the RPC (SECURITY DEFINER) can. */
+let availableJobs=[];
+/* Jobs this worker dismissed ("Reject") without ever being assigned —
+   purely a local, this-session-only hide. No DB write: the job stays
+   fully visible/acceptable to every OTHER eligible worker. */
+let _dismissedJobIds=new Set();
 let curTab='pending';
 let pendAcceptId=null;
 let pendRejectId=null;
@@ -295,6 +305,21 @@ async function loadBookings(skipWorkerRefresh=false){
 
   bookings=data||[];
 
+  /* Phase 6.6: unassigned jobs this worker is eligible for. RLS has
+     no policy granting SELECT on worker_id IS NULL rows, so this
+     MUST go through the RPC (SECURITY DEFINER), which applies the
+     same skill/radius/emergency eligibility check as accept_booking().
+     This was the actual bug: no code path previously ever queried
+     unassigned jobs at all — a broadcast job was invisible to every
+     worker, forever, regardless of how it was created. */
+  const {data:avail,error:availErr}=await sb.rpc('get_available_jobs');
+  if(availErr){
+    console.error('get_available_jobs:',availErr.message);
+    availableJobs=[];
+  } else {
+    availableJobs=(avail||[]).filter(b=>!_dismissedJobIds.has(String(b.id)));
+  }
+
 /* Phase 6.5: refresh latest worker row — skipped when the caller
    (boot) already fetched this exact row moments ago. Boot's own
    fetch still runs first and still handles the "worker record
@@ -334,9 +359,12 @@ renderTimeline();
 function bookingsByTab(tab){
 
   if(tab==='pending'){
-    return bookings.filter(b=>
-       b.w_status===CONSTANTS.BOOKING_STATUS.PENDING
-    );
+    /* Phase 6.6: Pending = broadcast jobs not yet claimed by anyone,
+       sourced from availableJobs (get_available_jobs RPC). An
+       unassigned row (worker_id IS NULL) never appears in `bookings`
+       at all, since loadBookings() filters worker_id=W.id — reading
+       from `bookings` here would always be empty. */
+    return availableJobs;
   }
 
   if(tab==='accepted'){
@@ -534,7 +562,7 @@ function renderJobCard(b){
    ════════════════════════════════════════════════════════════ */
 function promptAccept(id){
   pendAcceptId=id;
-  const b=bookings.find(x=>String(x.id)===String(id));
+  const b=availableJobs.find(x=>String(x.id)===String(id));
   if(!b)return;
   const earning=Math.round((Number(b.price)||0)*0.80);
   document.getElementById('acceptModalDesc').innerHTML=
@@ -545,34 +573,16 @@ async function confirmAccept(){
   closeModal('acceptModal');
   if(!pendAcceptId)return;
   const id=pendAcceptId; pendAcceptId=null;
-  const b=bookings.find(x=>String(x.id)===String(id));
-  if(!b)return;
 
-  /* First check latest status from Supabase */
-  const {data:live,error:fetchErr}=await sb
-    .from('bookings')
-    .select('status')
-    .eq('id',id)
-    .single();
-
-  if(fetchErr){
-    console.error(fetchErr.message);
-    showToast('⚠️ Could not verify booking.');
-    return;
-  }
-
-  /* Someone already accepted/completed it */
-  if(
-    live.status!==CONSTANTS.BOOKING_STATUS.PENDING &&
-    live.status!==CONSTANTS.BOOKING_STATUS.SCHEDULED &&
-    live.status!==CONSTANTS.BOOKING_STATUS.CONFIRMED
-  ){
-    showToast('⚠️ This booking has already been accepted by another worker.');
-    await loadBookings();
-    return;
-  }
-
-  /* Accept through the approved server-side RPC */
+  /* Phase 6.6: no client-side pre-check is possible or needed anymore.
+     A raw SELECT on an unassigned booking is blocked by RLS for this
+     worker (no policy grants read on worker_id IS NULL rows), so the
+     old "fetch latest status first" step could never actually run.
+     accept_booking()'s own atomic
+     "WHERE worker_id IS NULL AND status='Pending'" UPDATE IS the
+     concurrency check — if another worker claimed it a moment
+     earlier, this call itself returns success:false below. This is
+     the FCFS enforcement point, at the database level, not here. */
   const {data:result,error}=await sb.rpc('accept_booking',{
     p_booking_id:String(id)
   });
@@ -586,7 +596,7 @@ async function confirmAccept(){
   if(!result?.success){
     const message=result?.error || 'Unable to accept this booking.';
     console.error('confirmAccept:',message);
-    showToast('⚠️ Could not accept job: '+message);
+    showToast('⚠️ '+message);
     await loadBookings();
     return;
   }
@@ -612,18 +622,17 @@ async function confirmReject(){
   if(!pendRejectId)return;
   const id=pendRejectId; pendRejectId=null;
 
-  const {error}=await sb.from('bookings').update({
-    status:CONSTANTS.BOOKING_STATUS.REJECTED,
-    w_status:CONSTANTS.BOOKING_STATUS.REJECTED
-  }).eq('id',id);
-  if(error){
-    console.error('confirmReject:',error.message);
-    showToast('⚠️ Could not reject job: '+error.message);
-    return;
-  }
-
-  showToast('Job rejected.');
-  await loadBookings();
+  /* Phase 6.6: this job was never assigned to this worker — it is a
+     broadcast job every eligible worker can still see and accept.
+     "Reject" here can only mean "stop showing this to me locally";
+     it must NEVER write Rejected to the shared row, or every other
+     worker would lose the job too. A raw UPDATE on a worker_id
+     IS NULL row is blocked by RLS regardless. */
+  _dismissedJobIds.add(String(id));
+  availableJobs=availableJobs.filter(b=>String(b.id)!==String(id));
+  updateTabCounts();
+  renderJobs();
+  showToast('Job hidden from your list.');
 }
 
 /* ════════════════════════════════════════════════════════════
