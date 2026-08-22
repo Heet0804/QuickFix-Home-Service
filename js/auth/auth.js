@@ -314,7 +314,28 @@ async function doSignup(role){
 
     setBtn('signupWorkerBtn','swBtnTxt',true,'Registering…');
 
-    /* Step 0: Upload document to Supabase Storage */
+    /* Phase 6.6: storage RLS policies on worker-documents and
+       worker-photos both require role {authenticated} for INSERT.
+       Uploading before signUp() meant every worker registration ran
+       these uploads anonymously, which always violated RLS. Moved
+       signUp() to run FIRST, so both uploads happen as the newly
+       authenticated user. */
+
+    /* Step 1: Create auth account */
+    const {data:a,error:ae}=await sb.auth.signUp({
+      email,
+      password:pass,
+      options:{data:{name,role:'worker'}}
+    });
+    if(ae){
+      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
+      showErr(ae.message.includes('already registered')?'Email already registered. Try signing in.':ae.message);
+      return;
+    }
+
+    const uid=a.user.id;
+
+    /* Step 2: Upload document to Supabase Storage — now authenticated */
     let docUrl='',docFileName='';
     try{
       const ext=docFile.name.split('.').pop().toLowerCase();
@@ -329,10 +350,11 @@ async function doSignup(role){
       console.error('Document upload error:', uploadEx?.message || uploadEx);
       alert(uploadEx?.message || JSON.stringify(uploadEx,null,2));
       setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
+      await sb.auth.signOut();
       return;
     }
 
-    /* Step 0b: Upload Profile Photo — separate, customer-visible bucket.
+    /* Step 2b: Upload Profile Photo — separate, customer-visible bucket.
        Deliberately NOT the same bucket as the Government ID document. */
     let photoUrl='';
     try{
@@ -348,22 +370,9 @@ async function doSignup(role){
       console.error("PHOTO UPLOAD ERROR:", photoUploadEx);
       alert(photoUploadEx?.message || JSON.stringify(photoUploadEx,null,2));
       setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
+      await sb.auth.signOut();
       return;
     }
-
-    /* Step 1: Create auth account */
-    const {data:a,error:ae}=await sb.auth.signUp({
-      email,
-      password:pass,
-      options:{data:{name,role:'worker'}}
-    });
-    if(ae){
-      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
-      showErr(ae.message.includes('already registered')?'Email already registered. Try signing in.':ae.message);
-      return;
-    }
-
-    const uid=a.user.id;
 
     /* Step 2: Insert into workers table ONLY — name, phone, skill, radius, exp, area/lat/lng all explicit */
     const {error:we}=await sb.from('workers').insert({
