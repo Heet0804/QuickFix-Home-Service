@@ -571,12 +571,14 @@ function renderCategoryPage(catId){
 function openCategory(catId){ renderCategoryPage(catId); goPage('category'); }
 
 async function bookCategoryService(serviceName, catId){
+  /* Phase 6.6: only checking that SOME worker exists in this category,
+     for early feedback. The job itself broadcasts to every eligible
+     worker on submit — it's no longer locked to whichever worker
+     happened to be nearest at click time. */
   const workers=await DB.workers(catId);
-  /* DB.workers() already filters is_available=true server-side */
-  const pool=workers.sort((a,b)=>a.dist-b.dist);
-  if(!pool.length){ showToast(`⚠️ No ${catId} workers available right now`); return; }
+  if(!workers.length){ showToast(`⚠️ No ${catId} workers available right now`); return; }
   sst={catId, item:serviceName, issue:''};
-  openBooking(pool[0].id);
+  openBookingForRole(catId);
 }
 
 /* ── HOURS ────────────────────────────────────────────────── */
@@ -1160,6 +1162,12 @@ function openPhotoLightbox(url){
 
 /* ── NAV ───────────────────────────────────────────────────── */
 function goPage(id){
+  /* Phase 6.6: booking no longer lets a customer browse and pick an
+     individual worker — jobs are broadcast to every eligible worker,
+     first to accept gets it. Services (browse workers) is retired;
+     any leftover entry point redirects Home instead of rendering it. */
+  if(id==='services') id='home';
+
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.nl[data-pg]').forEach(l=>l.classList.remove('on'));
 
@@ -1257,11 +1265,9 @@ function renderHousehelp(){
 
 async function bookHousehelp(serviceName, price){
   const workers=await DB.workers('Househelp');
-  /* DB.workers() already filters is_available=true server-side */
-  const pool=workers.sort((a,b)=>a.dist-b.dist);
-  if(!pool.length){ showToast('⚠️ No Househelp workers available right now'); return; }
+  if(!workers.length){ showToast('⚠️ No Househelp workers available right now'); return; }
   sst={catId:'Househelp', item:serviceName, issue:''};
-  openBooking(pool[0].id);
+  openBookingForRole('Househelp');
 }
 
 /* ── MASSAGE & WELLNESS ──────────────────────────────────── */
@@ -1326,11 +1332,10 @@ function pickItem(l){ sst.item=l; renderStep(1); }
 function runSearch(){ sst.issue=document.getElementById('issueText')?.value.trim()||''; renderStep(3); }
 async function openBookingFromSmart(){
   const e=isEmerg();
-  /* DB.workers() already filters is_available=true server-side */
   let pool=await DB.workers(sst.catId);
   if(e) pool=pool.filter(w=>w.ea);
   if(!pool.length){ showToast('⚠️ No workers available right now.'); return; }
-  openBooking(pool.sort((a,b)=>a.dist-b.dist)[0].id);
+  openBookingForRole(sst.catId);
 }
 
 function drawStepBar(cur){
@@ -1529,6 +1534,63 @@ async function changeAccountPassword(){
   msg.innerHTML=`<p style="color:var(--teal);font-size:.82rem;margin-bottom:.75rem">✅ Password updated successfully.</p>`;
   document.getElementById('acctNewPw').value='';
   document.getElementById('acctConfirmPw').value='';
+}
+
+/* Phase 6.6: broadcast-model booking entry point. Unlike openBooking(id)
+   below (still present, still used by openProfile()'s "Book Service"
+   button as a legacy direct-book path), this never fetches or locks a
+   specific worker — curW holds only role/emoji/pricing context, which
+   updatePrice()/onAreaChange()/initiateBooking() already read
+   generically via curW.role, not curW.id. */
+async function openBookingForRole(catId){
+  const cat=CATS.find(c=>c.id===catId);
+  const emoji=cat?cat.em:'🔧';
+  const label=cat?cat.lb:catId;
+  curW={
+    role: catId,
+    emoji: emoji,
+    svcs: getCategorySections(catId).flatMap(sec=>sec.items).map(it=>({n:it.n,p:it.p}))
+  };
+  const e=isEmerg();
+  document.getElementById('bkBread').textContent=label;
+  document.getElementById('bkWorkerInfo').innerHTML=`
+    <div style="display:flex;align-items:center;gap:11px;background:var(--surface2);border-radius:var(--radius-sm);padding:.95rem;border:1px solid var(--border)">
+      <div style="width:44px;height:44px;border-radius:50%;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">${emoji}</div>
+      <div>
+        <div style="font-weight:700;font-size:.9rem">${label} Service</div>
+        <div style="font-size:.76rem;color:var(--text2)">Your job will be sent to nearby available workers — first to accept gets it</div>
+      </div>
+    </div>`;
+
+  const sel=document.getElementById('bkSvc');
+  sel.innerHTML=curW.svcs.map(s=>`<option value="${s.p}" data-sname="${s.n}">${s.n} — ₹${s.p}</option>`).join('');
+  if(sst.item){
+    const kw=sst.item.toLowerCase();
+    let best=-1, bscore=-1;
+    for(let i=0;i<sel.options.length;i++){
+      const sn=sel.options[i].dataset.sname.toLowerCase();
+      const sc=sn===kw?4:sn.includes(kw)?3:sn.startsWith(kw)?2:sn.split(' ').some(w=>w.startsWith(kw))?1:0;
+      if(sc>bscore){bscore=sc;best=i;}
+    }
+    if(best>=0&&bscore>0) sel.selectedIndex=best;
+    if(sst.issue) document.getElementById('bkNotes').value=sst.issue;
+  } else { document.getElementById('bkNotes').value=''; }
+
+  const tg=document.getElementById('bkTimeGrp');
+  if(e){ tg.style.display='none'; document.getElementById('bkTime').value=nowSlot(); }
+  else { tg.style.display=''; buildSlots(); document.getElementById('bkTime').value=''; }
+
+  const today=istDateStr();
+  const maxDt=getIST(); maxDt.setDate(maxDt.getDate()+30);
+  const maxStr=`${maxDt.getFullYear()}-${String(maxDt.getMonth()+1).padStart(2,'0')}-${String(maxDt.getDate()).padStart(2,'0')}`;
+  document.getElementById('bkDate').min=today;
+  document.getElementById('bkDate').max=maxStr;
+  document.getElementById('bkDate').value='';
+  document.getElementById('bkAddr').value='';
+  await populateAreaDropdown();
+  document.getElementById('bkAreaNote').textContent='';
+  document.getElementById('bkNotice').innerHTML=e?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Emergency Hours Active (8:30 PM – 8:30 AM IST)</strong><br/>Nearest available worker will be dispatched. Time set to now automatically.</div></div>`:'';
+  setBkBtn(e); updatePrice(); goPage('booking');
 }
 
 /* ── BOOKING PAGE ─────────────────────────────────────────── */
