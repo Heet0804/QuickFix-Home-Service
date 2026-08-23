@@ -199,13 +199,14 @@
         <div class="fg"><label class="flabel">Your Address</label><input type="text" class="finput" id="bkAddr" placeholder="Enter your full address…"/><div id="bkAddrAreaWarn" style="font-size:.74rem;color:var(--danger);margin-top:.35rem"></div></div>
         <div class="fg"><label class="flabel">Service Area</label><select class="fselect" id="bkArea" onchange="onAreaChange()"><option value="">Select your area…</option></select><div id="bkAreaNote" style="font-size:.74rem;color:var(--text3);margin-top:.35rem"></div></div>
         <div class="fg"><label class="flabel">Notes (Optional)</label><textarea class="finput" id="bkNotes" rows="3" placeholder="Describe the issue…" style="resize:vertical"></textarea></div>
-      </div>
+        <div class="fg" id="bkRedeemGrp"><label class="flabel">🪙 Redeem QuickCoins</label><select class="fselect" id="bkRedeem" onchange="updatePrice()"><option value="0">Don't redeem coins</option></select></div>      </div>
       <div>
         <div class="pricebox">
           <div class="cst" style="border-bottom:1px solid var(--border);padding-bottom:.7rem;margin-bottom:.7rem">💳 Price Summary</div>
           <div class="prow"><span class="lb">Service</span><span class="vl" id="pSvc">—</span></div>
           <div class="prow"><span class="lb">Service Price</span><span class="vl" id="pBase">—</span></div>
           <div class="prow"><span class="lb">Handling Fee<span class="tip" data-tip="Covers platform support &amp; booking assistance"> ℹ️</span></span><span class="vl" id="pFee">—</span></div>
+          <div class="prow" id="pDiscountRow" style="display:none"><span class="lb">🪙 QuickCoins Discount</span><span class="vl" id="pDiscount">—</span></div>
           <div class="prow" id="pPayMethodRow" style="display:none"><span class="lb">Payment Method</span><span class="vl" id="pPayMethod">—</span></div>
           <hr class="pdiv"/>
           <div class="prow ptotal"><span class="lb">Total</span><span class="vl" id="pTotal">—</span></div>
@@ -613,7 +614,12 @@
   <div class="modal" style="max-width:420px">
     <div class="mico" style="background:#e8f4ef">💳</div>
     <h2 id="payTitle">Service Pass</h2>
-    <p>Passes are GPay only — prepaid digital product.</p>
+    <p id="payMethodNote">Passes are GPay only — prepaid digital product.</p>
+
+    <div id="payCoinsSection" style="display:none;text-align:center;padding:1rem 0">
+      <p id="payCoinsInfo" style="font-size:.9rem;color:var(--text2);margin-bottom:.9rem"></p>
+      <button class="btn bp bfull blg" id="payCoinsConfirmBtn">Redeem</button>
+    </div>
 
     <div id="paySection">
       <div class="qrwrap">
