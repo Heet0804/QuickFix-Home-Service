@@ -83,7 +83,7 @@
       <div class="tablewrap">
         <table>
           <thead><tr>
-            <th>Title</th><th>Service</th><th>Price</th><th>Visits</th><th>Validity</th>
+            <th>Title</th><th>Service</th><th>Method</th><th>Price / Coins</th><th>Visits</th><th>Validity</th>
             <th>Start</th><th>End</th><th>Priority</th><th>Status</th><th>Created</th><th>Actions</th>
           </tr></thead>
           <tbody id="campaignsBody"></tbody>
@@ -154,6 +154,15 @@
     <div class="fgrid">
       <div class="fg"><label>💰 Price (₹)</label><input type="number" id="cfPrice" min="0" step="1"/></div>
       <div class="fg"><label>🔁 Number of Visits</label><input type="number" id="cfVisits" min="1" step="1" value="1"/></div>
+    </div>
+    <div class="fgrid">
+      <div class="fg"><label>💳 Purchase Method</label>
+        <select id="cfPurchaseMethod" onchange="toggleCoinPriceField()">
+          <option value="gpay">📱 GPay</option>
+          <option value="coins">🪙 QuickCoins</option>
+        </select>
+      </div>
+      <div class="fg" id="cfCoinPriceGrp" style="display:none"><label>🪙 QuickCoins Price</label><input type="number" id="cfCoinPrice" min="1" step="1"/></div>
     </div>
     <div class="fgrid">
       <div class="fg"><label>⏳ Pass Validity (days)</label><input type="number" id="cfValidity" min="1" step="1" value="30"/></div>
