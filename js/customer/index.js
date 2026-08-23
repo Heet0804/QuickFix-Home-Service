@@ -357,7 +357,8 @@ const DB = {
       p_payment_method: bk.paymentMethod,
       p_pass_id:        bk.passId || null,
       p_price:          bk.price,
-      p_base_price:     bk.basePrice
+      p_base_price:     bk.basePrice,
+      p_coins_redeemed: bk.coinsRedeemed || 0
     });
 
     if(error || !result?.success){
@@ -756,6 +757,17 @@ function _formatPrice(p){
   return '₹' + (Number.isInteger(n) ? n : n.toFixed(2));
 }
 
+/* Phase 7 UX fix: coins-only campaigns have no ₹ price at all
+   (price is 0 in the DB, per admin.js's publishCampaign()). Showing
+   "₹0" there falsely implies the offer is free. This shows the real
+   cost — the coin price — in the same big hero-price slot instead. */
+function _formatCampaignHeroPrice(row){
+  if(row.purchase_method === 'coins'){
+    return `${row.coin_price} 🪙`;
+  }
+  return _formatPrice(row.price);
+}
+
 function _buildPerks(row){
   const visits = row.number_of_visits ?? 1;
   const perks = [`${visits} Visit${visits===1?'':'s'}${row.emergency_included ? ' (Includes Emergency Bookings)' : ''}`];
@@ -771,14 +783,16 @@ function _mapCampaignRow(row){
     title: row.title,
     description: row.description || '',
     icon: (CATS.find(c => c.id.toLowerCase() === String(row.service||'').toLowerCase()) || {}).em || '🎫',
-    price: _formatPrice(row.price),
+    price: _formatCampaignHeroPrice(row),
     priceValue: Number(row.price),
     perks: _buildPerks(row),
     endsAt: new Date(row.offer_end_date),
     validityDays: row.validity_days,
     totalVisits: row.number_of_visits ?? 1,
     emergencyIncluded: !!row.emergency_included,
-    priorityBooking: !!row.priority_booking
+    priorityBooking: !!row.priority_booking,
+    purchaseMethod: row.purchase_method || 'gpay',
+    coinPrice: Number(row.coin_price) || 0
   };
 }
 
@@ -855,25 +869,66 @@ function openPaymentModal(campaign){
   _paymentState = { campaign, countdownTimer:null, demoTimer:null, expired:false, succeeded:false, secondsLeft:CONSTANTS.PASS_PAYMENT_COUNTDOWN_SECONDS };
 
   document.getElementById('payTitle').textContent = campaign.title;
-  document.getElementById('paySection').style.display = '';
   document.getElementById('payOk').classList.remove('on');
 
-  const statusEl = document.getElementById('payStatus');
-  statusEl.textContent = 'Waiting for payment...';
-  statusEl.classList.remove('payment-expired');
-  document.getElementById('payExpiry').style.display = '';
+  const method = campaign.purchaseMethod || 'gpay';
+  const gpaySection = document.getElementById('paySection');
+  const coinsSection = document.getElementById('payCoinsSection');
+  const methodNote = document.getElementById('payMethodNote');
 
-  drawPassQR(campaign);
-  el.classList.add('on');
-
-  _updatePaymentTimerDisplay();
-  _paymentState.countdownTimer = setInterval(()=>{
-    _paymentState.secondsLeft--;
+  if(method === 'coins'){
+    /* Phase 7: pure coin redemption — no GPay flow at all, no QR,
+       no timer. activate_pass() itself does the real, atomic balance
+       check + deduction; this UI is just a confirm step. */
+    gpaySection.style.display = 'none';
+    coinsSection.style.display = '';
+    methodNote.textContent = 'This offer is redeemable with QuickCoins only.';
+    _renderCoinsConfirmUI(campaign);
+  } else {
+    gpaySection.style.display = '';
+    coinsSection.style.display = 'none';
+    methodNote.textContent = 'Passes are GPay only — prepaid digital product.';
+    const statusEl = document.getElementById('payStatus');
+    statusEl.textContent = 'Waiting for payment...';
+    statusEl.classList.remove('payment-expired');
+    document.getElementById('payExpiry').style.display = '';
+    drawPassQR(campaign);
     _updatePaymentTimerDisplay();
-    if(_paymentState.secondsLeft <= 0) _onPaymentExpired();
-  }, CONSTANTS.COUNTDOWN_TICK_MS);
+    _paymentState.countdownTimer = setInterval(()=>{
+      _paymentState.secondsLeft--;
+      _updatePaymentTimerDisplay();
+      if(_paymentState.secondsLeft <= 0) _onPaymentExpired();
+    }, CONSTANTS.COUNTDOWN_TICK_MS);
+    _simulatePaymentProvider(_onPaymentSuccess);
+  }
 
-  _simulatePaymentProvider(_onPaymentSuccess);
+  el.classList.add('on');
+}
+
+async function _renderCoinsConfirmUI(campaign){
+  const balance = await _getMyQuickCoinsBalance();
+  const btn = document.getElementById('payCoinsConfirmBtn');
+  const info = document.getElementById('payCoinsInfo');
+  info.textContent = `Redeem ${campaign.coinPrice} 🪙 for this pass (your balance: ${balance} 🪙)`;
+  btn.style.display = '';
+  btn.disabled = balance < campaign.coinPrice;
+  btn.textContent = btn.disabled ? 'Insufficient QuickCoins' : `Redeem ${campaign.coinPrice} 🪙`;
+  btn.onclick = () => _confirmCoinsPurchase(campaign);
+}
+
+async function _confirmCoinsPurchase(campaign){
+  const btn = document.getElementById('payCoinsConfirmBtn');
+  btn.disabled = true; btn.textContent = 'Processing…';
+  const ok = await activatePass(campaign);
+  if(ok){
+    document.getElementById('payCoinsSection').style.display='none';
+    document.getElementById('payOk').classList.add('on');
+    showToast('🎉 Pass activated! Check My Passes.');
+    _removeOfferCardFromGrid(campaign.id);
+    setTimeout(closePaymentModal, CONSTANTS.PASS_PAYMENT_MODAL_CLOSE_DELAY_MS);
+  } else {
+    btn.disabled=false; btn.textContent = `Redeem ${campaign.coinPrice} 🪙`;
+  }
 }
 
 function _updatePaymentTimerDisplay(){
@@ -972,6 +1027,10 @@ function _onPaymentExpired(){
 function closePaymentModal(){
   _clearPaymentTimers();
   document.getElementById('paymentModal').classList.remove('on');
+  const coinsSection = document.getElementById('payCoinsSection');
+  if(coinsSection) coinsSection.style.display = 'none';
+  const coinsBtn = document.getElementById('payCoinsConfirmBtn');
+  if(coinsBtn){ coinsBtn.style.display=''; coinsBtn.disabled=false; }
 }
 
 async function activatePass(campaign){
@@ -1116,7 +1175,7 @@ async function renderOffers(){
         </div>
       </div>
       <div class="campaign-actions">
-        <button class="btn bp campaign-buy" onclick="campaignBuyPass('${c.id}')">⚡Buy Pass</button>
+        <button class="btn bp campaign-buy" onclick="campaignBuyPass('${c.id}')">⚡ ${c.purchaseMethod==='coins' ? `Redeem ${c.coinPrice} 🪙` : 'Buy Pass'}</button>
       </div>
     </div>
   `).join('');
@@ -1715,6 +1774,37 @@ function onTimeChange(){
     :`<div class="hnotice normal"><span class="hi">🕙</span><div>Working hours: <strong>8:30 AM – 8:30 PM</strong>. Slot is within working hours.</div></div>`;
 }
 
+/* Phase 7: fixed QuickCoins redemption tiers — MUST exactly mirror
+   quickcoins_redemption_value() server-side. This list is display/UI
+   only; the server independently recomputes and enforces the
+   discount from coins_redeemed via that function, never trusting
+   whatever the client sends. */
+const REDEMPTION_TIERS = [
+  {coins:1000, discount:200},
+  {coins:500,  discount:75},
+  {coins:250,  discount:30},
+  {coins:100,  discount:10}
+];
+
+async function _getMyQuickCoinsBalance(){
+  const {data:{session}} = await sb.auth.getSession();
+  if(!session?.user) return 0;
+  const {data} = await sb.from('users').select('quickcoins_balance').eq('id',session.user.id).single();
+  return data?.quickcoins_balance || 0;
+}
+
+async function _populateRedeemDropdown(){
+  const sel=document.getElementById('bkRedeem');
+  if(!sel) return;
+  const balance=await _getMyQuickCoinsBalance();
+  const eligible=REDEMPTION_TIERS.filter(t=>t.coins<=balance);
+  sel.innerHTML='<option value="0">Don\'t redeem coins</option>'+
+    eligible.map(t=>`<option value="${t.coins}">${t.coins} coins → ₹${t.discount} off</option>`).join('');
+  if(!eligible.length){
+    sel.innerHTML+=`<option value="0" disabled>Not enough coins (balance: ${balance})</option>`;
+  }
+}
+
 /* Phase 2D.1: resolves whether the logged-in user holds an active,
    unexpired, unused-up Service Pass for the current booking's
    category. Read by initiateBooking() at click time. No new columns:
@@ -1758,8 +1848,14 @@ async function updatePrice(){
 
   const payRow = document.getElementById('pPayMethodRow');
   const payVal = document.getElementById('pPayMethod');
+  const redeemGrp = document.getElementById('bkRedeemGrp');
+  const discountRow = document.getElementById('pDiscountRow');
 
   if(activeServicePass){
+    /* Phase 7: redemption and a service pass are mutually exclusive —
+       same rule the server enforces. */
+    if(redeemGrp) redeemGrp.style.display='none';
+    if(discountRow) discountRow.style.display='none';
     document.getElementById('pBase').textContent = '₹0 — Covered by Service Pass';
     document.getElementById('pFee').textContent = '₹0';
     document.getElementById('pTotal').textContent = '₹0';
@@ -1768,9 +1864,27 @@ async function updatePrice(){
   }
 
   if(payRow) payRow.style.display='none';
+  if(redeemGrp){
+    redeemGrp.style.display='';
+    if(!redeemGrp.dataset.loaded){ await _populateRedeemDropdown(); redeemGrp.dataset.loaded='1'; }
+  }
+
+  const redeemSel=document.getElementById('bkRedeem');
+  const coinsRedeemed=base?(parseInt(redeemSel?.value)||0):0;
+  const tier=REDEMPTION_TIERS.find(t=>t.coins===coinsRedeemed);
+  const discount=tier?tier.discount:0;
+  const total=Math.max(0, base+fee-discount);
+
+  if(discount>0 && discountRow){
+    discountRow.style.display='';
+    document.getElementById('pDiscount').textContent=`− ₹${discount}`;
+  } else if(discountRow){
+    discountRow.style.display='none';
+  }
+
   document.getElementById('pBase').textContent=base?`₹${base}${e?' (incl. 1.5× emergency)':''}`:'—';
   document.getElementById('pFee').textContent=base?`₹${fee}`:'—';
-  document.getElementById('pTotal').textContent=base?`₹${base+fee}`:'—';
+  document.getElementById('pTotal').textContent=base?`₹${total}`:'—';
 }
 
 /* ── ADDRESS CLEANING & GEOCODING (Phase 4.2) ────────────────
@@ -2016,10 +2130,18 @@ async function initiateBooking(){
      — by _resolveCustomerPin() below — from the customer's permanent
      building pin, not directly from the area-level geocode. geo is
      passed through only to seed the map picker's initial center. */
+  /* Phase 7: coinsRedeemed travels through pendBk -> bk -> DB.save() ->
+     create_booking()'s p_coins_redeemed. The server independently
+     recomputes and verifies this exact discount from coinsRedeemed via
+     quickcoins_redemption_value() — never trusted on its own. */
+  const redeemSel=document.getElementById('bkRedeem');
+  const coinsRedeemed=activeServicePass?0:(parseInt(redeemSel?.value)||0);
+
   pendBk={
     workerId:curW.id, workerRole:curW.role, workerEmoji:curW.emoji,
     service:svcName, date, time, address:addr,
     price:total, basePrice:base,
+    coinsRedeemed,
     notes:document.getElementById('bkNotes').value.trim(),
     isEmergency:e||!inWork(time),
     areaId, areaName:area.name, areaLat:area.lat, areaLng:area.lng,
@@ -2197,6 +2319,7 @@ async function startBroadcast(){
     // Same basePrice already computed in initiateBooking() for every
     // booking (normal or pass-covered) — reused as-is, never recalculated.
     workerEarning: pendBk.basePrice,
+    coinsRedeemed: pendBk.coinsRedeemed || 0,
     status:       CONSTANTS.BOOKING_STATUS.PENDING,
     wStatus:      CONSTANTS.BOOKING_STATUS.PENDING,
     arrivalOtp,
@@ -2311,7 +2434,12 @@ async function onAccepted(){
       ? `Your service is booked for <strong>${fmtDate(bk.date)} at ${sf}</strong>.<br/>Worker details & OTPs appear in My Bookings at <strong>${rf}</strong> (30 min before).`
       : `The nearest available worker accepted. Their details are now in My Bookings.`;
 
+    const _totalDiscount = Number(bk.discount_amount||0) + Number(bk.milestone_discount||0);
     document.getElementById('confDet').innerHTML = `
+      ${Number(bk.milestone_discount||0) > 0 ? `
+        <div style="background:#fff8e6;border:1px solid #f5d98a;border-radius:var(--radius-sm);padding:.6rem .8rem;margin-bottom:.75rem;font-size:.8rem;color:#8a6600;text-align:center">
+          🎉 Surprise! You got a loyalty discount of ₹${bk.milestone_discount} on this booking.
+        </div>` : ''}
       <div class="mrow">
         <span class="ml">Service</span>
         <span class="mv">${bk.service}</span>
@@ -2374,6 +2502,11 @@ async function onAccepted(){
         </span>
       </div>
 
+      ${_totalDiscount > 0 ? `
+      <div class="mrow">
+        <span class="ml">🪙 Discount</span>
+        <span class="mv" style="color:var(--teal)">− ₹${_totalDiscount}</span>
+      </div>` : ''}
       <div class="mrow">
         <span class="ml">Total</span>
         <span class="mv" style="color:var(--brand)">
