@@ -138,11 +138,13 @@ function renderCampaignsTable(){
   if(!rows.length){ body.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display = 'none';
 
+  const methodLabel = { gpay:'📱 GPay', coins:'🪙 Coins' };
   body.innerHTML = rows.map(c => `
     <tr>
       <td><strong>${c.title||''}</strong></td>
       <td>${c.service||''}</td>
-      <td>₹${c.price ?? 0}</td>
+      <td>${methodLabel[c.purchase_method]||'📱 GPay'}</td>
+      <td>${c.purchase_method==='coins' ? `${c.coin_price} 🪙` : `₹${c.price ?? 0}`}</td>
       <td>${c.number_of_visits ?? 1}</td>
       <td>${c.validity_days ?? '—'} days</td>
       <td>${_fmtDateTime(c.offer_start_date)}</td>
@@ -178,6 +180,9 @@ function openCampaignForm(id){
     document.getElementById('cfDescription').value = c.description || '';
     document.getElementById('cfPrice').value = c.price ?? '';
     document.getElementById('cfVisits').value = c.number_of_visits ?? 1;
+    document.getElementById('cfPurchaseMethod').value = c.purchase_method || 'gpay';
+    document.getElementById('cfCoinPrice').value = c.coin_price ?? '';
+    toggleCoinPriceField();
     document.getElementById('cfValidity').value = c.validity_days ?? 30;
     document.getElementById('cfPriority').value = c.priority ?? 1;
     document.getElementById('cfStart').value = c.offer_start_date ? c.offer_start_date.slice(0,16) : '';
@@ -192,6 +197,9 @@ function openCampaignForm(id){
     document.getElementById('cfService').value = 'Electrician';
     document.getElementById('cfPrice').value = '';
     document.getElementById('cfVisits').value = 1;
+    document.getElementById('cfPurchaseMethod').value = 'gpay';
+    document.getElementById('cfCoinPrice').value = '';
+    toggleCoinPriceField();
     document.getElementById('cfValidity').value = 30;
     document.getElementById('cfPriority').value = 1;
     document.getElementById('cfStart').value = '';
@@ -206,6 +214,15 @@ function openCampaignForm(id){
 function closeCampaignForm(){
   document.getElementById('campaignModal').classList.remove('on');
   _editingId = null;
+}
+
+function toggleCoinPriceField(){
+  const method = document.getElementById('cfPurchaseMethod').value;
+  const isCoins = method === 'coins';
+  document.getElementById('cfCoinPriceGrp').style.display = isCoins ? '' : 'none';
+  /* Coins-only campaigns have no ₹ price at all — hide the field
+     entirely rather than leaving a meaningless number sitting there. */
+  document.getElementById('cfPrice').closest('.fg').style.display = isCoins ? 'none' : '';
 }
 
 /* ── PART 5/6: PUBLISH (insert) or SAVE (update) ─────────────
@@ -227,25 +244,31 @@ async function publishCampaign(){
   const priority = parseInt(document.getElementById('cfPriority').value) || 1;
   const start = document.getElementById('cfStart').value;
   const end = document.getElementById('cfEnd').value;
+  const purchaseMethod = document.getElementById('cfPurchaseMethod').value;
+  const coinPrice = parseInt(document.getElementById('cfCoinPrice').value) || 0;
 
   if(!title){ errEl.textContent = 'Campaign title is required.'; return; }
   if(!service){ errEl.textContent = 'Service is required.'; return; }
-  if(isNaN(price) || price < 0){ errEl.textContent = 'Enter a valid price.'; return; }
+  if(purchaseMethod === 'gpay' && (isNaN(price) || price < 0)){ errEl.textContent = 'Enter a valid price.'; return; }
   if(!visits || visits < 1){ errEl.textContent = 'Number of visits must be at least 1.'; return; }
   if(!validity || validity < 1){ errEl.textContent = 'Pass validity must be at least 1 day.'; return; }
   if(!start || !end){ errEl.textContent = 'Campaign start and end dates are required.'; return; }
   if(new Date(end) <= new Date(start)){ errEl.textContent = 'Campaign end must be after campaign start.'; return; }
+  if(purchaseMethod === 'coins' && coinPrice < 1){ errEl.textContent = 'Enter a valid QuickCoins price.'; return; }
 
   const payload = {
     title, service,
     description: document.getElementById('cfDescription').value.trim() || null,
-    price, number_of_visits: visits, validity_days: validity,
+    price: purchaseMethod === 'coins' ? 0 : price,
+    number_of_visits: visits, validity_days: validity,
     emergency_included: document.getElementById('cfEmergency').checked,
     priority_booking: document.getElementById('cfPriorityBooking').checked,
     offer_start_date: new Date(start).toISOString(),
     offer_end_date: new Date(end).toISOString(),
     priority,
-    status: document.getElementById('cfStatus').value
+    status: document.getElementById('cfStatus').value,
+    purchase_method: purchaseMethod,
+    coin_price: purchaseMethod === 'coins' ? coinPrice : 0
   };
 
   const btn = document.getElementById('cfPublishBtn');
