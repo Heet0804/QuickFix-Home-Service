@@ -20,25 +20,10 @@
       <div class="lmark">Q</div>
       <span class="ltxt">Quick<span>Fix</span> <small style="font-size:.6rem;color:var(--text3);font-weight:600">WORKER</small></span>
     </a>
+    <div class="clock"><span class="cdot"></span><span class="ctm" id="istTime">--:--:--</span></div>
     <div class="nav-overlay" id="navOverlay" onclick="toggleMenu()"></div>
     <div class="nav-right" id="navRight">
       <button class="nav-close" onclick="toggleMenu()" aria-label="Close menu">✕</button>
-      <div class="avail-wrap">
-        <span class="avail-lbl">🚨 Emergency</span>
-        <label class="emerg-toggle">
-          <input type="checkbox" id="emergToggle" onchange="toggleEmergency()"/>
-          <div class="emerg-track"><div class="emerg-knob"></div></div>
-        </label>
-      </div>
-      <div class="avail-wrap">
-        <span class="avail-lbl">Status</span>
-        <label class="avail-toggle">
-          <input type="checkbox" id="availToggle" onchange="toggleAvailability()"/>
-          <div class="avail-track"><div class="avail-knob"></div></div>
-        </label>
-        <span class="avail-status off" id="availStatusTxt">Offline</span>
-      </div>
-      <div class="clock"><span class="cdot"></span><span class="ctm" id="istTime">--:--:--</span></div>
       <div class="nav-profile">
         <div class="nav-av">🔧</div>
         <div>
@@ -47,8 +32,8 @@
         </div>
       </div>
       <button class="nav-profile-btn" onclick="window.location.href='worker-profile.html'">👤 My Profile</button>
-      <button class="nav-profile-btn" onclick="openAchievements()" style="border-color:var(--teal);color:var(--teal)">🏆 Achievements</button>
-      <button class="nav-profile-btn" onclick="openCalendar()" style="border-color:var(--brand-mid);color:var(--brand)">📅 Calendar</button>
+      <button class="nav-profile-btn" onclick="openAchievements()">🏆 Achievements</button>
+      <button class="nav-profile-btn" onclick="openCalendar()">📅 Calendar</button>
       <button class="nav-logout" onclick="logout()">Logout</button>
     </div>
   </div>
@@ -66,6 +51,23 @@
         <span class="pc-radius" id="pcPhone">—</span>
         <span class="pc-radius" id="pcRadius">—</span>
         <span class="pc-radius" id="pcArea">—</span>
+      </div>
+    </div>
+    <div class="pc-toggles">
+      <div class="avail-wrap">
+        <span class="avail-lbl">🚨 Emergency</span>
+        <label class="emerg-toggle">
+          <input type="checkbox" id="emergToggle" onchange="toggleEmergency()"/>
+          <div class="emerg-track"><div class="emerg-knob"></div></div>
+        </label>
+      </div>
+      <div class="avail-wrap">
+        <span class="avail-lbl">Status</span>
+        <label class="avail-toggle">
+          <input type="checkbox" id="availToggle" onchange="toggleAvailability()"/>
+          <div class="avail-track"><div class="avail-knob"></div></div>
+        </label>
+        <span class="avail-status off" id="availStatusTxt">Offline</span>
       </div>
     </div>
     <div class="pc-stats">
