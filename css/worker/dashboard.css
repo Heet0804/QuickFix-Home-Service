@@ -113,10 +113,10 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 .pc-toggles .avail-wrap{gap:.4rem;flex-shrink:0}
 .pc-toggles .avail-lbl{font-size:.75rem;white-space:nowrap}
 .pc-toggles .avail-status{white-space:nowrap}
-.pc-stats{display:flex;gap:1.25rem;flex-wrap:wrap}
-.pc-stat{text-align:center;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:.55rem .875rem}
-.pc-stat strong{display:block;font-family:'Sora',sans-serif;font-size:1.1rem;font-weight:800;color:var(--text)}
-.pc-stat span{font-size:.68rem;color:var(--text3)}
+.pc-stats{display:flex;gap:1.25rem;flex-wrap:wrap;width:100%}
+.pc-stat{flex:1;min-width:100px;text-align:center;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:.9rem .875rem}
+.pc-stat strong{display:block;font-family:'Sora',sans-serif;font-size:1.4rem;font-weight:800;color:var(--text)}
+.pc-stat span{font-size:.78rem;color:var(--text3)}
 
 /* ── PERFORMANCE GRID ── */
 .perf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem;margin-bottom:1.5rem}
