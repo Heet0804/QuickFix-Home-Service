@@ -17,7 +17,7 @@
   --offline:#6b7280;--offline-light:#f3f4f6;
 }
 html,body{height:100%;width:100%}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;min-height:100vh}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden}
 h1,h2,h3,h4{font-family:'Sora',sans-serif}
 button,input,select,textarea{font-family:'DM Sans',sans-serif}
 ::-webkit-scrollbar{width:5px}
@@ -25,16 +25,17 @@ button,input,select,textarea{font-family:'DM Sans',sans-serif}
 
 /* ── NAV ── */
 nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.5rem;flex-shrink:0;position:sticky;top:0;z-index:200}
-.navi{display:flex;align-items:center;justify-content:space-between;height:62px;gap:1rem}
+.navi{display:flex;align-items:center;justify-content:flex-start;height:62px;gap:1rem}
 .logo{display:flex;align-items:center;gap:9px;text-decoration:none;flex-shrink:0}
-.lmark{width:34px;height:34px;background:var(--brand);border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-family:'Sora',sans-serif;font-size:1rem;box-shadow:0 2px 7px rgba(181,101,29,.35)}
-.ltxt{font-family:'Sora',sans-serif;font-size:1.15rem;font-weight:800;color:var(--text)}
+.lmark{width:34px;height:34px;background:var(--brand);border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-family:'Sora',sans-serif;font-size:1rem;box-shadow:0 2px 7px rgba(181,101,29,.35);flex-shrink:0}
+.ltxt{font-family:'Sora',sans-serif;font-size:1.15rem;font-weight:800;color:var(--text);white-space:nowrap}
 .ltxt span{color:var(--brand)}
-.nav-right{display:flex;align-items:center;gap:.75rem}
+.nav-right{display:flex;align-items:center;gap:.75rem;margin-left:auto}
 
 /* ── AVAILABILITY TOGGLE ── */
-.avail-wrap{display:flex;align-items:center;gap:.6rem}
-.avail-lbl{font-size:.78rem;font-weight:700;color:var(--text2)}
+.tgl-row{display:contents}
+.avail-wrap{display:flex;align-items:center;gap:.6rem;flex-shrink:0}
+.avail-lbl{font-size:.78rem;font-weight:700;color:var(--text2);white-space:nowrap}
 .avail-toggle{position:relative;width:50px;height:27px;cursor:pointer;flex-shrink:0}
 .avail-toggle input{opacity:0;width:0;height:0;position:absolute}
 .avail-track{
@@ -99,10 +100,19 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
   font-size:1.75rem;flex-shrink:0;
 }
 .pc-info{flex:1;min-width:140px}
-.pc-name{font-size:1.1rem;font-weight:800;color:var(--text);margin-bottom:2px}
+.pc-name{font-size:1.1rem;font-weight:800;color:var(--text);margin-bottom:2px;overflow-wrap:break-word}
 .pc-meta{font-size:.78rem;color:var(--text2);display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
 .pc-skill{display:inline-flex;align-items:center;gap:4px;background:var(--brand-light);color:var(--brand);font-size:.72rem;font-weight:700;padding:2px 9px;border-radius:50px}
 .pc-radius{font-size:.72rem;color:var(--text3);font-weight:500}
+.pc-toggles{
+  display:flex;flex-direction:row;align-items:center;flex-wrap:nowrap;
+  gap:.9rem;width:100%;padding:.75rem 0;
+  border-top:1px solid var(--border2);border-bottom:1px solid var(--border2);
+  margin:.15rem 0;
+}
+.pc-toggles .avail-wrap{gap:.4rem;flex-shrink:0}
+.pc-toggles .avail-lbl{font-size:.75rem;white-space:nowrap}
+.pc-toggles .avail-status{white-space:nowrap}
 .pc-stats{display:flex;gap:1.25rem;flex-wrap:wrap}
 .pc-stat{text-align:center;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:.55rem .875rem}
 .pc-stat strong{display:block;font-family:'Sora',sans-serif;font-size:1.1rem;font-weight:800;color:var(--text)}
@@ -160,9 +170,9 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 .job-left{display:flex;align-items:flex-start;gap:.875rem;flex:1;min-width:0}
 .job-ico{width:46px;height:46px;border-radius:11px;background:var(--brand-light);display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0}
 .job-ico.urg{background:#fef3c7}
-.job-name{font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:2px}
+.job-name{font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:2px;overflow-wrap:break-word}
 .job-meta{font-size:.76rem;color:var(--text2);display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
-.job-addr{font-size:.78rem;color:var(--text2);margin-top:.5rem;display:flex;gap:5px;align-items:flex-start}
+.job-addr{font-size:.78rem;color:var(--text2);margin-top:.5rem;display:flex;gap:5px;align-items:flex-start;overflow-wrap:break-word;min-width:0}
 .job-notes{font-size:.76rem;color:var(--text3);margin-top:.35rem;font-style:italic}
 .job-price{font-family:'Sora',sans-serif;font-weight:800;font-size:1.05rem;color:var(--brand);white-space:nowrap}
 .job-earn{font-size:.68rem;color:var(--teal);font-weight:700;text-align:right;margin-top:1px}
@@ -280,24 +290,38 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
   .nav-close{display:flex}
   nav{padding:0 .75rem}
   .navi{position:relative}
+  .clock{margin-left:auto;margin-right:.25rem}
   .nav-right{
-    display:flex;flex-direction:column;align-items:stretch;
+    display:flex !important;flex-direction:column;align-items:stretch;
     position:fixed;top:0;left:0;bottom:0;
     background:var(--surface);gap:.6rem;z-index:499;
     width:78vw;max-width:300px;padding:1.25rem 1rem 2rem;
     overflow-y:auto;
+    margin-left:0;
     transform:translateX(-100%);
-    transition:transform .32s cubic-bezier(.4,0,.2,1);
+    visibility:hidden;
+    transition:transform .32s cubic-bezier(.4,0,.2,1),visibility 0s linear .32s;
     box-shadow:0 0 40px rgba(0,0,0,.25);
   }
-  .nav-right.open{transform:translateX(0)}
+  .nav-right.open{transform:translateX(0);visibility:visible;transition:transform .32s cubic-bezier(.4,0,.2,1)}
+  .nav-close{align-self:flex-end}
   .nav-name,.nav-role{display:block}
-  .nav-profile{display:flex}
-  .nav-profile-btn,.nav-logout{min-height:44px}
+  .nav-profile{display:flex;width:100%;padding-bottom:.75rem;border-bottom:1px solid var(--border2);margin-bottom:.1rem}
+  .nav-profile-btn,.nav-logout{
+    min-height:44px;width:100%;justify-content:center;text-align:center;
+  }
 }
 
 /* ── MOBILE (≤680px) ──────────────────────────────────────── */
 @media(max-width:680px){
+  /* Nav: shrink logo + clock so hbg/logo/clock never overflow the bar */
+  nav{padding:0 .6rem}
+  .navi{gap:.5rem}
+  .ltxt{font-size:1rem}
+  .ltxt small{display:none}
+  .clock{font-size:.68rem;padding:4px 9px;gap:5px}
+  .clock .ctm{font-size:.72rem}
+
   /* Wrap */
   .wrap{padding:1rem .875rem 4.5rem}
 
@@ -337,6 +361,12 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
   .profile-card{padding:1rem}
   .tabs{gap:.2rem}
   .tab{font-size:.72rem;padding:6px 8px}
+  .lmark{width:28px;height:28px;font-size:.85rem}
+  .ltxt{font-size:.92rem}
+  .clock{padding:3px 7px;gap:4px}
+  .clock .ctm{font-size:.68rem}
+  .pc-toggles{gap:.6rem;overflow-x:auto}
+  .pc-toggles .avail-lbl{font-size:.68rem}
 }
 
 /* ── ACHIEVEMENTS ──────────────────────────────────────────── */
