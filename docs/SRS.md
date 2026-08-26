@@ -89,7 +89,7 @@ Backend access is exclusively through the Supabase JS client (`@supabase/supabas
 
 ### 2.5 Constraints (as observed in code)
 - The Geoapify API key is a plaintext client-side constant in `config.js` — there is no server-side proxy or key rotation mechanism in the codebase.
-- Booking creation, price calculation (including the 1.5× emergency multiplier), worker-assignment eligibility, and QuickCoins crediting are all computed and written from the browser via the Supabase JS client — there is no server-side validation layer or Postgres RPC guarding these writes (only `get_worker_stats` / `get_worker_stats_bulk` are RPCs, and those are read-only).
+- **Correction:** booking creation, both OTP verifications, pass activation, QuickCoins crediting, and pass-visit consumption are now written via server-side RPCs (`create_booking`, `verify_arrival_otp`/`_customer`, `verify_completion_otp`/`_customer`, `activate_pass`, `award_quickcoins`, `consume_pass_visit`), each tagged "Phase 6.4" at its call site. Worker-assignment eligibility and the price shown to the customer before submission remain client-computed; `create_booking`'s own comment states price is re-validated server-side.
 - `index.js` contains an in-app worker registration form (`submitReg()`) whose fields (category, experience, price, bio, Aadhaar number/photo, PAN, emergency flag) are collected in the UI but the corresponding `DB.saveReg()` call persists only `id`, `name`, `phone`, and `role:'worker'` to a `profiles` table — none of the professional/verification fields collected by this form are written anywhere. This is a genuine implementation gap, not a PRD interpretation issue.
 - Two independent OTP-verification code paths exist for the same booking lifecycle: `index.js` (`triggerOtp`/`verifyOtp`, invoked from the customer's Arrival modal) and `dashboard.js` (`submitArrivalOtp`/`submitCompletionOtp`, invoked from the worker dashboard). Both are capable of writing `status` transitions (`Arrived`, `Completed`) to the same `bookings` row through different code paths with different side effects (e.g. only the worker-dashboard path nulls `completion_otp` after verification and toggles `is_available`).
 - `is_no_show` is written by the customer-side `autoCancel()` function in `index.js`, but no corresponding column read/aggregation for this flag was found in `dashboard.js`'s or `profile.js`'s stats rendering — those instead read `no_show_count` from the `get_worker_stats` RPC, whose implementation is not part of the inspected client code.
@@ -155,9 +155,9 @@ Each module below is documented with Description, Inputs, Outputs, Processing, E
 **Outputs.** Updates to `bookings.status`/`w_status`/`worker_earning`/`accepted_at`, and to `workers.is_available`.
 
 **Processing.**
-- `confirmAccept()`: re-reads the booking's live `status` immediately before writing, and only proceeds if it is still `Pending`/`Scheduled`/`Confirmed` (a `.in('status', [...])` guard on the update itself prevents a race where two workers accept simultaneously); sets `worker_earning = round(price * 0.80)`, `accepted_at`, `status='Accepted'`, `w_status='Accepted'`; then calls `setWorkerAvailability(false)` — accepting a job automatically takes the worker offline.
-- `confirmReject()`: sets `status='Rejected'`, `w_status='Rejected'`.
-- `confirmCancelAccepted()`: sets `status='Cancelled'`, `w_status='Cancelled'`, guarded by `.eq('status','Accepted')` so only a still-Accepted booking can be cancelled this way; also tears down any open "Track Customer" map for that booking.
+- `confirmAccept()`: **correction** — no longer a raw client update. Calls `sb.rpc('accept_booking', { p_booking_id })`; the race guard, `worker_earning` calculation, and status writes now happen inside the RPC. `setWorkerAvailability(false)` is still called client-side after success.
+- `confirmReject()`: **correction** — not a database write. Adds the job id to a local `_dismissedJobIds` set and re-renders; per the function's own comment, a broadcast job (`worker_id IS NULL`) must never have `status:'Rejected'` written to the shared row, or every other eligible worker would lose the job too.
+- `confirmCancelAccepted()`: unchanged — still a direct `sb.from('bookings').update({status:'Cancelled', w_status:'Cancelled'})` guarded by `.eq('status','Accepted')`; also tears down any open "Track Customer" map for that booking.
 - `markArrived()` simply opens the Arrival OTP modal (see §3.13); the `Arrived` status transition itself happens only on OTP success.
 - On Completion OTP success, `setWorkerAvailability(true)` is called — the worker is automatically brought back online.
 
@@ -275,9 +275,9 @@ Worker-side: `dashboard.js: toggleEmergency()` writes `workers.emergency_availab
 
 **Description.** Two independently coded OTP-verification paths exist, as noted in Section 2.5.
 
-**Worker-side (`dashboard.js`, canonical for the worker dashboard).** `submitArrivalOtp()` compares the entered value against the booking's stored `arrival_otp`; on match, nulls `arrival_otp`, generates and stores a fresh six-digit `completion_otp` (`Math.floor(100000+Math.random()*900000)`), sets `status/w_status='Arrived'`, `arrived_at`, `started_at`, and tears down the worker's own "Track Customer" map. `submitCompletionOtp()` compares against `completion_otp`; on match, nulls `completion_otp`, sets `status/w_status='Completed'`, `completed_at`, and brings the worker back online.
+**Worker-side (`dashboard.js`).** **Correction: no longer a client-side comparison.** `submitArrivalOtp()` calls `sb.rpc('verify_arrival_otp', { p_booking_id, p_entered_otp })`; `submitCompletionOtp()` calls `sb.rpc('verify_completion_otp', { p_booking_id, p_entered_otp })`. The client never reads or compares `arrival_otp`/`completion_otp` itself — it only sends the entered value and acts on the RPC's success/failure result.
 
-**Customer-side (`index.js`).** `triggerOtp(mode)` opens a generic OTP modal from the customer's Arrival dialog; `verifyOtp()` compares the entered value against `arrivalOtp`/`arrival_otp` or `completionOtp`/`completion_otp` on the booking and, on match, writes `status='Arrived'`/`arrived_at` or `status='Completed'`/`completed_at` directly — this path does not null the OTP field it just verified, nor does it touch `w_status`, `worker_earning` timing, or worker availability.
+**Customer-side (`index.js`).** **Correction: also no longer a client-side comparison.** The customer path calls its own separate RPCs, `verify_arrival_otp_customer`/`verify_completion_otp_customer` (each `{ p_booking_id, p_entered_otp }`) — genuinely distinct functions from the worker-side pair, not an alias, confirming the "two independently coded OTP paths" characterization elsewhere in this document, but at the RPC layer now rather than the client-comparison layer.
 
 **Error Handling.** Both paths reject a non-matching entry with a toast and allow unlimited re-entry (no attempt counter, no lockout) — consistent between both implementations.
 
@@ -424,7 +424,7 @@ RPCs called: `get_worker_stats(p_worker_id)`, `get_worker_stats_bulk(p_worker_id
 - Emergency price = `round(fixedBasePrice * 1.5)`, applied identically in both the live price display and the stored booking price.
 
 ### 7.4 QuickCoins Rules
-- Coins = `round(basePrice * 0.05)`, computed on the true service price (`base_price`), never on a pass-discounted `price`.
+- **Correction:** the coin computation is no longer verifiably client-side — `awardQuickCoins()` now sends only `p_booking_id` to the `award_quickcoins` RPC. The `round(basePrice*0.05)` formula may still hold, but it now executes server-side, in a body not part of the inspected client code.
 - Crediting fires exactly once per booking per browser session, gated by the "first sighting = baseline only" pattern described in §3.7.
 - QuickCoins are explicitly non-withdrawable virtual points (`walletModal` copy in `index.html`); `quickcoins_redeemed` is read for display but never written anywhere in the client code — there is no redemption code path implemented.
 
