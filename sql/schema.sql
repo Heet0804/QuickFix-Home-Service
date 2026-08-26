@@ -85,6 +85,29 @@ CREATE TABLE users (
 );
 
 -- =====================================================
+-- PROFILES
+-- Not among DATABASE.md's documented 9 tables, but confirmed required by
+-- the client: index.js's in-app worker-registration path (DB.saveReg())
+-- calls sb.from('profiles').upsert({ id, name, phone, role }) — a real,
+-- live call. No CREATE TABLE for it existed anywhere in this SQL
+-- package. Columns limited to exactly what the client writes; this does
+-- NOT add the additional professional/verification fields the
+-- registration form collects but never persists (API.md §3).
+-- =====================================================
+
+CREATE TABLE profiles (
+    id     UUID NOT NULL,
+    name   TEXT,
+    phone  TEXT,
+    role   TEXT,
+
+    CONSTRAINT profiles_pkey PRIMARY KEY (id),
+    -- INFERRED, same auth-linking pattern used for users.id/workers.id.
+    CONSTRAINT profiles_id_fkey FOREIGN KEY (id)
+        REFERENCES auth.users (id)
+);
+
+-- =====================================================
 -- WORKERS
 -- =====================================================
 
