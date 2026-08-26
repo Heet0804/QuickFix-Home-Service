@@ -274,28 +274,28 @@ Geocoding
 Location Pin (new address) OR Reuse Saved Pin (unchanged address)
       │
       ▼
-Worker Assignment
+Job Broadcast to All Eligible Workers
       │
       ▼
-Worker Accepts
+First Worker to Accept (accept_booking RPC)
       │
       ▼
 Track Worker (Live Route + Live ETA)
       │
       ▼
-Arrival OTP
+Arrival OTP (verified server-side via RPC)
       │
       ▼
 Service Started
       │
       ▼
-Completion OTP
+Completion OTP (verified server-side via RPC)
       │
       ▼
 Payment
       │
       ▼
-QuickCoins
+QuickCoins (awarded server-side, redemption tiers server-verified)
       │
       ▼
 Review
@@ -312,7 +312,7 @@ Achievements
 
 - HTML5
 - CSS3
-- Vanilla JavaScript
+- Vanilla JavaScript (modular: `js/common/` shared modules + per-page scripts)
 
 ### Backend
 
@@ -320,18 +320,23 @@ Achievements
   - Authentication
   - PostgreSQL Database
   - Realtime
-  - RPC Functions
+  - RPC Functions — now the trusted path for OTP verification, QuickCoins
+    crediting, pass activation/consumption, and broadcast job assignment
+  - Row Level Security (RLS) — hardened in Phase 6; several previously
+    client-writable fields are now server/RPC-owned only
+  - Edge Functions — `geoapify-proxy`, isolating the Geoapify API key server-side
 
 ### Maps & Routing
 
 - Leaflet.js
 - OpenStreetMap
-- Geoapify Routing API — road-following route generation and live ETA/distance
+- Geoapify Routing API — road-following route generation and live ETA/distance,
+  called via the `geoapify-proxy` Edge Function rather than directly from the client
 
 ### Location & Geocoding
 
 - Nominatim (OpenStreetMap) — customer address validation and area-match geocoding (Phase 4.2)
-- Geoapify Reverse Geocoding API — resolves the manually pinned marker to a building/society name, shown on the customer's pin picker and on both dashboards' tracking maps
+- Geoapify Reverse Geocoding API — resolves the manually pinned marker to a building/society name, shown on the customer's pin picker and on both dashboards' tracking maps; routed through `geoapify-proxy` so no API key ships to the browser
 - `navigator.geolocation.watchPosition()` — continuous live worker GPS publishing
 - Leaflet drag/tap marker picker — permanent customer building-location pinning
 
@@ -352,6 +357,41 @@ QuickFix/
 ├── admin.html                 # Admin Portal
 ├── worker-dashboard.html      # Worker Dashboard
 ├── worker-profile.html        # Worker Profile
+│
+├── css/
+│   ├── customer/
+│   │   └── index.css
+│   ├── worker/
+│   │   ├── dashboard.css
+│   │   └── profile.css
+│   ├── admin/
+│   │   └── admin.css
+│   ├── landing/
+│   │   └── landing.css
+│   └── auth/
+│       └── auth.css
+│
+├── js/
+│   ├── common/                # Shared across all pages
+│   │   ├── supabase.js        # Supabase client (window.sb)
+│   │   ├── config.js          # Shared app config
+│   │   ├── constants.js       # Centralized magic numbers / enums
+│   │   ├── utils.js           # Generic helpers (markErr, closeModal, getIST, escHtml…)
+│   │   ├── toast.js           # showToast()
+│   │   ├── maps.js            # Geoapify proxy calls, route formatting, marker animation
+│   │   └── nav.js             # Shared mobile nav toggle (worker pages)
+│   ├── customer/
+│   │   └── index.js
+│   ├── worker/
+│   │   ├── dashboard.js
+│   │   └── profile.js
+│   ├── admin/
+│   │   └── admin.js
+│   ├── landing/
+│   │   └── landing.js
+│   └── auth/
+│       └── auth.js
+│
 ├── assets/
 ├── images/
 └── README.md
@@ -362,20 +402,21 @@ QuickFix/
 # 🚀 Highlights
 
 - ✅ Full service lifecycle management
-- ✅ Area-based worker allocation
+- ✅ Broadcast-model job assignment — a new job is visible to every eligible worker, first to accept via `accept_booking()` gets it
 - ✅ Dynamic worker ranking
 - ✅ Customer address validation against selected service area
 - ✅ Building-level customer geocoding (no area-center fallback for new bookings)
 - ✅ Permanent, reusable customer location pinning with exact-match detection on repeat bookings
 - ✅ Continuous live GPS tracking for the worker via `watchPosition()`
-- ✅ Road-following route generation via the Geoapify Routing API, shared across both dashboards — always solid, blue and rounded, never a straight or dashed line
+- ✅ Road-following route generation via the Geoapify Routing API (now proxied through a Supabase Edge Function), shared across both dashboards — always solid, blue and rounded, never a straight or dashed line
 - ✅ Destination building name resolved via Geoapify Reverse Geocoding, shown identically on both dashboards
 - ✅ Live route refresh as the worker moves — no map, marker, or polyline recreation
-- ✅ Live Distance Remaining & ETA, computed from the existing OSRM response with zero extra network calls
+- ✅ Live Distance Remaining & ETA, computed from the existing route response with zero extra network calls
 - ✅ Automatic map fitBounds — no manual zooming required
-- ✅ OTP verification for arrival & completion
-- ✅ QuickCoins wallet with lifetime coin tracking
-- ✅ Service Passes with priority booking
+- ✅ OTP verification for arrival & completion — verified and written entirely server-side via RPC
+- ✅ QuickCoins wallet with lifetime coin tracking, credited server-side via `award_quickcoins()`
+- ✅ QuickCoins redemption with fixed tiers, independently recomputed and enforced server-side via `quickcoins_redemption_value()`
+- ✅ Service Passes with priority booking, including coin-only passes with a dedicated redemption flow
 - ✅ Offers system
 - ✅ Complete, securely hidden Admin Portal
 - ✅ Achievement engine (fully dynamic, database-driven)
@@ -383,67 +424,100 @@ QuickFix/
 - ✅ Fully responsive UI across 4K, desktop, laptop, tablet, foldables and phones (portrait & landscape)
 - ✅ Hamburger navigation with slide-in drawer on landing, customer, and admin screens — desktop nav unchanged
 - ✅ Admin tables scroll within their own container — no page-level horizontal scroll
-- ✅ Real-time updates
+- ✅ Real-time updates, with reduced fallback polling now that Realtime is primary
 - ✅ Production-style workflow
 - ✅ Phase 4 tracking system fully completed
 - ✅ Automatic cleanup of Leaflet tracking resources
 - ✅ Production-ready tracking lifecycle
 - ✅ Cleaner production console
+- ✅ Modular `css/` and `js/` folder structure with shared common modules (Phase 5)
+- ✅ Zero client-side API secrets — Geoapify key isolated behind an Edge Function (Phase 6)
+- ✅ Server-trusted business logic for OTP, QuickCoins, and passes via atomic RPCs (Phase 6)
 
 ---
 
-# 🚀 Future Roadmap
+# ✅ Phase 5–7 Complete
 
 ## 🧹 Phase 5 — Project Refactor & Professional Codebase
 
-Transform QuickFix from a prototype into a production-quality codebase.
+QuickFix has been transformed from a prototype into a production-quality codebase.
 
-Planned work:
+Completed work:
 
 - Split HTML, CSS, and JavaScript into separate files
-- Create a professional folder structure
-- Modularize reusable JavaScript components
-- Remove duplicated code
-- Create SQL setup scripts
-- API documentation
-- Better project documentation
-- Improve GitHub repository structure
-- Professional README
-- Overall codebase cleanup and maintainability improvements
+- Created a professional folder structure (`css/{customer,worker,admin,landing,auth}/`,
+  `js/{common,customer,worker,admin,landing,auth}/`)
+- Modularized reusable JavaScript components — shared modules for Supabase client
+  (`supabase.js`), app config (`config.js`), constants (`constants.js`), generic
+  utilities (`utils.js`), toast notifications (`toast.js`), map/routing helpers
+  (`maps.js`), and mobile nav (`nav.js`)
+- Removed duplicated code — toast, IST clock, date formatting, modal-close, HTML
+  escaping, mobile nav toggle, and tracking math (route fetch, distance/duration
+  formatting, marker animation) each consolidated into a single implementation,
+  with backward-compatible aliases preserved where call sites depended on old names
+- Hardcoded magic numbers (timeouts, delays, poll intervals) consolidated into a
+  single `CONSTANTS` object
+- Overall codebase cleanup and maintainability improvements across all five pages
 
 ---
 
 ## 🔒 Phase 6 — Backend Hardening & Production Readiness
 
-Prepare QuickFix for real production deployment.
+QuickFix has been prepared for real production deployment.
 
-Planned work:
+Completed work:
 
-- Improve Supabase Row Level Security (RLS)
-- Move sensitive business logic to backend functions
-- Better validation
-- Secure API key handling
-- Optimize database queries
-- Improve performance
-- Prepare for multiple concurrent users
-- Production-level backend architecture
+- Improved Supabase Row Level Security (RLS) — customers can no longer write
+  `Worker on Way` status, set `is_no_show`, or write to `user_passes` directly
+  (blocked by `trg_prevent_direct_pass_tampering`)
+- Moved sensitive business logic to backend functions — OTP verification (arrival &
+  completion), QuickCoins crediting, and pass consumption now run as atomic,
+  server-side RPCs (`verify_arrival_otp`, `verify_completion_otp`,
+  `award_quickcoins`, `consume_pass_visit`) instead of client-side writes
+- Better validation — service pass activation (`activate_pass`) re-reads the real
+  campaign row server-side rather than trusting client-supplied visit counts,
+  validity, or perks
+- Secure API key handling — `GEOAPIFY_API_KEY` removed from the client entirely;
+  routing and reverse geocoding now go through a `geoapify-proxy` Supabase Edge
+  Function, with the key stored only as a server-side secret
+- Optimized database queries — single-worker lookups no longer pull a full
+  `workers` table scan plus a bulk stats RPC just to find one row; service search
+  is debounced (300ms) instead of firing a fetch on every keystroke
+- Improved performance — worker dashboard fallback poll reduced from 5s to 30s and
+  admin dashboard poll reduced from 4s to 15s, now that Supabase Realtime is the
+  primary sync mechanism and these are just safety-net fallbacks
+- Prepared for multiple concurrent users — booking assignment changed from a
+  single-worker lock to a broadcast model: a new job is visible to every eligible
+  worker via `get_available_jobs()`, and `accept_booking()` atomically awards it
+  to whichever eligible worker accepts first
+- Production-level backend architecture — client-trusted values reduced to IDs
+  only (e.g. `campaign.id`, `booking.id`); all derived values (discounts, coin
+  balances, pass validity) are recomputed and enforced server-side
 
 ---
 
 ## 🪙 Phase 7 — QuickCoins Ecosystem
 
-Expand the customer loyalty platform.
+The customer loyalty platform has been expanded.
 
-Planned work:
+Completed work:
 
-- QuickCoins earning improvements
-- Wallet enhancements
-- Coin redemption
-- Promotional campaigns
-- Service Pass improvements
-- Priority booking
-- Offers ecosystem
-- Future loyalty features
+- QuickCoins earning — unchanged automatic crediting on booking completion, now
+  verified server-side via `award_quickcoins()`
+- Wallet enhancements — persistent balance and lifetime-earned tracking, shown from
+  the Quick Wallet modal
+- Coin redemption — fixed redemption tiers (e.g. 1000 coins → ₹200 off), mirrored
+  server-side by `quickcoins_redemption_value()`; the client's tier list is
+  display-only, the server independently recomputes and enforces the discount and
+  never trusts the client-sent value
+- Promotional campaigns — admin-managed campaigns support both GPay and
+  QuickCoins-only purchase methods
+- Service Pass improvements — coin-only campaign passes get a dedicated pure
+  redemption flow (no QR/GPay/timer), calling `activate_pass()` directly
+- Priority booking — unchanged, still tied to active Service Passes
+- Offers ecosystem — redemption and an active Service Pass are mutually exclusive,
+  enforced identically on client and server
+- Future loyalty features — foundation in place for further expansion
 
 ---
 
@@ -491,6 +565,18 @@ Tracking System Stabilization & Resource Cleanup
 
 v4.10
 Responsive UI Overhaul & Hamburger Navigation (Landing, Customer App, Admin Portal)
+
+v5.0
+Project Refactor — Modular css/ and js/ Folder Structure, Shared Common Modules,
+Deduplicated Logic
+
+v6.0
+Backend Hardening — Server-Side RPCs for OTP/QuickCoins/Passes, Tightened RLS,
+Broadcast Booking Model, Geoapify Key Moved Behind Edge Function Proxy
+
+v7.0
+QuickCoins Ecosystem — Server-Verified Redemption Tiers, Coin-Only Campaign
+Passes, Redemption/Pass Mutual Exclusivity
 ```
 
 ---
