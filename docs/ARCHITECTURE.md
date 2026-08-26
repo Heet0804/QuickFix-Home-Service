@@ -43,7 +43,7 @@ QuickFix is a **client-heavy, backend-as-a-service** architecture. There is no c
                  │  - Auth                   │
                  │  - Postgres (CRUD + RLS)  │
                  │  - Storage (2 buckets)    │
-                 │  - RPC (2 functions)      │
+                 │  - RPC (12+ functions)    │
                  │  - Realtime (postgres_changes) │
                  └───────────────────────────┘
                              │
@@ -101,9 +101,10 @@ Backend responsibilities, as actually exercised by the client:
 | Data persistence (CRUD) | `sb.from('<table>').select/insert/update/delete/upsert` | `index.js`, `dashboard.js`, `profile.js`, `admin.js`, `auth.js` |
 | File storage | Supabase Storage, buckets `worker-documents` and `worker-photos` | `auth.js` (worker signup only) |
 | Read-only aggregation | Two Postgres RPCs: `get_worker_stats(p_worker_id)`, `get_worker_stats_bulk(p_worker_ids)` | `dashboard.js`, `profile.js`, `index.js` |
+| Server-authoritative writes | At least 8 further RPCs — `create_booking`, `accept_booking`, `get_available_jobs`, `verify_arrival_otp`/`verify_arrival_otp_customer`, `verify_completion_otp`/`verify_completion_otp_customer`, `activate_pass`, `award_quickcoins`, `consume_pass_visit` — each call site carries its own "Phase 6.4" code comment | `index.js`, `dashboard.js` |
 | Push-style sync | Supabase Realtime `postgres_changes` channel | `dashboard.js` only (see Section 11) |
 
-There is **no server-side business-logic layer**: booking price computation (including the 1.5× emergency multiplier), worker-assignment eligibility, QuickCoins crediting, and Service Pass consumption are all computed and written directly from browser JavaScript. The only backend-computed values consumed by the client are the two read-only RPCs above; their SQL definitions are not part of the inspected source and are therefore out of scope for this document, consistent with SRS §2.6.
+**Correction: no longer accurate.** Booking creation, acceptance, both OTP verifications, Service Pass activation, QuickCoins crediting, and pass-visit consumption now go through the server-authoritative RPCs above — e.g. `activatePass()`'s own comment states "the client no longer decides visit counts, validity, or perks... `campaign.id` is the only client-supplied value trusted," and `awardQuickCoins()` passes only `p_booking_id`, no client-computed coin amount. Only **worker-assignment eligibility** and the **pre-submission price display** remain purely client-computed; `create_booking`'s own comment states price is re-validated server-side. RPC bodies are not part of the inspected source and remain out of scope, consistent with SRS §2.6.
 
 ---
 
@@ -279,10 +280,10 @@ Implemented in parallel on the customer side (`index.js`) and worker side (`dash
 
 - **Lifecycle states.** `Pending` → `Accepted` → `Arrived` → `Completed`, with `Rejected` and `Cancelled` as terminal side-branches. Both a customer-facing `status` and a worker-facing `w_status` column exist on `bookings` and can diverge (e.g. `status='Pending'` with no `w_status` yet).
 - **Assignment.** `getEligibleWorkersForArea()` filters the already `is_available=true`, skill-matched worker pool by Haversine distance from the **selected area's coordinates** (not the customer's exact pin) to each worker's stored `lat/lng`, requiring `distance <= worker.radius AND distance <= MAX_ASSIGN_KM (10 km)`, sorted nearest-first with a >0.5 km "clearly nearer wins" tie-break, falling back to `worker_score`.
-- **Race protection.** Every status-transition write (`confirmAccept`, `confirmReject`, `confirmCancelAccepted`, both OTP verifications) is guarded by a `.eq()`/`.in()` condition on the current status at write time, not merely a client-side check before the write.
+- **Race protection — correction.** Race guarding for acceptance and both OTP verifications now runs inside the server-side RPCs (`accept_booking`, `verify_arrival_otp`/`_customer`, `verify_completion_otp`/`_customer`), which take only `p_booking_id`/`p_entered_otp` — no client-issued status guard. `confirmCancelAccepted()` (worker) and `cancelBk()` (customer) remain direct, `.eq()`-guarded client writes. `confirmReject()` is not a database write at all — see the booking-architecture note below.
 - **Dual OTP paths.** Two independently coded verification implementations exist for the same lifecycle transitions: `index.js` (`triggerOtp`/`verifyOtp`, customer-invoked) and `dashboard.js` (`submitArrivalOtp`/`submitCompletionOtp`, worker-invoked). They differ in side effects — only the worker-dashboard path nulls the verified OTP field and toggles `is_available`.
 - **Payment.** Two methods for a booking (`selectPay('gpay'|'cash')`); GPay is a simulated flow (`checkPayStatus()` auto-succeeds after 3 polling ticks); Cash proceeds straight to broadcast, with work withheld until Arrival OTP success.
-- **Client-only enforcement.** All of the above — price, eligibility, OTP transitions — is computed and written from the browser via the Supabase JS client; there is no server-side validation layer or Postgres RPC guarding these specific writes.
+- **Client-only enforcement — correction.** No longer accurate for booking creation or OTP transitions: `create_booking` and the four OTP-verification RPCs are the actual write path. Worker-assignment eligibility and the pre-submission price display remain client-computed.
 
 ---
 
@@ -290,7 +291,7 @@ Implemented in parallel on the customer side (`index.js`) and worker side (`dash
 
 - **Trigger.** Client-observed, one-shot crediting the moment a booking transitions from `Arrived` to `Completed` while the customer app is open (`checkQuickCoinsRewards`, driven by `renderBookings()` polling — not a push event).
 - **Baseline pattern.** Two in-memory, per-page-load-only structures — `qcLastStatus` (last observed status per booking) and `qcRewardedIds` (already-rewarded ids this session) — ensure the **first** time a booking is seen in a session, its status is recorded as a baseline only and never rewarded, even if already `Completed`. A reward fires only on an observed `Arrived → Completed` transition.
-- **Calculation.** `awardQuickCoins()` computes `coins = round(basePrice * 0.05)`, preferring `base_price`/`basePrice` over the possibly pass-discounted `price` field, so a ₹0 pass-covered booking still earns coins on its true service value.
+- **Calculation — correction.** `awardQuickCoins()` no longer computes the coin figure client-side; it calls `sb.rpc('award_quickcoins', { p_booking_id })`, passing only the booking id. The 5%-of-base-price formula appears to now live inside the RPC (body not part of the inspected client code), not in `index.js`.
 - **Double-credit prevention.** `qcRewardedIds` is marked **before** the awaiting database call completes, specifically to prevent an overlapping poll tick from double-crediting the same booking.
 - **Wallet.** A read-only modal (`openQuickWallet`) displays `quickcoins_balance`, `quickcoins_earned`, `quickcoins_redeemed`, `total_completed_bookings`, fetched fresh on every open. `quickcoins_redeemed` is read but never written anywhere in the client code — there is no redemption code path implemented (matches PRD §21.3/§24.3 — redemption is an explicit Phase 7 item).
 - **Open product decision.** The 5%-of-base-price rate is a concrete implementation value; PRD §10A.1 records the QuickCoins earning rate as an explicit open Product decision, and this discrepancy is not reconciled anywhere in the client code.
@@ -305,7 +306,7 @@ Implemented in parallel on the customer side (`index.js`) and worker side (`dash
 | Auth session | Supabase Auth with `persistSession:true, autoRefreshToken:true, detectSessionInUrl:false` | — |
 | Worker document handling | Uploaded to Storage buckets `worker-documents`/`worker-photos` with randomized filenames | No retention, encryption-at-rest, or deletion policy defined anywhere in the inspected source (PRD §22A.5, open compliance item) |
 | API key handling | `CONFIG.GEOAPIFY_API_KEY` is a plaintext client-side constant in `config.js` | No server-side proxy or key rotation mechanism exists |
-| Business-rule enforcement | Booking price, worker eligibility, and QuickCoins crediting are all computed and written client-side | No server-side validation layer or RLS-backed function guards these specific writes, beyond the `.eq()`/`.in()` status guards described in Section 12 |
+| Business-rule enforcement | Booking creation, acceptance, OTP verification, pass activation, and QuickCoins crediting go through server-side RPCs (Section 4); worker-assignment eligibility and pre-submission price display remain client-computed | RPC bodies aren't part of the inspected client code, so the actual enforcement inside them can't be verified — narrower gap than previously stated, not eliminated |
 | Signup failure handling | If a worker's `workers` row insert fails, the just-created worker row is deleted and the auth session is signed back out, preventing an orphaned auth account | — |
 | Error surfacing | Toast/inline-banner convention throughout; the sole exception is upload failures during worker signup, surfaced via a blocking `alert()` in addition to `console.error()` | Inconsistent error-surfacing convention in this one path |
 
