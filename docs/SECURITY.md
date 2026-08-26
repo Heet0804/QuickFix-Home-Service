@@ -94,7 +94,7 @@ Gated by `checkAdminRole(email)`, which queries `admins.is_active` for the signe
 
 - The admin check queries `admins.is_active` from the browser. If Row Level Security is not independently enforcing the same restriction at the Postgres layer, a client capable of forging or replaying requests directly against the Supabase REST endpoint (bypassing `admin.js` entirely) could potentially read or write tables the admin UI gates, without ever passing the `is_active` check (`DATABASE.md` §9).
 - The same caveat applies symmetrically to the worker dual-signal check and the customer session check: they gate which **page renders**, not which **database rows can be read or written**. Whether RLS independently enforces per-role restrictions on `workers`, `users`, `bookings`, `admins`, or any other table cannot be confirmed from the inspected client code, because no RLS policy definition or migration file was supplied with the project (`DATABASE.md` §9, `PRD.md` §22A.2).
-- Booking price, worker assignment, and QuickCoins crediting are computed and written entirely from the browser via the Supabase JS client, with no server-side validation layer or Postgres RPC guarding these specific writes (`ARCHITECTURE.md` §12 "Client-only enforcement").
+- **Correction:** booking creation, OTP verification, pass activation, and QuickCoins crediting now go through server-side RPCs, not direct client writes (`ARCHITECTURE.md` §4, §12, corrected). Worker-assignment eligibility remains client-computed. RPC bodies are not part of the inspected client code, so their actual server-side enforcement can't be independently verified — this narrows, but does not close, the gap.
 
 This gap is not resolved anywhere in the current codebase; it is explicitly named as Phase 6 work (Section 11).
 
@@ -122,7 +122,7 @@ No table in the schema has a confirmed, verified access-control policy from this
 
 ### 4.3 Sensitive Columns
 
-- `bookings.arrival_otp`, `bookings.completion_otp` — six-digit OTP values stored as **plaintext columns**, with no attempt limit or lockout on either verification path (`DATABASE.md` §9, `API.md` §10).
+- `bookings.arrival_otp`, `bookings.completion_otp` — six-digit OTP values stored as **plaintext columns**, with no attempt limit or lockout on either verification path (`DATABASE.md` §9, `API.md` §10). **Update:** verification itself has moved server-side (`verify_arrival_otp`/`_customer`, `verify_completion_otp`/`_customer` RPCs) — the client no longer reads or compares the plaintext value directly, which reduces (but given the still-unverified RLS/SELECT posture, does not confirm elimination of) client-side exposure of the correct OTP.
 - `workers.document_url`, `workers.document_name` — reference government ID document uploads; no encryption-at-rest, retention, or deletion policy is defined anywhere in the inspected source (`PRD.md` §22A.5, an explicitly open compliance item).
 - `users.quickcoins_balance`, `quickcoins_earned`, `quickcoins_redeemed` — wallet balance fields, writable via the same client-side crediting path described in Section 3.4.
 
@@ -252,7 +252,7 @@ The following are current, verified limitations — not speculative risks:
 
 1. **Row Level Security cannot be confirmed.** No RLS policy definition or migration file exists in the inspected project; this document cannot state whether any table is protected at the database layer (Section 4.1).
 2. **Client-side authorization only.** Admin, worker, and customer access gates all run in the browser; none is confirmed to be backed by an independent database-level policy (Section 3.4).
-3. **Client-side business logic for sensitive writes.** Booking price, worker assignment, and QuickCoins crediting are computed and written from the browser with no server-side validation layer (Section 3.4, `PRD.md` §22A.2).
+3. **Client-side business logic — narrowed.** Booking creation, OTP verification, pass activation, and QuickCoins crediting are now written via server-side RPCs (Section 3.4, corrected). Worker-assignment eligibility remains client-computed with no server-side re-check confirmed.
 4. **Plaintext API keys.** The Supabase anon key and the Geoapify API key are both hardcoded plaintext constants in committed source files, with no environment-variable injection or server-side proxy (Section 5).
 5. **Unencrypted OTPs with no lockout.** `arrival_otp` and `completion_otp` are stored as plaintext columns with unlimited re-entry attempts and no lockout mechanism (Section 4.3).
 6. **Government ID documents are publicly retrievable by URL.** No authentication is required to fetch a worker's uploaded ID document or photo if the URL is known, and no retention/encryption/deletion policy exists for this data (Section 6.2, `PRD.md` §22A.5).
