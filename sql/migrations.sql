@@ -76,6 +76,22 @@ create table if not exists admins (
 alter sequence admins_id_seq owned by admins.id;
 
 -- ------------------------------------------------------------
+-- 1.3a profiles
+-- Not in DATABASE.md's documented table list, but confirmed required by
+-- index.js's sb.from('profiles').upsert() call (in-app worker
+-- registration). No CREATE TABLE for it existed anywhere in this
+-- package until now.
+-- ------------------------------------------------------------
+create table if not exists profiles (
+    id     uuid not null,
+    name   text,
+    phone  text,
+    role   text
+);
+alter table profiles add constraint profiles_pkey primary key (id);
+alter table profiles add constraint profiles_id_fkey foreign key (id) references auth.users (id);
+
+-- ------------------------------------------------------------
 -- 1.4 workers
 -- ------------------------------------------------------------
 create table if not exists workers (
