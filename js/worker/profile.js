@@ -51,6 +51,7 @@ let UnlockedAchievements=[];  /* worker_achievements rows — profile never deci
 
   await loadStats();
   await loadAchievements();
+  await loadFeedbackTags();
 
   document.getElementById('loadingState').style.display='none';
   document.getElementById('profileContent').style.display='block';
@@ -76,6 +77,24 @@ async function loadAchievements(){
   UnlockedAchievements=data||[];
 }
 
+/* Customer feedback tags — positive-only, server-computed via RPC.
+   The RPC deliberately never returns rating or comment text; only
+   aggregated counts from a fixed positive-tag whitelist, so a worker
+   can never see negative tags or free-text feedback even by
+   inspecting network calls directly — there is no direct table
+   access to reviews for this role at all. */
+const POSITIVE_TAG_LABELS={
+  well_mannered:'😊 Well-mannered', punctual:'⏰ Punctual', professional:'💼 Professional',
+  well_spoken:'🗣️ Well-spoken', skilled:'🛠️ Skilled work', clean_work:'✨ Clean & tidy',
+  good_value:'💰 Good value', friendly:'🤝 Friendly'
+};
+let PositiveFeedbackTags=[];
+async function loadFeedbackTags(){
+  const {data,error}=await sb.rpc('get_worker_positive_tags');
+  if(error){ console.error('get_worker_positive_tags:',error.message); PositiveFeedbackTags=[]; return; }
+  PositiveFeedbackTags=data||[];
+}
+
 /* ════════════════════════════════════════════════════════════
    RENDER ALL
    ════════════════════════════════════════════════════════════ */
@@ -84,6 +103,7 @@ function renderAll(){
   renderPerf();
   renderDetails();
   renderBadges();
+  renderFeedbackTags();
   renderEarnings();
 }
 
@@ -295,6 +315,19 @@ function openBadgesModal(){
 
 function closeBadgesModal(){
   document.getElementById('badgesModal').classList.remove('on');
+}
+
+function renderFeedbackTags(){
+  const section=document.getElementById('feedbackSection');
+  const container=document.getElementById('feedbackTagsContainer');
+  if(!PositiveFeedbackTags.length){
+    section.style.display='none';
+    return;
+  }
+  section.style.display='block';
+  container.innerHTML=PositiveFeedbackTags.map(t=>
+    `<span class="fdbtag">${POSITIVE_TAG_LABELS[t.tag]||t.tag}<span class="fdbcount">${t.count}</span></span>`
+  ).join('');
 }
 
 /* ════════════════════════════════════════════════════════════
