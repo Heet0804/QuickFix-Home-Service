@@ -375,6 +375,13 @@ async function doSignup(role){
     }
 
     /* Step 2: Insert into workers table ONLY — name, phone, skill, radius, exp, area/lat/lng all explicit */
+    if(we?.message?.includes('already registered under a different account role')){
+      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
+      showErr('This phone number is already linked to a customer account. A worker account must use a different phone number.');
+      await sb.from('workers').delete().eq('id',uid);
+      await sb.auth.signOut();
+      return;
+    }
     const {error:we}=await sb.from('workers').insert({
       id:           uid,
       name:         name,
