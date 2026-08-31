@@ -4,6 +4,7 @@
 
 let _allCampaigns = [];
 let _allPasses = [];
+let _allReviews = [];
 let _editingId = null;
 
 /* ── AUTH GATE ─────────────────────────────────────────────── */
@@ -74,9 +75,10 @@ async function adminLogout(){
 
 /* ── APP INIT ──────────────────────────────────────────────── */
 async function initAdminApp(){
-  await Promise.all([loadCampaigns(), loadPasses()]);
+  await Promise.all([loadCampaigns(), loadPasses(), loadReviews()]);
   renderCampaignsTable();
   renderPassesTable();
+  renderReviewsTable();
   renderAnalytics();
 
   /* Phase 5.9 hotfix: index.js/dashboard.js both poll on an interval so
@@ -85,9 +87,10 @@ async function initAdminApp(){
      data once here. Same pattern, applied for parity, so clearing/
      editing rows shows up on the admin panel without a manual refresh. */
   setInterval(async ()=>{
-    await Promise.all([loadCampaigns(), loadPasses()]);
+    await Promise.all([loadCampaigns(), loadPasses(), loadReviews()]);
     renderCampaignsTable();
     renderPassesTable();
+    renderReviewsTable();
     renderAnalytics();
   }, CONSTANTS.ADMIN_DASHBOARD_POLL_INTERVAL_MS);
 }
@@ -358,6 +361,63 @@ async function renderPassesTable(){
       <td>${_fmtDate(p.expiry_date)}</td>
       <td>${p.visits_remaining} / ${p.total_visits}</td>
       <td><span class="badge badge-${statusClass}">${statusLabel}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── PART 11: REVIEWS ─────────────────────────────────────────
+   Admin-only visibility, enforced at the database level (reviews
+   RLS only grants SELECT to the reviewing customer or an admin —
+   workers have no table access and only ever see aggregated
+   positive-tag counts via get_worker_positive_tags()). Full rating,
+   all tags, and the free-text comment are shown here regardless of
+   tag type — nothing is filtered client-side. */
+const REVIEW_TAG_LABELS = {
+  well_mannered:'Well-mannered', punctual:'Punctual', professional:'Professional',
+  well_spoken:'Well-spoken', skilled:'Skilled work', clean_work:'Clean & tidy',
+  good_value:'Good value', friendly:'Friendly',
+  late:'Late', rude:'Rude', unprofessional:'Unprofessional',
+  poor_quality:'Poor quality work', overcharged:'Overcharged', untidy:'Left a mess',
+  other:'Other'
+};
+
+async function loadReviews(){
+  const {data, error} = await sb.from('reviews').select('*').order('created_at', {ascending:false});
+  if(error){ console.error('loadReviews:', error.message); _allReviews = []; return; }
+  _allReviews = data || [];
+}
+
+async function renderReviewsTable(){
+  const body = document.getElementById('reviewsBody');
+  const empty = document.getElementById('reviewsEmpty');
+
+  if(!_allReviews.length){ body.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+
+  const userIds = [...new Set(_allReviews.map(r=>r.user_id).filter(Boolean))];
+  const workerIds = [...new Set(_allReviews.map(r=>r.worker_id).filter(Boolean))];
+
+  const [{data:userRows}, {data:workerRows}] = await Promise.all([
+    sb.from('users').select('id,name,email').in('id', userIds.length?userIds:['00000000-0000-0000-0000-000000000000']),
+    sb.from('workers').select('id,name').in('id', workerIds.length?workerIds:['00000000-0000-0000-0000-000000000000'])
+  ]);
+
+  const userById = {};
+  (userRows||[]).forEach(u=>{ userById[u.id] = u; });
+  const workerNameById = {};
+  (workerRows||[]).forEach(w=>{ workerNameById[w.id] = w.name; });
+
+  body.innerHTML = _allReviews.map(r=>{
+    const u = userById[r.user_id] || {};
+    const tagsHtml = (r.tags||[]).map(t=>`<span class="badge badge-inactive">${REVIEW_TAG_LABELS[t]||t}</span>`).join(' ');
+    return `
+    <tr>
+      <td>${u.name || '—'}<div style="font-size:.7rem;color:var(--text3)">${u.email || ''}</div></td>
+      <td>${workerNameById[r.worker_id] || '—'}</td>
+      <td>${'★'.repeat(r.rating||0)}${'☆'.repeat(5-(r.rating||0))}</td>
+      <td style="max-width:220px">${tagsHtml || '—'}</td>
+      <td style="max-width:260px;white-space:normal">${r.comment ? r.comment : '—'}</td>
+      <td>${_fmtDate(r.created_at)}</td>
     </tr>`;
   }).join('');
 }
