@@ -181,6 +181,10 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 .badges-more-btn{background:var(--brand);color:#fff;border:none;border-radius:var(--radius-sm);padding:.5rem 1rem;font-size:.78rem;font-weight:700;cursor:pointer;transition:var(--tr)}
 .badges-more-btn:hover{background:var(--brand-dark)}
 
+.fdbtags{display:flex;flex-wrap:wrap;gap:.5rem}
+.fdbtag{display:inline-flex;align-items:center;gap:6px;background:var(--teal-light);border:1.5px solid var(--teal);color:#1d5040;border-radius:50px;padding:6px 13px;font-size:.78rem;font-weight:700}
+.fdbtag .fdbcount{background:rgba(29,80,64,.12);border-radius:50px;padding:1px 7px;font-size:.7rem}
+
 /* ── BADGES MODAL ── */
 .badges-modal-bg{display:none;position:fixed;inset:0;background:rgba(20,12,4,.5);z-index:500;align-items:center;justify-content:center;padding:1rem}
 .badges-modal-bg.on{display:flex}
