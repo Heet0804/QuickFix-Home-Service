@@ -393,8 +393,8 @@ const DB = {
 
   /* Save a review — writes rating and comment back to the booking row
    using bookings.review_rating and bookings.review_comment as required.
-   Also inserts into reviews table if it exists. */
-saveReview: async (bkId, workerId, rating, comment, authorName) => {
+   Also inserts into reviews table, including selected tags. */
+saveReview: async (bkId, workerId, rating, comment, authorName, tags=[]) => {
   const {data:{session}}=await sb.auth.getSession();
   const user=session?session.user:null;
   if(!user) return;
@@ -405,15 +405,19 @@ saveReview: async (bkId, workerId, rating, comment, authorName) => {
     review_comment: comment||''
   }).eq('id',String(bkId));
   if(bkErr) console.error('DB.saveReview booking update:',bkErr.message);
-  /* Also insert into reviews table */
-  await sb.from('reviews').insert({
+  /* Also insert into reviews table. tags array is stored as-is; the
+     'other' tag id is included so admin can see a comment was left
+     under "Other" without needing to cross-reference. */
+  const {error:revErr}=await sb.from('reviews').insert({
     booking_id:  String(bkId),
     user_id:     user.id,
     worker_id:   workerId||null,
     rating,
     comment,
+    tags,
     created_at:  new Date().toISOString()
   });
+  if(revErr) console.error('DB.saveReview reviews insert:',revErr.message);
 },
 
   /* Worker registration — saves to profiles table for now */
@@ -733,6 +737,7 @@ let pendBk=null, pendBkId=null, otpMode=null;
 let sst={catId:null,item:null,issue:''};
 let pollInt=null, pollCnt=0, qrInt=null;
 let revRat=0, revId=null, aadhaarData=null;
+let revSelectedTags=new Set();
 /* TODO(config): PAYMENT_POLL_MAX_ATTEMPTS and PAYMENT_POLL_INTERVAL_MS
    have no value in constants.js yet — no authoritative source found
    in this repo. Until set, payment polling runs with undefined bounds. */
@@ -3560,13 +3565,69 @@ async function consumeServicePassVisit(booking){
 })();
 
 /* ── REVIEW ───────────────────────────────────────────────── */
+const REVIEW_TAGS=[
+  {id:'well_mannered',  label:'😊 Well-mannered',   type:'positive'},
+  {id:'punctual',       label:'⏰ Punctual',         type:'positive'},
+  {id:'professional',   label:'💼 Professional',     type:'positive'},
+  {id:'well_spoken',    label:'🗣️ Well-spoken',      type:'positive'},
+  {id:'skilled',        label:'🛠️ Skilled work',     type:'positive'},
+  {id:'clean_work',     label:'✨ Clean & tidy',      type:'positive'},
+  {id:'good_value',     label:'💰 Good value',       type:'positive'},
+  {id:'friendly',       label:'🤝 Friendly',         type:'positive'},
+  {id:'late',           label:'⏱️ Late',             type:'negative'},
+  {id:'rude',           label:'😠 Rude',             type:'negative'},
+  {id:'unprofessional', label:'🚫 Unprofessional',   type:'negative'},
+  {id:'poor_quality',   label:'⚠️ Poor quality work',type:'negative'},
+  {id:'overcharged',    label:'💸 Overcharged',      type:'negative'},
+  {id:'untidy',         label:'🧹 Left a mess',      type:'negative'},
+  {id:'other',          label:'✏️ Other',            type:'other'}
+];
+
+function renderReviewTags(){
+  document.getElementById('revTags').innerHTML=REVIEW_TAGS.map(t=>
+    `<button type="button" class="revtag ${t.type}" data-id="${t.id}" onclick="toggleReviewTag('${t.id}')">${t.label}</button>`
+  ).join('');
+}
+
+function toggleReviewTag(id){
+  const tag=REVIEW_TAGS.find(t=>t.id===id);
+  if(!tag) return;
+  const btn=document.querySelector(`.revtag[data-id="${id}"]`);
+  if(revSelectedTags.has(id)){
+    revSelectedTags.delete(id);
+    btn.classList.remove('sel');
+  } else {
+    revSelectedTags.add(id);
+    btn.classList.add('sel');
+  }
+  /* Comment box opens automatically when "Other" is picked, OR when
+     any negative tag is picked (so the user can explain what went
+     wrong) — but stays hidden for positive-only selections, since
+     there's nothing that needs explaining there. It's always optional
+     to fill in either case. */
+  const commentGrp=document.getElementById('reviewCommentGrp');
+  const needsComment=[...revSelectedTags].some(id=>{
+    const t=REVIEW_TAGS.find(rt=>rt.id===id);
+    return t && (t.type==='negative' || t.type==='other');
+  });
+  if(needsComment){
+    commentGrp.style.display='';
+  } else {
+    commentGrp.style.display='none';
+    document.getElementById('reviewComment').value='';
+  }
+}
+
 async function openReview(bkId){
-  revId=String(bkId); revRat=0;
+  revId=String(bkId); revRat=0; revSelectedTags=new Set();
   const all=await DB.bookings();
   const b=all.find(x=>String(x.id)===String(bkId));
   if(!b){ showToast('⚠️ Booking not found'); return; }
   document.getElementById('reviewDesc').innerHTML=`How was your <strong>${b.workerRole||b.worker_role||'service'}</strong> experience?`;
-  setRating(0); document.getElementById('reviewComment').value='';
+  setRating(0);
+  renderReviewTags();
+  document.getElementById('reviewComment').value='';
+  document.getElementById('reviewCommentGrp').style.display='none';
   document.getElementById('reviewModal').classList.add('on');
 }
 function setRating(r){ revRat=r; document.querySelectorAll('#starInput span').forEach((s,i)=>s.classList.toggle('lit',i<r)); }
@@ -3596,17 +3657,26 @@ async function submitReview(){
     b.worker_id ||
     null;
 
+  const tagsChosen = [...revSelectedTags];
+
   await DB.saveReview(
     revId,
     workerId,
     revRat,
     document.getElementById('reviewComment').value.trim(),
-    user.name || 'Anonymous'
+    user.name || 'Anonymous',
+    tagsChosen
   );
 
   closeModal('reviewModal');
 
-  showToast('⭐ Thank you for your review!');
+  /* Show a happy or sad thank-you modal based on whether any negative
+     tag was chosen — pure UX, doesn't affect what's already been saved. */
+  const hasNegative = tagsChosen.some(id=>{
+    const t = REVIEW_TAGS.find(rt=>rt.id===id);
+    return t && t.type==='negative';
+  });
+  document.getElementById(hasNegative ? 'reviewThanksBadModal' : 'reviewThanksGoodModal').classList.add('on');
 
   /* refresh latest booking state from DB */
   await renderBookings();
