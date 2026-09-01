@@ -5,6 +5,7 @@
 let _allCampaigns = [];
 let _allPasses = [];
 let _allReviews = [];
+let _allWorkerBans = [];
 let _editingId = null;
 
 /* ── AUTH GATE ─────────────────────────────────────────────── */
@@ -75,24 +76,36 @@ async function adminLogout(){
 
 /* ── APP INIT ──────────────────────────────────────────────── */
 async function initAdminApp(){
-  await Promise.all([loadCampaigns(), loadPasses(), loadReviews()]);
+  await Promise.all([loadCampaigns(), loadPasses(), loadReviews(), loadBannedWorkers()]);
   renderCampaignsTable();
   renderPassesTable();
   renderReviewsTable();
+  renderBannedWorkersTable();
   renderAnalytics();
 
-  /* Phase 5.9 hotfix: index.js/dashboard.js both poll on an interval so
-     their views stay in sync with table changes made directly in
-     Supabase. admin.js never had an equivalent poll — it only loaded
-     data once here. Same pattern, applied for parity, so clearing/
-     editing rows shows up on the admin panel without a manual refresh. */
   setInterval(async ()=>{
-    await Promise.all([loadCampaigns(), loadPasses(), loadReviews()]);
+    await Promise.all([loadCampaigns(), loadPasses(), loadReviews(), loadBannedWorkers()]);
     renderCampaignsTable();
     renderPassesTable();
     renderReviewsTable();
+    renderBannedWorkersTable();
     renderAnalytics();
   }, CONSTANTS.ADMIN_DASHBOARD_POLL_INTERVAL_MS);
+
+  /* Realtime: a new review should appear on the admin panel the moment
+     it's submitted, not on the next 15s poll tick. INSERT is the only
+     event that matters here — reviews are never edited/deleted by a
+     customer after submission. */
+  sb.channel('admin-reviews')
+    .on(
+      'postgres_changes',
+      { event:'INSERT', schema:'public', table:'reviews' },
+      async ()=>{
+        await loadReviews();
+        renderReviewsTable();
+      }
+    )
+    .subscribe();
 }
 
 function switchAdminTab(name){
@@ -387,39 +400,265 @@ async function loadReviews(){
   _allReviews = data || [];
 }
 
+/* Full ban history — every ban ever applied, not just the current one.
+   Powers the Banned Workers tab (worker, total ban count, every past
+   duration + window) independent of what's currently active. */
+async function loadBannedWorkers(){
+  const {data, error} = await sb.from('worker_bans').select('*').order('banned_at', {ascending:false});
+  if(error){ console.error('loadBannedWorkers:', error.message); _allWorkerBans = []; return; }
+  _allWorkerBans = data || [];
+}
+
+async function renderBannedWorkersTable(){
+  const body = document.getElementById('bannedWorkersBody');
+  const empty = document.getElementById('bannedWorkersEmpty');
+
+  if(!_allWorkerBans.length){ body.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+
+  const workerIds = [...new Set(_allWorkerBans.map(b=>b.worker_id))];
+  const {data:workerRows} = await sb.from('workers').select('id,name,banned_until').in('id', workerIds.length?workerIds:['00000000-0000-0000-0000-000000000000']);
+  const workerById = {};
+  (workerRows||[]).forEach(w=>{ workerById[w.id]=w; });
+
+  const grouped = {};
+  _allWorkerBans.forEach(b=>{
+    if(!grouped[b.worker_id]) grouped[b.worker_id] = [];
+    grouped[b.worker_id].push(b);
+  });
+
+  const now = Date.now();
+  body.innerHTML = Object.keys(grouped).map(workerId=>{
+    const w = workerById[workerId] || {};
+    const bans = grouped[workerId];
+    const isBanned = w.banned_until && new Date(w.banned_until).getTime() > now;
+    const historyHtml = bans.map(b=>
+      `<div style="font-size:.76rem;margin-bottom:3px">${b.duration_label} — banned ${_fmtDateTime(b.banned_at)}, until ${_fmtDateTime(b.banned_until)}</div>`
+    ).join('');
+    return `
+    <tr>
+      <td>${w.name || '—'}</td>
+      <td>${bans.length}</td>
+      <td style="max-width:340px">${historyHtml}</td>
+      <td>${isBanned ? `<span class="badge badge-inactive">🚫 Banned until ${_fmtDateTime(w.banned_until)}</span>` : `<span class="badge badge-active">Active</span>`}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* Resolves each review's booking -> service name, keyed by booking_id,
+   so renderReviewsTable() can show what the worker was actually hired
+   for (e.g. "Fan", "CCTV") alongside their general skill/role. */
+async function _getServiceNamesByBookingId(bookingIds){
+  if(!bookingIds.length) return {};
+  const {data, error} = await sb.from('bookings').select('id,service').in('id', bookingIds);
+  if(error){ console.error('_getServiceNamesByBookingId:', error.message); return {}; }
+  const map = {};
+  (data||[]).forEach(b=>{ map[b.id] = b.service; });
+  return map;
+}
+
 async function renderReviewsTable(){
   const body = document.getElementById('reviewsBody');
   const empty = document.getElementById('reviewsEmpty');
+  const thead = document.querySelector('#tab-reviews table thead tr');
 
   if(!_allReviews.length){ body.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display = 'none';
 
   const userIds = [...new Set(_allReviews.map(r=>r.user_id).filter(Boolean))];
   const workerIds = [...new Set(_allReviews.map(r=>r.worker_id).filter(Boolean))];
+  const bookingIds = [...new Set(_allReviews.map(r=>r.booking_id).filter(Boolean))];
 
-  const [{data:userRows}, {data:workerRows}] = await Promise.all([
+  const [{data:userRows}, {data:workerRows}, serviceByBookingId] = await Promise.all([
     sb.from('users').select('id,name,email').in('id', userIds.length?userIds:['00000000-0000-0000-0000-000000000000']),
-    sb.from('workers').select('id,name').in('id', workerIds.length?workerIds:['00000000-0000-0000-0000-000000000000'])
+    sb.from('workers').select('id,name,skill,banned_until,last_ban_duration_label').in('id', workerIds.length?workerIds:['00000000-0000-0000-0000-000000000000']),
+    _getServiceNamesByBookingId(bookingIds)
   ]);
 
   const userById = {};
   (userRows||[]).forEach(u=>{ userById[u.id] = u; });
   const workerNameById = {};
-  (workerRows||[]).forEach(w=>{ workerNameById[w.id] = w.name; });
+  const workerSkillById = {};
+  const workerBannedUntilById = {};
+  const workerLastBanLabelById = {};
+  (workerRows||[]).forEach(w=>{
+    workerNameById[w.id] = w.name;
+    workerSkillById[w.id] = w.skill;
+    workerBannedUntilById[w.id] = w.banned_until;
+    workerLastBanLabelById[w.id] = w.last_ban_duration_label;
+  });
+
+  const now = new Date();
+  /* Ban Duration / Unban Time columns only appear at all when at least
+     one worker in this list is currently banned — otherwise they're
+     removed from the table entirely (header + cells), rather than
+     showing a column of nothing but dashes. */
+  const anyBanned = (workerRows||[]).some(w => w.banned_until && new Date(w.banned_until) > now);
+
+  if(thead){
+    const existingBanCols = thead.querySelectorAll('.col-ban-duration,.col-ban-until');
+    existingBanCols.forEach(el=>el.remove());
+    if(anyBanned){
+      const actionsTh = thead.lastElementChild; /* "Actions" column */
+      const durTh = document.createElement('th');
+      durTh.className = 'col-ban-duration';
+      durTh.textContent = 'Ban Duration';
+      const untilTh = document.createElement('th');
+      untilTh.className = 'col-ban-until';
+      untilTh.textContent = 'Unban Time';
+      thead.insertBefore(durTh, actionsTh);
+      thead.insertBefore(untilTh, actionsTh);
+    }
+  }
 
   body.innerHTML = _allReviews.map(r=>{
     const u = userById[r.user_id] || {};
     const tagsHtml = (r.tags||[]).map(t=>`<span class="badge badge-inactive">${REVIEW_TAG_LABELS[t]||t}</span>`).join(' ');
+    const bannedUntil = workerBannedUntilById[r.worker_id];
+    const isBanned = bannedUntil && new Date(bannedUntil) > now;
+    const banBtn = r.worker_id
+      ? (isBanned ? `<span class="badge badge-inactive">🚫 Banned</span>` : `<button class="btn bd bs" onclick="openBanModal('${r.worker_id}')">🚫 Ban</button>`)
+      : '—';
+    const banColsHtml = anyBanned
+      ? `<td>${isBanned ? (workerLastBanLabelById[r.worker_id]||'—') : '—'}</td><td>${isBanned ? _fmtDateTime(bannedUntil) : '—'}</td>`
+      : '';
     return `
     <tr>
       <td>${u.name || '—'}<div style="font-size:.7rem;color:var(--text3)">${u.email || ''}</div></td>
       <td>${workerNameById[r.worker_id] || '—'}</td>
+      <td>${workerSkillById[r.worker_id] || '—'}</td>
+      <td>${serviceByBookingId[r.booking_id] || '—'}</td>
       <td>${'★'.repeat(r.rating||0)}${'☆'.repeat(5-(r.rating||0))}</td>
       <td style="max-width:220px">${tagsHtml || '—'}</td>
       <td style="max-width:260px;white-space:normal">${r.comment ? r.comment : '—'}</td>
       <td>${_fmtDate(r.created_at)}</td>
+      ${banColsHtml}
+      <td>${banBtn}</td>
     </tr>`;
   }).join('');
+}
+
+/* ── WORKER BAN ESCALATION ─────────────────────────────────────
+   Suggested duration climbs with each prior ban: 5 hrs → 24 hrs →
+   120 hrs (5 days), then stays at 120 hrs unless the admin manually
+   overrides the hours field. Nothing here is automatic — the admin
+   always confirms (and can change) the duration before it's applied. */
+/* Suggested defaults per prior-ban count — expressed as {amount, unit}
+   so the modal's number+unit fields can be prefilled directly. Admin
+   can still change both the amount and unit freely before confirming. */
+const BAN_ESCALATION_STEPS = [
+  {amount:5,  unit:'hours'},
+  {amount:1,  unit:'days'},
+  {amount:5,  unit:'days'}
+];
+const BAN_UNIT_TO_MS = {
+  minutes: 60*1000,
+  hours:   60*60*1000,
+  days:    24*60*60*1000,
+  weeks:   7*24*60*60*1000
+};
+let _pendingBanWorkerId = null;
+
+async function openBanModal(workerId){
+  if(!workerId){ alert('No worker linked to this review.'); return; }
+  _pendingBanWorkerId = workerId;
+
+  const {data:w, error} = await sb.from('workers').select('id,name,ban_count,banned_until').eq('id',workerId).single();
+  if(error || !w){ alert('Could not load worker: '+(error?.message||'not found')); return; }
+
+  const banCount = w.ban_count || 0;
+  const suggested = BAN_ESCALATION_STEPS[Math.min(banCount, BAN_ESCALATION_STEPS.length-1)];
+
+  document.getElementById('banWorkerName').textContent = w.name || 'Worker';
+  document.getElementById('banWorkerHistory').textContent = banCount>0
+    ? `This worker has been banned ${banCount} time${banCount>1?'s':''} before.`
+    : `This will be this worker's first ban.`;
+
+  const statusEl = document.getElementById('banCurrentStatus');
+  if(w.banned_until && new Date(w.banned_until) > new Date()){
+    statusEl.textContent = `⚠️ Currently banned until ${_fmtDateTime(w.banned_until)}`;
+    statusEl.style.display = '';
+  } else {
+    statusEl.style.display = 'none';
+  }
+
+  document.getElementById('banAmount').value = suggested.amount;
+  document.getElementById('banUnit').value = suggested.unit;
+  document.getElementById('banWorkerModal').classList.add('on');
+}
+
+function closeBanModal(){
+  document.getElementById('banWorkerModal').classList.remove('on');
+  _pendingBanWorkerId = null;
+}
+
+function _formatBanDurationLabel(amount, unit){
+  const unitLabels = { minutes:'Minute', hours:'Hour', days:'Day', weeks:'Week' };
+  const label = unitLabels[unit] || unit;
+  return `${amount} ${label}${amount==1?'':'s'}`;
+}
+
+async function confirmBanWorker(){
+  const amount = parseFloat(document.getElementById('banAmount').value);
+  const unit = document.getElementById('banUnit').value;
+  const unitMs = BAN_UNIT_TO_MS[unit];
+  if(!_pendingBanWorkerId || isNaN(amount) || amount<=0 || !unitMs){
+    alert('Enter a valid ban duration.');
+    return;
+  }
+
+  const {data:w, error:fetchErr} = await sb.from('workers').select('ban_count').eq('id',_pendingBanWorkerId).single();
+  if(fetchErr){ alert('Failed to read worker: '+fetchErr.message); return; }
+
+  const durationLabel = _formatBanDurationLabel(amount, unit);
+  const bannedAt = new Date().toISOString();
+  const bannedUntil = new Date(Date.now() + amount*unitMs).toISOString();
+
+  const {data:updatedRows, error} = await sb.from('workers').update({
+    banned_until: bannedUntil,
+    ban_count: (w?.ban_count||0) + 1,
+    last_ban_duration_label: durationLabel,
+    is_available: false
+  }).eq('id', _pendingBanWorkerId).select();
+
+  if(error){ alert('Failed to ban worker: '+error.message); return; }
+  if(!updatedRows || !updatedRows.length){
+    alert('⚠️ Ban was not applied — no row was updated. This usually means a permissions (RLS) issue. Please check admin update permissions on the workers table.');
+    return;
+  }
+
+  /* Permanent history row — independent of workers.banned_until, which
+     only ever reflects the current/latest ban. This is what powers the
+     Banned Workers tab's full history list. */
+  const {error:banHistErr} = await sb.from('worker_bans').insert({
+    worker_id: _pendingBanWorkerId,
+    duration_label: durationLabel,
+    banned_at: bannedAt,
+    banned_until: bannedUntil
+  });
+  if(banHistErr) console.error('worker_bans insert:', banHistErr.message);
+
+  closeBanModal();
+  document.getElementById('banSuccessMsg').textContent =
+    'Worker banned until '+_fmtDateTime(bannedUntil)+'. If they are currently logged in, they will be signed out automatically.';
+  _replayBanTickAnimation();
+  document.getElementById('banSuccessModal').classList.add('on');
+  await Promise.all([loadReviews(), loadBannedWorkers()]);
+  renderReviewsTable();
+  renderBannedWorkersTable();
+}
+
+/* Re-triggers the tick-draw CSS animation on every ban, since a CSS
+   animation only plays once unless the element is re-inserted (or its
+   animation is restarted via reflow). Cloning the SVG node forces the
+   browser to treat it as fresh, so it replays each time this modal opens. */
+function _replayBanTickAnimation(){
+  const wrap = document.querySelector('.ban-success-tick-wrap');
+  if(!wrap) return;
+  const oldSvg = wrap.querySelector('.ban-success-tick-svg');
+  if(!oldSvg) return;
+  const newSvg = oldSvg.cloneNode(true);
+  wrap.replaceChild(newSvg, oldSvg);
 }
 
 /* ── PART 10: ANALYTICS ────────────────────────────────────── */
