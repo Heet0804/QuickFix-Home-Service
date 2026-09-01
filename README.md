@@ -39,7 +39,7 @@ The project was built as a major academic project with a focus on solving real-w
 - 🎟️ Service Passes & priority booking
 - 🏷️ Offers system
 - 📜 Booking history
-- ⭐ Worker ratings & reviews
+- ⭐ Worker ratings & reviews with structured feedback tags (positive/negative pills) instead of a free-text box, plus animated happy/sad outcome confirmation
 - 📍 Live worker tracking using Leaflet Maps
 - 🛣️ Road-following route to the assigned worker (Geoapify Routing API)
 - 🏢 Destination building name shown on the Track Worker map (Geoapify Reverse Geocoding)
@@ -64,6 +64,9 @@ The project was built as a major academic project with a focus on solving real-w
 - ⭐ Dynamic rating calculation
 - 📊 Worker score calculation
 - 🔔 Real-time booking updates
+- 🔥 Positive review streak tracking, with a server-side bonus credited automatically every 5 consecutive positive reviews
+- 🪪 Verification status (Pending / Approved / Rejected) set by admin after reviewing uploaded ID document and profile photo
+- 🚫 Escalating ban enforcement — a worker under an active ban is force-logged-out in real time and blocked from logging back in until the ban expires, with the unban time shown on the login screen
 
 ---
 
@@ -73,10 +76,12 @@ The project was built as a major academic project with a focus on solving real-w
 - 🔐 Dedicated admin authentication
 - 📊 Central admin dashboard
 - 📋 Booking management
-- 👷 Worker management
-- ⭐ Review management
-- 👤 User management
+- 👷 Worker management — full profile view, uploaded ID document & profile photo review (via short-lived signed URLs for the private documents bucket), and Approve/Reject verification actions
+- 🚫 Worker ban management — ban directly from a flagged review with a configurable duration (minutes/hours/days/weeks), suggested amount escalating with the worker's prior ban count; a dedicated "Banned Workers" tab shows every worker's full ban history
+- ⭐ Review management — structured positive/negative tags plus optional comment, with Job/Service context per review; Ban action only ever appears on a genuinely negative, non-high-rated review
+- 👤 User management — dedicated Users tab with customer profile, QuickCoins balance, and booking history at a glance
 - 📈 Platform-wide analytics
+- 🔄 Real-time dashboard sync — new reviews, signups, worker stat changes, bans, and verification updates reflect immediately via Supabase Realtime, without a manual refresh
 - 🚪 Logout
 - 🔙 Return to Landing Page button
 
@@ -105,18 +110,50 @@ A subscription-style layer on top of regular bookings, designed to reward repeat
 
 ---
 
+# ⭐ Structured Reviews, Worker Bans & Verification
+
+QuickFix's review system goes beyond a star rating — it captures structured, actionable feedback and feeds directly into worker accountability and rewards.
+
+### Customer Review Flow
+- ⭐ Star rating (required) plus pill-shaped feedback tags — no open-ended comment box shown by default
+- ✅ Positive tags: Well-mannered, Punctual, Professional, Well-spoken, Skilled work, Clean & tidy, Good value, Friendly
+- ⚠️ Negative tags: Late, Rude, Unprofessional, Poor quality work, Overcharged, Left a mess
+- ✏️ An "Other" pill reveals a free-text field for anything not covered by a preset tag
+- 🎭 The comment field auto-reveals only when a negative tag or "Other" is selected — selecting only positive tags keeps the review to taps alone
+- 🎉 Animated happy-face or sad-face confirmation modal shown immediately after submission, chosen automatically based on whether any negative tag was picked
+- 🔒 Full review detail (rating, tags, comment) is visible to admin only; workers only ever see aggregated **positive**-tag counts via a dedicated RPC — no rating, comment, or negative feedback is ever exposed to them
+
+### Worker Ban Escalation
+- 🚫 Admin can ban a worker directly from a flagged review (hidden entirely for reviews with no negative tags or a 4–5 star rating)
+- ⏱️ Ban duration selectable in minutes, hours, days, or weeks, with a suggested amount that escalates on repeat offenses (1st: 5 hours, 2nd: 1 day, 3rd+: 5 days) — always overridable
+- 🔴 A worker banned while actively logged in is force-signed-out immediately via Supabase Realtime, and is blocked from logging back in until the ban expires
+- 📜 Every ban is permanently logged (duration, timestamps) in a dedicated ban-history table, viewable per worker in the admin "Banned Workers" tab
+
+### Worker Verification
+- 🪪 Admin reviews each worker's uploaded government ID document and profile photo directly from the admin Workers tab
+- ✅❌ One-click Approve/Reject, with an animated tick/cross confirmation — once approved, the action buttons are replaced with a static "Approved" status
+
+### Positive Streaks & Bonuses
+- 🔥 A worker's consecutive positive-review streak increments automatically on every clean review and resets to zero on any negative tag
+- 🎁 A monetary bonus is credited automatically every 5th consecutive positive review, computed and enforced entirely server-side via a database trigger — never client-writable
+- 📊 Streak and bonus balance are visible on the worker's own dashboard
+
+---
+
 # 🛡️ Admin Portal
 
 A complete, separately-secured control panel for platform operators.
 
 - 🔒 Hidden entry point, not linked from normal customer/worker navigation
-- 🔐 Dedicated admin authentication flow
+- 🔐 Dedicated admin authentication flow — admin accounts are tracked exclusively in a separate `admins` table and are never onboarded into the customer `users` table, even if the same email is used to sign in from the customer app
 - 📊 Dashboard with platform-wide KPIs
 - 📋 Booking management (view, filter, oversee all bookings)
-- 👷 Worker management (view/manage the worker roster)
-- ⭐ Review management (moderate customer reviews)
-- 👤 User management (view/manage customer accounts)
+- 👷 Worker management — full profile, uploaded ID document & profile photo review via signed URLs, Approve/Reject verification, positive streak & bonus balance visibility
+- 🚫 Worker ban management with configurable duration units and full ban history per worker
+- ⭐ Review management with structured tags, Job/Service context, and rating- and tag-aware Ban visibility
+- 👤 User management (view customer accounts, QuickCoins, booking activity)
 - 📈 Analytics across bookings, workers, and revenue
+- 🔄 Realtime-synced tabs (Reviews, Users, Workers, Banned Workers) — reflect database changes immediately, no manual refresh required for normal app activity
 - 🚪 Logout and a **Return to Landing Page** button for safe exit
 
 ---
@@ -342,7 +379,7 @@ Achievements
 
 ### Notifications
 
-- Supabase Realtime — used for live booking status updates across customer and worker dashboards
+- Supabase Realtime — used for live booking status updates across customer and worker dashboards, worker ban enforcement (forced logout on ban), and live admin dashboard sync (new reviews, user/worker changes)
 
 ---
 
@@ -577,6 +614,13 @@ Broadcast Booking Model, Geoapify Key Moved Behind Edge Function Proxy
 v7.0
 QuickCoins Ecosystem — Server-Verified Redemption Tiers, Coin-Only Campaign
 Passes, Redemption/Pass Mutual Exclusivity
+
+v8.0
+Structured Reviews, Worker Ban Escalation & Verification — Pill-Tag Feedback
+System, Animated Outcome Modals, Admin-Configurable Worker Bans with Real-Time
+Forced Logout, ID/Photo Verification Workflow, Server-Side Positive Streak &
+Bonus Rewards, Expanded Admin Dashboard (Users/Workers/Banned Workers Tabs,
+Realtime Sync)
 ```
 
 ---
