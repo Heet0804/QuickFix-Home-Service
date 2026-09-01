@@ -303,6 +303,17 @@ USING (
   EXISTS (SELECT 1 FROM admins a WHERE a.email = (auth.jwt() ->> 'email') AND a.is_active = true)
 );
 
+-- Phase 8, admin.js: loadUsers() — a second, functionally overlapping
+-- admin-read policy added independently for the new Users tab; not
+-- consolidated with "Active admins can view all users" above.
+CREATE POLICY admins_can_select_all_users
+ON users
+FOR SELECT
+TO public
+USING (
+  EXISTS (SELECT 1 FROM admins a WHERE a.email = auth.email() AND a.is_active = true)
+);
+
 CREATE POLICY users_own
 ON users
 FOR ALL
@@ -351,6 +362,82 @@ ON workers
 FOR SELECT
 TO public
 USING (true);
+
+-- Phase 8, live-confirmed fix — workers_update above only ever allowed
+-- a worker to update their OWN row. Prior to this policy, an admin's
+-- ban write (admin.js: confirmBanWorker()) matched zero rows under RLS
+-- and returned no error, so admin.js reported a false "success" while
+-- the database was never actually updated. Confirmed and fixed live.
+CREATE POLICY admins_can_update_any_worker
+ON workers
+FOR UPDATE
+TO public
+USING (
+  EXISTS (SELECT 1 FROM admins a WHERE a.email = auth.email() AND a.is_active = true)
+)
+WITH CHECK (
+  EXISTS (SELECT 1 FROM admins a WHERE a.email = auth.email() AND a.is_active = true)
+);
+
+-- Phase 8 — added independently of admins_can_update_any_worker above
+-- (both grant admins UPDATE on workers; not consolidated into one
+-- policy — a known, documented redundancy, not a bug).
+CREATE POLICY admins_can_update_worker_verification
+ON workers
+FOR UPDATE
+TO public
+USING (
+  EXISTS (SELECT 1 FROM admins a WHERE a.email = auth.email() AND a.is_active = true)
+)
+WITH CHECK (
+  EXISTS (SELECT 1 FROM admins a WHERE a.email = auth.email() AND a.is_active = true)
+);
+
+-- =====================================================
+-- WORKER_BANS (Phase 8)
+-- =====================================================
+
+ALTER TABLE worker_bans ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY admins_can_select_worker_bans
+ON worker_bans
+FOR SELECT
+TO public
+USING (
+  EXISTS (SELECT 1 FROM admins a WHERE a.email = auth.email() AND a.is_active = true)
+);
+
+CREATE POLICY admins_can_insert_worker_bans
+ON worker_bans
+FOR INSERT
+TO public
+WITH CHECK (
+  EXISTS (SELECT 1 FROM admins a WHERE a.email = auth.email() AND a.is_active = true)
+);
+
+-- NOTE: no policy grants a worker SELECT on their own ban history.
+-- Inconsistent with worker_bonuses below, which does grant self-access —
+-- not reconciled, flagged as a known gap.
+
+-- =====================================================
+-- WORKER_BONUSES (Phase 8)
+-- =====================================================
+
+ALTER TABLE worker_bonuses ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY admins_can_select_worker_bonuses
+ON worker_bonuses
+FOR SELECT
+TO public
+USING (
+  EXISTS (SELECT 1 FROM admins a WHERE a.email = auth.email() AND a.is_active = true)
+);
+
+CREATE POLICY workers_can_select_own_bonuses
+ON worker_bonuses
+FOR SELECT
+TO public
+USING (auth.uid() = worker_id);
 
 -- =====================================================
 -- WORKER_ACHIEVEMENTS
