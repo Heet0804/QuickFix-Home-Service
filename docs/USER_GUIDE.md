@@ -122,7 +122,13 @@ There is currently no limit on how many times an incorrect OTP can be entered.
 
 ### 3.9 Reviews
 
-After a booking is marked Completed, a "Rate" option appears. You can leave a star rating (required, 1 to 5 stars) and an optional written comment. A booking can only be rated once.
+After a booking is marked Completed, a "Rate" option appears. You must leave a star rating (1 to 5 stars). Instead of an open text box, you'll see a set of tappable tags describing what went well — punctual, well-mannered, professional, skilled work, good value, and similar — or what didn't — late, rude, unprofessional, poor quality, overcharged, and similar — plus an "Other" option.
+
+If you select only positive tags, that's all you need to do — no comment box appears. If you select any negative tag, or "Other," a comment box appears so you can explain further; writing something there is still optional.
+
+After you submit, you'll see a short animated confirmation — a happy face if your feedback was positive, or a sad face if you flagged a problem — before returning to your dashboard. A booking can only be rated once.
+
+Your full review (rating, tags, and comment) is seen only by QuickFix's platform administrators. The worker who did the job never sees your rating, your comment, or any negative tag you selected — they only ever see a running count of positive tags they've received overall.
 
 ### 3.10 Wallet
 
@@ -195,6 +201,16 @@ There is currently no limit on how many times an incorrect OTP can be entered.
 ### 4.9 Earnings
 
 Your dashboard shows earnings totals for today, this week, and this month, calculated from your completed jobs. It also shows your acceptance rate, a rank badge (Unranked, Bronze, Silver, or Gold, based on your worker score), and a reliability status pill. If you have several recent cancellations, a warning banner appears, with stronger wording above three cancellations.
+
+Your dashboard also shows your **positive review streak** — a running count of consecutive customer reviews with no negative feedback — and a **bonus balance**. Every fifth consecutive positive review earns you an automatic bonus credit, shown in your bonus balance.
+
+### 4.12 Account Suspension
+
+If your account is suspended by an administrator (typically following a negative customer review), you'll be signed out immediately if you're logged in when it happens, and you won't be able to log back in until the suspension period ends. If you try to log in while suspended, you'll see the exact date and time you can try again.
+
+### 4.13 Verification Status
+
+An administrator reviews the government ID document and profile photo you submitted at sign-up and marks your account as Approved or Rejected. There is currently no in-app indicator showing you this status directly — see Section 2.2's note that your account remains usable regardless of where this review stands.
 
 ### 4.10 Achievements
 
@@ -316,7 +332,13 @@ No. Both Arrival and Completion OTPs currently accept unlimited re-entry attempt
 No. QuickFix requires a live connection to its backend services at all times; there is no offline mode.
 
 **Does QuickFix confirm a worker's identity or documents before I book them?**
-Worker sign-up collects a government ID document and a profile photo, and QuickFix describes verification as a manual process. There is currently no visible indicator in the app confirming whether a specific worker has completed this review.
+Worker sign-up collects a government ID document and a profile photo, and QuickFix describes verification as a manual process. Administrators can review these documents and mark a worker Approved or Rejected from the admin portal, but there is currently no visible indicator in the customer or worker app confirming whether a specific worker has completed this review.
+
+**What happens if a worker gets a bad review?**
+An administrator may choose to suspend the worker's account for a period of time — the length can increase if the same worker is suspended repeatedly. A suspended worker is signed out automatically and cannot log back in until the suspension ends.
+
+**Can a worker be rewarded for good reviews?**
+Yes. A worker's dashboard tracks a consecutive positive-review streak, and every fifth consecutive positive review earns an automatic bonus.
 
 ---
 
