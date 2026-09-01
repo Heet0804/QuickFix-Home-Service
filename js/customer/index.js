@@ -3589,6 +3589,11 @@ function _replayReviewFaceAnimation(modalId){
   wrap.replaceChild(newSvg, oldSvg);
 }
 
+function closeReviewThanksModal(modalId){
+  closeModal(modalId);
+  goPage('home');
+}
+
 /* ── REVIEW ───────────────────────────────────────────────── */
 const REVIEW_TAGS=[
   {id:'well_mannered',  label:'😊 Well-mannered',   type:'positive'},
@@ -3704,10 +3709,9 @@ async function submitReview(){
   const thanksModalId = hasNegative ? 'reviewThanksBadModal' : 'reviewThanksGoodModal';
   _replayReviewFaceAnimation(thanksModalId);
   document.getElementById(thanksModalId).classList.add('on');
-
-  /* Send the user back to the Home/Dashboard tab after rating, rather
-     than leaving them on My Bookings. */
-  goPage('home');
+  /* Navigation to Home now happens when the user clicks Continue on
+     the modal (closeReviewThanksModal), not immediately here — so
+     they actually see the modal before being moved off the page. */
 }
 
 /* ── AADHAAR UPLOAD ───────────────────────────────────────── */
