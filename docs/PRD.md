@@ -224,6 +224,22 @@ No role is permitted to access another role's application shell; this is enforce
 
 1. The system shall prompt the customer to rate the completed service on a five-star scale, with an optional free-text comment.
 2. The system shall require a star rating (but not a comment) before the review can be submitted.
+3. The system shall present the customer with a fixed set of pill-shaped positive and negative feedback tags (for example: well-mannered, punctual, professional, skilled work, good value; late, rude, unprofessional, poor quality, overcharged) plus an "Other" option, in place of an always-visible open comment box.
+4. The system shall reveal the free-text comment field only when the customer selects a negative tag or "Other"; selecting only positive tags shall not reveal the comment field. The comment field shall remain optional regardless of which tags are selected.
+5. The system shall show the customer an animated confirmation screen after submitting a review, using a positive (happy-face) presentation when no negative tag was selected and a negative (sad-face) presentation when at least one negative tag was selected.
+6. Full review detail (star rating, selected tags, and comment) shall be visible to platform administrators only. Workers shall see only an aggregated count of their own positive tags, with no visibility into star ratings, comments, or negative tags.
+7. The system shall automatically increase a worker's consecutive positive-review streak on any review containing no negative tag, and reset the streak to zero on any review containing a negative tag.
+8. The system shall automatically credit a worker with a monetary bonus after every fifth consecutive positive review, computed and recorded independently of any client-supplied value.
+
+### 9.16 Worker Discipline and Verification
+
+1. The system shall allow an administrator to impose a time-limited suspension ("ban") on a worker directly from a flagged review, specifying the duration in minutes, hours, days, or weeks.
+2. The system shall suggest a default ban duration to the administrator that increases with the worker's prior ban count (first offense: 5 hours; second: 1 day; third and beyond: 5 days), while allowing the administrator to override both the amount and the unit.
+3. The Ban action described in 9.16.1 shall not be offered against a review that contains no negative feedback tag, against a review rated 4 or 5 stars, or against a worker who is already under an active ban.
+4. A worker under an active ban who is currently signed in shall be automatically signed out as soon as the ban takes effect, without requiring the worker to take any action or refresh the page.
+5. A banned worker attempting to sign in shall be blocked and shown the exact date and time their account becomes usable again.
+6. The system shall permanently record every ban applied to a worker (duration and time window), viewable by an administrator independently of the worker's current ban status.
+7. The system shall allow an administrator to review a worker's uploaded government ID document and profile photo, and to mark the worker's verification status as Approved or Rejected.
 
 ### 9.9 Booking History
 
@@ -279,6 +295,11 @@ No role is permitted to access another role's application shell; this is enforce
 3. The system shall provide a User Passes tab listing purchaser, email, campaign, purchase date, expiry date, visits remaining, and status for every purchased pass.
 4. The system shall provide an Analytics tab showing a platform-wide statistics overview and a per-campaign breakdown of total purchases, active passes, expired passes, and revenue generated.
 5. The system shall provide sign-out and "return to landing page" actions from the admin navigation.
+6. The system shall provide a Reviews tab showing, for each review: the customer, the worker, the worker's skill/trade, the specific service booked, the star rating, the selected feedback tags, the comment (if any), and the date, per the tag-visibility rule in Section 9.8.6.
+7. The system shall provide a Banned Workers tab showing, per worker, the total number of bans applied and the full history of each ban's duration and time window, per Section 9.16.6.
+8. The system shall provide a Users tab showing customer profile information, QuickCoins balance, and completed-booking count.
+9. The system shall provide a Workers tab showing full worker profile information, computed performance figures, positive-review streak, bonus balance, and the worker's uploaded ID document and profile photo, with actions to approve or reject the worker's verification status per Section 9.16.7.
+10. The system shall reflect new reviews, customer account changes, and worker account changes (including bans, verification status, and streak/bonus updates) in the relevant admin tab without requiring the administrator to manually refresh the page.
 
 ---
 
