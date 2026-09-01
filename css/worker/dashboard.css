@@ -447,3 +447,37 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
   .cal-cell{width:32px;height:32px}
   .cal-daynum{font-size:.72rem}
 }
+/* Ban logout — animated cross (mirrors admin's tick animation style) */
+.ban-cross-wrap{
+  display:flex;
+  justify-content:center;
+  margin:.5rem 0 .75rem;
+}
+.ban-cross-svg{
+  width:64px;
+  height:64px;
+}
+.ban-cross-circle{
+  stroke:var(--danger,#c0392b);
+  stroke-width:3;
+  stroke-linecap:round;
+  stroke-dasharray:151;
+  stroke-dashoffset:151;
+  animation:banCrossCircle .5s ease-out forwards;
+}
+.ban-cross-line1,.ban-cross-line2{
+  stroke:var(--danger,#c0392b);
+  stroke-width:4;
+  stroke-linecap:round;
+  stroke-dasharray:26;
+  stroke-dashoffset:26;
+  animation:banCrossLine .25s ease-out forwards;
+}
+.ban-cross-line1{ animation-delay:.5s; }
+.ban-cross-line2{ animation-delay:.7s; }
+@keyframes banCrossCircle{
+  to{ stroke-dashoffset:0; }
+}
+@keyframes banCrossLine{
+  to{ stroke-dashoffset:0; }
+}
