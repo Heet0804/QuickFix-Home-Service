@@ -205,3 +205,84 @@ tbody tr:hover td{background:var(--brand-light)}
 @keyframes banTickCheck{
   to{ stroke-dashoffset:0; }
 }
+
+/* Worker verification action buttons — pill shaped, side by side */
+.verify-actions-row{
+  display:flex;
+  gap:.5rem;
+  flex-wrap:nowrap;
+}
+.verify-pill{
+  border-radius:999px;
+  padding:.4rem 1rem;
+  font-size:.78rem;
+  font-weight:700;
+  border:1.5px solid transparent;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  white-space:nowrap;
+}
+.verify-pill-approve{
+  background:#e8f4ef;
+  color:#2e7d32;
+  border-color:#b7dfc7;
+}
+.verify-pill-approve:hover{ background:#d7ede1; }
+.verify-pill-reject{
+  background:#fce8e8;
+  color:#c0392b;
+  border-color:#f0bcbc;
+}
+.verify-pill-reject:hover{ background:#f9d8d8; }
+
+/* Reused tick/cross animation styles (same technique as ban-success
+   tick and ban-logout cross) for the verification result modal. */
+.verify-result-wrap{
+  display:flex;
+  justify-content:center;
+  margin:.5rem 0 .75rem;
+}
+.verify-result-svg{
+  width:64px;
+  height:64px;
+}
+.verify-result-circle{
+  stroke-width:3;
+  stroke-linecap:round;
+  stroke-dasharray:151;
+  stroke-dashoffset:151;
+  animation:verifyResultCircle .5s ease-out forwards;
+}
+.verify-result-approve .verify-result-circle{ stroke:#2e7d32; }
+.verify-result-reject .verify-result-circle{ stroke:#c0392b; }
+
+.verify-result-mark{
+  stroke-width:4;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  fill:none;
+}
+.verify-result-approve .verify-result-mark{
+  stroke:#2e7d32;
+  stroke-dasharray:36;
+  stroke-dashoffset:36;
+  animation:verifyResultMark .3s ease-out .5s forwards;
+}
+.verify-result-reject .verify-result-mark-1,
+.verify-result-reject .verify-result-mark-2{
+  stroke:#c0392b;
+  stroke-dasharray:26;
+  stroke-dashoffset:26;
+  animation:verifyResultMark .25s ease-out forwards;
+}
+.verify-result-reject .verify-result-mark-1{ animation-delay:.5s; }
+.verify-result-reject .verify-result-mark-2{ animation-delay:.7s; }
+
+@keyframes verifyResultCircle{
+  to{ stroke-dashoffset:0; }
+}
+@keyframes verifyResultMark{
+  to{ stroke-dashoffset:0; }
+}
