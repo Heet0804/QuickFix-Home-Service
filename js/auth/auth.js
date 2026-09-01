@@ -124,6 +124,19 @@ async function doLogin(){
     return;
   }
 
+  console.log('DEBUG login profile:', profile);
+  console.log('DEBUG banned_until:', profile.banned_until, 'parsed:', profile.banned_until?new Date(profile.banned_until):null, 'now:', new Date());
+
+  /* Block login for a worker whose account is currently under a ban.
+     The ban itself is set by admin.js's confirmBanWorker(). */
+  if(authRole==='worker' && profile.banned_until && new Date(profile.banned_until) > new Date()){
+    await sb.auth.signOut();
+    setBtn('loginBtn','loginBtnTxt',false,'Sign In →');
+    const until=new Date(profile.banned_until).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});
+    showErr(`🚫 This account has been suspended until ${until}. Please try again after that time.`);
+    return;
+  }
+
   const sess={
     id:    data.user.id,
     email: profile.email||email,
