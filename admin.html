@@ -65,9 +65,11 @@
     <div class="tabs">
       <button class="tab on" data-tab="campaigns" onclick="switchAdminTab('campaigns')">Campaigns</button>
       <button class="tab" data-tab="passes" onclick="switchAdminTab('passes')">User Passes</button>
+      <button class="tab" data-tab="analytics" onclick="switchAdminTab('analytics')">Analytics</button>
       <button class="tab" data-tab="reviews" onclick="switchAdminTab('reviews')">Reviews</button>
       <button class="tab" data-tab="banned" onclick="switchAdminTab('banned')">Banned Workers</button>
-      <button class="tab" data-tab="analytics" onclick="switchAdminTab('analytics')">Analytics</button>
+      <button class="tab" data-tab="users" onclick="switchAdminTab('users')">Users</button>
+      <button class="tab" data-tab="workers" onclick="switchAdminTab('workers')">Workers</button>
     </div>
 
     <!-- CAMPAIGNS TAB -->
@@ -150,6 +152,41 @@
       </div>
     </div>
 
+    <!-- USERS TAB -->
+    <div class="tabpane" id="tab-users">
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th>Name</th><th>Email</th><th>Phone</th><th>Saved Address</th>
+            <th>QuickCoins Balance</th><th>Completed Bookings</th><th>Joined</th>
+          </tr></thead>
+          <tbody id="usersBody"></tbody>
+        </table>
+        <div class="empty" id="usersEmpty" style="display:none">
+          <div class="empty-ic">👤</div>
+          <div class="empty-title">No users yet</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WORKERS TAB -->
+    <div class="tabpane" id="tab-workers">
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th>Name</th><th>Skill</th><th>Phone</th><th>Area</th><th>Radius</th>
+            <th>Rating</th><th>Streak</th><th>Bonus</th>
+            <th>ID Document</th><th>Photo</th><th>Verification</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="workersBody"></tbody>
+        </table>
+        <div class="empty" id="workersEmpty" style="display:none">
+          <div class="empty-ic">🔧</div>
+          <div class="empty-title">No workers yet</div>
+        </div>
+      </div>
+    </div>
+
     <!-- ANALYTICS TAB -->
     <div class="tabpane" id="tab-analytics">
       <div class="statgrid" id="analyticsOverview"></div>
@@ -167,6 +204,26 @@
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- WORKER VERIFICATION RESULT MODAL (Approve/Reject confirmation) -->
+<div class="overlay" id="workerVerifyResultModal">
+  <div class="modal" style="max-width:380px;text-align:center">
+    <div class="verify-result-wrap"></div>
+    <h2 id="verifyResultTitle">—</h2>
+    <p id="verifyResultMsg" style="font-size:.875rem;color:var(--text2);line-height:1.6;margin-bottom:1.35rem"></p>
+    <div style="display:flex;justify-content:center">
+      <button class="btn bp" onclick="closeModal('workerVerifyResultModal')">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN IMAGE VIEWER (worker documents / profile photos) -->
+<div class="overlay" id="adminImgViewModal">
+  <div class="modal" style="max-width:480px;padding:1rem;text-align:center">
+    <img id="adminImgViewSrc" src="" alt="Document/photo" style="width:100%;border-radius:12px;display:block;object-fit:contain;max-height:70vh"/>
+    <button class="btn bo bfull" style="margin-top:.85rem" onclick="closeModal('adminImgViewModal')">Close</button>
   </div>
 </div>
 
