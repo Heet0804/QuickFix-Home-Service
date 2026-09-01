@@ -62,6 +62,17 @@ The earliest phase-numbered comments found anywhere in the codebase begin at "Ph
 
 **Current project status at the end of Phase 5.3.** A fully modularized shared-script layer (`js/common/*.js`) sits beneath six independent, feature-complete page applications, with the specific, audited duplication cases named above resolved and every other page-specific difference explicitly left untouched, per each file's own header commentary.
 
+### 2.4 Structured Reviews, Worker Discipline & Verification (Phase 8)
+**Status.** Completed, pending manual sign-off against the updated `docs/VERIFICATION.md`.
+
+Delivered as a sequence of incremental feature requests within a single working session, later consolidated: pill-tag review feedback replacing the open comment box; an escalating worker-ban system with real-time forced logout and a permanent ban-history table; an admin worker-verification workflow (ID document + photo review, signed-URL retrieval for the private `worker-documents` bucket); a server-side positive-streak bonus trigger; and three new admin tabs (Users, Workers, Banned Workers) backed by new Realtime channels for live dashboard sync.
+
+**Objectives.** Give the platform a structured, actionable feedback loop from customer reviews through to worker consequences (bans) and rewards (streak bonuses), and close the admin portal's remaining blind spots (no visibility into individual customers or workers, no verification workflow, no ban mechanism).
+
+**Major achievements.** Found and fixed a genuine silent-failure bug (an admin ban write that reported success while being fully blocked by RLS), a query bug (ordering by a non-existent column breaking the entire Workers tab), and a storage-access misunderstanding (a private bucket's public-URL string can never resolve, regardless of `storage.objects` RLS) — all three fixed within this phase and documented in `CHANGELOG.md`.
+
+**Important architectural decisions.** Ban/verification/streak state is split across `workers` (current state) and two new append-only tables, `worker_bans` and `worker_bonuses` (historical record) — deliberately not consolidated into `workers` alone, so history survives a ban expiring or being overridden. Streak/bonus crediting was implemented as a Postgres trigger rather than client logic, making it the first (and only) Phase 8 addition that is server-authoritative by construction.
+
 ### 2.3 Documentation Phase, Part 1 (Phase 5.4 — in progress; see Section 3)
 Five of the six planned documentation deliverables have been completed as of this document:
 
