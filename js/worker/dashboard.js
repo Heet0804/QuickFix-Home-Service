@@ -272,6 +272,8 @@ document.getElementById("statTotalJobs").textContent =
     dashboardTotalJobs;
 
   document.getElementById('statEarnings').textContent='₹'+Number(Stats?.total_earnings??0).toLocaleString('en-IN');
+  document.getElementById('statStreak').textContent=(W.positive_streak??0);
+  document.getElementById('statBonus').textContent='₹'+Number(W.bonus_balance??0).toLocaleString('en-IN');
 
   /* === STATS — ALL come from Stats (get_worker_stats RPC result).
      Same function index.html and worker-profile.html call. Nothing is
