@@ -15,6 +15,7 @@
 -- ============================================================
 
 -- storage.objects policies
+drop policy if exists "admins_can_select_worker_documents" on storage.objects;
 drop policy if exists "allow_worker_photos_upload 15rstgp_1" on storage.objects;
 drop policy if exists "allow_worker_photos_upload 15rstgp_0" on storage.objects;
 drop policy if exists "public_upload_worker_docs" on storage.objects;
@@ -26,12 +27,23 @@ drop policy if exists "allow_worker_photos_upload v5d3u8_1" on storage.objects;
 drop policy if exists "worker_achievements_select" on worker_achievements;
 drop policy if exists "worker_achievements_insert" on worker_achievements;
 
+-- worker_bonuses (Phase 8)
+drop policy if exists "workers_can_select_own_bonuses" on worker_bonuses;
+drop policy if exists "admins_can_select_worker_bonuses" on worker_bonuses;
+
+-- worker_bans (Phase 8)
+drop policy if exists "admins_can_insert_worker_bans" on worker_bans;
+drop policy if exists "admins_can_select_worker_bans" on worker_bans;
+
 -- workers
+drop policy if exists "admins_can_update_worker_verification" on workers;
+drop policy if exists "admins_can_update_any_worker" on workers;
 drop policy if exists "workers_read_all" on workers;
 drop policy if exists "workers_own_insert" on workers;
 drop policy if exists "workers_update" on workers;
 
 -- users
+drop policy if exists "admins_can_select_all_users" on users;
 drop policy if exists "Admins read all users" on users;
 drop policy if exists "Users can read own row" on users;
 drop policy if exists "users_own" on users;
@@ -79,6 +91,10 @@ drop policy if exists "Admins can read their own row" on admins;
 -- If overloaded, this statement will need the specific signature added.
 -- ============================================================
 
+-- Phase 8
+drop trigger if exists trg_review_streak on reviews;
+drop function if exists handle_review_streak();
+
 drop trigger if exists trg_prevent_past_scheduled_date on bookings;
 drop function if exists prevent_past_scheduled_date();
 drop trigger if exists trg_prevent_role_self_escalation on users;
@@ -96,6 +112,11 @@ drop function if exists handle_new_user;
 -- (PK/UNIQUE-backed indexes are dropped implicitly with their constraints
 -- in Step 4, and fully removed when their tables are dropped in Step 5.)
 -- ============================================================
+
+-- Phase 8
+drop index if exists idx_worker_bonuses_worker;
+drop index if exists idx_worker_bans_worker;
+drop index if exists idx_workers_banned_until;
 
 drop index if exists idx_worker_achievements_worker;
 drop index if exists idx_bookings_status;
@@ -166,6 +187,10 @@ alter table if exists areas drop constraint if exists areas_pkey;
 -- CASCADE is not required since all FKs were already dropped in Step 4,
 -- but IF EXISTS is used throughout for safety.
 -- ============================================================
+
+-- Phase 8
+drop table if exists worker_bonuses;
+drop table if exists worker_bans;
 
 drop table if exists worker_achievements;
 drop table if exists user_passes;
