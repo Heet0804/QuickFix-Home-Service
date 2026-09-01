@@ -42,6 +42,18 @@ sb.auth.onAuthStateChange(async (event, session)=>{
     window.location.replace('auth.html');
     return;
   }
+
+  /* Admins are tracked exclusively in the `admins` table and must
+     never get a row in `users` — index.html is the customer surface,
+     so an admin landing here (e.g. reusing the same browser after
+     logging into admin.html) gets sent to the admin portal instead of
+     being silently onboarded as a customer. */
+  const {data:adminRow} = await sb.from('admins').select('is_active').eq('email', session.user.email).maybeSingle();
+  if(adminRow?.is_active){
+    window.location.replace('admin.html');
+    return;
+  }
+
   let {data:u,error}=await sb.from('users').select('*').eq('id',session.user.id).single();
   /* Self-heal: a session can exist with no matching public.users row if
      the account was created outside the app's own signup flow (e.g. added
@@ -3564,6 +3576,19 @@ async function consumeServicePassVisit(booking){
   observer.observe(modalEl, { attributes:true, attributeFilter:['class'] });
 })();
 
+/* Re-triggers the face-draw CSS animation each time a thank-you modal
+   is shown — same clone-node technique as the admin ban-tick and
+   worker ban-cross animations, since a CSS animation only plays once
+   per element unless it's freshly inserted into the DOM. */
+function _replayReviewFaceAnimation(modalId){
+  const wrap = document.querySelector('#'+modalId+' .review-face-wrap');
+  if(!wrap) return;
+  const oldSvg = wrap.querySelector('.review-face-svg');
+  if(!oldSvg) return;
+  const newSvg = oldSvg.cloneNode(true);
+  wrap.replaceChild(newSvg, oldSvg);
+}
+
 /* ── REVIEW ───────────────────────────────────────────────── */
 const REVIEW_TAGS=[
   {id:'well_mannered',  label:'😊 Well-mannered',   type:'positive'},
@@ -3676,10 +3701,13 @@ async function submitReview(){
     const t = REVIEW_TAGS.find(rt=>rt.id===id);
     return t && t.type==='negative';
   });
-  document.getElementById(hasNegative ? 'reviewThanksBadModal' : 'reviewThanksGoodModal').classList.add('on');
+  const thanksModalId = hasNegative ? 'reviewThanksBadModal' : 'reviewThanksGoodModal';
+  _replayReviewFaceAnimation(thanksModalId);
+  document.getElementById(thanksModalId).classList.add('on');
 
-  /* refresh latest booking state from DB */
-  await renderBookings();
+  /* Send the user back to the Home/Dashboard tab after rating, rather
+     than leaving them on My Bookings. */
+  goPage('home');
 }
 
 /* ── AADHAAR UPLOAD ───────────────────────────────────────── */
