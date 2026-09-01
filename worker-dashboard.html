@@ -243,6 +243,22 @@
   </div>
 </div>
 
+<!-- BAN LOGOUT MODAL (shown instead of alert() when admin bans this worker) -->
+<div class="modal-bg" id="banLogoutModal">
+  <div class="modal" style="max-width:400px;text-align:center">
+    <div class="ban-cross-wrap">
+      <svg class="ban-cross-svg" viewBox="0 0 52 52">
+        <circle class="ban-cross-circle" cx="26" cy="26" r="24" fill="none"/>
+        <path class="ban-cross-line1" fill="none" d="M17 17l18 18"/>
+        <path class="ban-cross-line2" fill="none" d="M35 17l-18 18"/>
+      </svg>
+    </div>
+    <h3 style="margin:.5rem 0 .35rem">Account Suspended</h3>
+    <p id="banLogoutMsg" style="color:var(--text2);font-size:.85rem;margin:0 0 1.1rem;line-height:1.6"></p>
+    <button onclick="_confirmBanLogoutRedirect()" style="background:var(--danger,#c0392b);color:#fff;border:none;border-radius:var(--radius-sm);padding:.6rem 1.4rem;font-weight:700;cursor:pointer">OK</button>
+  </div>
+</div>
+
 <!-- ACHIEVEMENT UNLOCK POPUP (Phase 5 / PART 7) -->
 <div class="modal-bg" id="achievementUnlockModal">
   <div class="modal" style="max-width:360px;text-align:center">
