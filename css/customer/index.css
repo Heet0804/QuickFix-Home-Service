@@ -572,3 +572,55 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
 #campaignModal.campaign-closing .modal.campaign-modal{ animation:campaign-scale-out .2s ease forwards }
 @keyframes campaign-fade-out{ from{opacity:1} to{opacity:0} }
 @keyframes campaign-scale-out{ from{opacity:1;transform:scale(1)} to{opacity:0;transform:scale(.95)} }
+
+/* Review outcome faces — animated draw, same technique as the admin
+   ban-success tick and worker ban cross. Circle draws first, then the
+   eyes fade/pop in, then the mouth (smile or frown) draws last. */
+.review-face-wrap{
+  display:flex;
+  justify-content:center;
+  margin:.5rem 0 .75rem;
+}
+.review-face-svg{
+  width:64px;
+  height:64px;
+}
+.review-face-circle{
+  stroke-width:3;
+  stroke-linecap:round;
+  stroke-dasharray:151;
+  stroke-dashoffset:151;
+  animation:reviewFaceCircle .5s ease-out forwards;
+}
+.review-face-happy .review-face-circle{ stroke:#2e7d32; }
+.review-face-sad .review-face-circle{ stroke:#c0392b; }
+
+.review-face-eye{
+  opacity:0;
+  transform-origin:center;
+  animation:reviewFaceEye .25s ease-out forwards;
+  animation-delay:.5s;
+}
+.review-face-happy .review-face-eye{ fill:#2e7d32; }
+.review-face-sad .review-face-eye{ fill:#c0392b; }
+
+.review-face-mouth{
+  stroke-width:3;
+  stroke-linecap:round;
+  stroke-dasharray:26;
+  stroke-dashoffset:26;
+  animation:reviewFaceMouth .35s ease-out forwards;
+  animation-delay:.7s;
+}
+.review-face-happy .review-face-mouth{ stroke:#2e7d32; }
+.review-face-sad .review-face-mouth{ stroke:#c0392b; }
+
+@keyframes reviewFaceCircle{
+  to{ stroke-dashoffset:0; }
+}
+@keyframes reviewFaceEye{
+  to{ opacity:1; transform:scale(1); }
+}
+@keyframes reviewFaceMouth{
+  to{ stroke-dashoffset:0; }
+}
