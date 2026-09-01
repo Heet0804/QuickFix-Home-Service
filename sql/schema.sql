@@ -145,6 +145,17 @@ CREATE TABLE workers (
     document_name          TEXT,
     unlocked_achievements  JSONB DEFAULT '[]'::jsonb,
     profile_photo_url      TEXT,
+    -- Phase 8 — worker ban escalation, verification, positive-streak
+    -- bonus rewards. banned_until is the CURRENT/LATEST ban only; full
+    -- history lives in worker_bans below. verification_status has no
+    -- CHECK constraint yet (client only ever writes 'pending'/'approved'/
+    -- 'rejected', not enforced at the DB layer — flagged as a gap).
+    banned_until               TIMESTAMPTZ,
+    ban_count                  INTEGER NOT NULL DEFAULT 0,
+    last_ban_duration_label    TEXT,
+    positive_streak            INTEGER NOT NULL DEFAULT 0,
+    bonus_balance              NUMERIC NOT NULL DEFAULT 0,
+    verification_status        TEXT NOT NULL DEFAULT 'pending'::text,
 
     CONSTRAINT workers_pkey PRIMARY KEY (id),
     CONSTRAINT workers_lat_check CHECK (lat IS NULL OR (lat >= -90 AND lat <= 90)),
@@ -156,8 +167,21 @@ CREATE TABLE workers (
     -- or >100 is rejected there); DB previously had no matching floor/ceiling.
     CONSTRAINT workers_radius_check CHECK (radius IS NULL OR (radius >= 1 AND radius <= 100)),
     CONSTRAINT workers_price_check CHECK (price IS NULL OR price >= 0),
-    CONSTRAINT workers_rating_check CHECK (rating IS NULL OR (rating >= 0 AND rating <= 5))
+    CONSTRAINT workers_rating_check CHECK (rating IS NULL OR (rating >= 0 AND rating <= 5)),
+    -- Phase 8 — no DB-level enforcement existed for verification_status's
+    -- allowed values prior to this; added defensively even though the
+    -- column was introduced without one originally.
+    CONSTRAINT workers_verification_status_check CHECK (verification_status IN ('pending','approved','rejected')),
+    CONSTRAINT workers_ban_count_check CHECK (ban_count >= 0),
+    CONSTRAINT workers_positive_streak_check CHECK (positive_streak >= 0),
+    CONSTRAINT workers_bonus_balance_check CHECK (bonus_balance >= 0)
 );
+
+-- Phase 8 — required so a realtime UPDATE event's payload.new carries
+-- every column (specifically banned_until) rather than just the primary
+-- key; without this, dashboard.js's worker-selfrow ban-enforcement
+-- channel cannot read the new ban state from the event payload.
+ALTER TABLE workers REPLICA IDENTITY FULL;
 
 -- =====================================================
 -- CAMPAIGNS
@@ -312,6 +336,11 @@ CREATE TABLE reviews (
     rating      INTEGER,
     comment     TEXT,
     created_at  TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    -- Phase 8 — customer feedback pill tags (index.js's REVIEW_TAGS
+    -- catalog: 8 positive, 6 negative, 1 'other'). No CHECK constraint
+    -- restricting values to that catalog — a client bypassing the UI
+    -- could insert any text array here.
+    tags        TEXT[],
 
     CONSTRAINT reviews_pkey PRIMARY KEY (id),
     CONSTRAINT reviews_booking_id_key UNIQUE (booking_id),
@@ -327,6 +356,50 @@ CREATE TABLE reviews (
     -- TODO (superseded, kept for context): reviews_rating_check CHECK constraint on "rating" is
     -- documented to exist but its bounds are not enumerated in
     -- DATABASE.md. Not fabricated.
+);
+
+-- Phase 8 — required so admin.js's realtime 'admin-reviews' channel
+-- (INSERT events on reviews) actually fires.
+-- (Run once: ALTER PUBLICATION supabase_realtime ADD TABLE reviews;)
+
+-- =====================================================
+-- WORKER_BANS (Phase 8)
+-- Permanent, append-only ban history — independent of workers.banned_until,
+-- which reflects only the current/latest ban.
+-- =====================================================
+
+CREATE TABLE worker_bans (
+    id                  UUID NOT NULL DEFAULT gen_random_uuid(),
+    worker_id           UUID NOT NULL,
+    duration_label      TEXT NOT NULL,
+    banned_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    banned_until        TIMESTAMPTZ NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    CONSTRAINT worker_bans_pkey PRIMARY KEY (id),
+    CONSTRAINT worker_bans_worker_id_fkey FOREIGN KEY (worker_id)
+        REFERENCES workers (id),
+    CONSTRAINT worker_bans_until_after_at_check CHECK (banned_until > banned_at)
+);
+
+-- =====================================================
+-- WORKER_BONUSES (Phase 8)
+-- Permanent log of every positive-streak bonus credited. Written
+-- exclusively by the handle_review_streak() trigger (functions.sql) —
+-- no client INSERT path exists.
+-- =====================================================
+
+CREATE TABLE worker_bonuses (
+    id                  UUID NOT NULL DEFAULT gen_random_uuid(),
+    worker_id           UUID NOT NULL,
+    amount              NUMERIC NOT NULL,
+    streak_at_award     INTEGER NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    CONSTRAINT worker_bonuses_pkey PRIMARY KEY (id),
+    CONSTRAINT worker_bonuses_worker_id_fkey FOREIGN KEY (worker_id)
+        REFERENCES workers (id),
+    CONSTRAINT worker_bonuses_amount_check CHECK (amount > 0)
 );
 
 -- =====================================================
