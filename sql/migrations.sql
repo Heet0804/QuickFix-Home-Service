@@ -1026,8 +1026,127 @@ comment on schema storage is
 -- recreated here (would cause a duplicate-constraint error).
 
 -- ============================================================
+-- PHASE 8: WORKER BANS, VERIFICATION, POSITIVE STREAK/BONUS, REVIEW TAGS
+-- Applied directly to the live database in this order; recorded here
+-- to bring this migration package back in sync with actual DB state.
+-- ============================================================
+
+alter table workers add column if not exists banned_until timestamptz;
+alter table workers add column if not exists ban_count integer not null default 0;
+alter table workers add column if not exists last_ban_duration_label text;
+alter table workers add column if not exists positive_streak integer not null default 0;
+alter table workers add column if not exists bonus_balance numeric not null default 0;
+alter table workers add column if not exists verification_status text not null default 'pending'::text;
+alter table workers add constraint workers_verification_status_check check (verification_status in ('pending','approved','rejected'));
+alter table workers add constraint workers_ban_count_check check (ban_count >= 0);
+alter table workers add constraint workers_positive_streak_check check (positive_streak >= 0);
+alter table workers add constraint workers_bonus_balance_check check (bonus_balance >= 0);
+alter table workers replica identity full;
+
+alter table reviews add column if not exists tags text[];
+
+create table if not exists worker_bans (
+    id              uuid not null default gen_random_uuid(),
+    worker_id       uuid not null,
+    duration_label  text not null,
+    banned_at       timestamptz not null default now(),
+    banned_until    timestamptz not null,
+    created_at      timestamptz not null default now(),
+    constraint worker_bans_pkey primary key (id),
+    constraint worker_bans_worker_id_fkey foreign key (worker_id) references workers (id),
+    constraint worker_bans_until_after_at_check check (banned_until > banned_at)
+);
+
+create table if not exists worker_bonuses (
+    id                uuid not null default gen_random_uuid(),
+    worker_id         uuid not null,
+    amount            numeric not null,
+    streak_at_award   integer not null,
+    created_at        timestamptz not null default now(),
+    constraint worker_bonuses_pkey primary key (id),
+    constraint worker_bonuses_worker_id_fkey foreign key (worker_id) references workers (id),
+    constraint worker_bonuses_amount_check check (amount > 0)
+);
+
+create index if not exists idx_workers_banned_until on workers (banned_until);
+create index if not exists idx_worker_bans_worker on worker_bans (worker_id);
+create index if not exists idx_worker_bonuses_worker on worker_bonuses (worker_id);
+
+alter table worker_bans enable row level security;
+create policy admins_can_select_worker_bans on worker_bans for select to public
+  using (exists (select 1 from admins a where a.email = auth.email() and a.is_active = true));
+create policy admins_can_insert_worker_bans on worker_bans for insert to public
+  with check (exists (select 1 from admins a where a.email = auth.email() and a.is_active = true));
+
+alter table worker_bonuses enable row level security;
+create policy admins_can_select_worker_bonuses on worker_bonuses for select to public
+  using (exists (select 1 from admins a where a.email = auth.email() and a.is_active = true));
+create policy workers_can_select_own_bonuses on worker_bonuses for select to public
+  using (auth.uid() = worker_id);
+
+-- Live-confirmed fix: workers_update only ever allowed a worker to
+-- update their own row; an admin ban write matched zero rows under RLS
+-- and returned no error until this policy was added.
+create policy admins_can_update_any_worker on workers for update to public
+  using (exists (select 1 from admins a where a.email = auth.email() and a.is_active = true))
+  with check (exists (select 1 from admins a where a.email = auth.email() and a.is_active = true));
+
+create policy admins_can_update_worker_verification on workers for update to public
+  using (exists (select 1 from admins a where a.email = auth.email() and a.is_active = true))
+  with check (exists (select 1 from admins a where a.email = auth.email() and a.is_active = true));
+
+create policy admins_can_select_all_users on users for select to public
+  using (exists (select 1 from admins a where a.email = auth.email() and a.is_active = true));
+
+create policy "admins_can_select_worker_documents" on storage.objects for select to public
+  using (bucket_id = 'worker-documents' and exists (select 1 from admins a where a.email = auth.email() and a.is_active = true));
+
+create or replace function handle_review_streak()
+returns trigger as $$
+declare
+  neg_tags text[] := array['late','rude','unprofessional','poor_quality','overcharged','untidy'];
+  has_negative boolean;
+  new_streak integer;
+  bonus_amount numeric := 100;
+begin
+  if new.worker_id is null then
+    return new;
+  end if;
+
+  has_negative := new.tags && neg_tags;
+
+  if has_negative then
+    update workers set positive_streak = 0 where id = new.worker_id;
+  else
+    update workers set positive_streak = positive_streak + 1
+    where id = new.worker_id
+    returning positive_streak into new_streak;
+
+    if new_streak is not null and new_streak % 5 = 0 then
+      update workers set bonus_balance = bonus_balance + bonus_amount where id = new.worker_id;
+      insert into worker_bonuses (worker_id, amount, streak_at_award)
+      values (new.worker_id, bonus_amount, new_streak);
+    end if;
+  end if;
+
+  return new;
+end;
+$$ language plpgsql security definer set search_path = public, pg_temp;
+
+drop trigger if exists trg_review_streak on reviews;
+create trigger trg_review_streak
+after insert on reviews
+for each row execute function handle_review_streak();
+
+-- Also applied directly (project-level Realtime configuration, not a
+-- table/function/policy — recorded here for completeness):
+--   alter publication supabase_realtime add table reviews, users, workers;
+--   delete from users where email in (select email from admins);
+
+
+-- ============================================================
 -- AUDIT RESULT
--- Migration Order: Tables -> Constraints -> Indexes -> RLS -> Storage -> Functions -> Comments (7/7 phases present, in required order)
+-- Migration Order: Tables -> Constraints -> Indexes -> RLS -> Storage -> Functions -> Comments -> Phase 8 (8/8 phases present, in required order)
 -- Dependency Check: areas created before users (saved_area_id FK); users and workers created before bookings; bookings/users/workers created before reviews; users/campaigns created before user_passes; workers created before worker_achievements; all constraints added only after every referenced table exists; no circular dependencies found among public-schema tables
 -- Corrections Made (original Phase 5.5.11 pass): six "Active admins ...`
 -- policies on campaigns/user_passes/users, previously implemented with a
@@ -1051,5 +1170,10 @@ comment on schema storage is
 -- auth.users-referencing FKs (admins_auth_user_id_fkey, users_id_fkey,
 -- workers_id_fkey, user_passes_user_id_fkey) remain marked inferred per
 -- DATABASE.md wording, not asserted as confirmed.
+-- Phase 8 corrections: found and fixed a live silent-RLS-failure bug —
+-- admins_can_update_any_worker was missing entirely prior to this
+-- phase, causing every admin ban write to appear to succeed while
+-- actually affecting zero rows. Confirmed via .select() returning an
+-- empty array on the write, not merely inferred.
 -- Final Status: PASS ✅
 -- ============================================================
