@@ -109,10 +109,62 @@ EXECUTE FUNCTION prevent_role_self_escalation();
 -- unset (BLOCKED — BUSINESS RULE REQUIRED) until product specifies it.
 -- ------------------------------------------------------------
 
+-- ------------------------------------------------------------
+-- Function: handle_review_streak()
+-- Added: Phase 8 — fires on every reviews insert. Increments
+-- workers.positive_streak when the inserted row's tags contain no
+-- value from the fixed negative-tag list; resets to 0 otherwise. Every
+-- 5th consecutive positive value additionally credits
+-- workers.bonus_balance and logs a row in worker_bonuses. This is the
+-- one Phase 8 feature with no client-side write path at all — the
+-- client (dashboard.js) only ever reads positive_streak/bonus_balance,
+-- never writes them.
+-- ------------------------------------------------------------
+CREATE OR REPLACE FUNCTION handle_review_streak()
+RETURNS TRIGGER AS $$
+DECLARE
+  neg_tags TEXT[] := ARRAY['late','rude','unprofessional','poor_quality','overcharged','untidy'];
+  has_negative BOOLEAN;
+  new_streak INTEGER;
+  bonus_amount NUMERIC := 100;
+BEGIN
+  IF NEW.worker_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  has_negative := NEW.tags && neg_tags;
+
+  IF has_negative THEN
+    UPDATE workers SET positive_streak = 0 WHERE id = NEW.worker_id;
+  ELSE
+    UPDATE workers SET positive_streak = positive_streak + 1
+    WHERE id = NEW.worker_id
+    RETURNING positive_streak INTO new_streak;
+
+    IF new_streak IS NOT NULL AND new_streak % 5 = 0 THEN
+      UPDATE workers SET bonus_balance = bonus_balance + bonus_amount WHERE id = NEW.worker_id;
+      INSERT INTO worker_bonuses (worker_id, amount, streak_at_award)
+      VALUES (NEW.worker_id, bonus_amount, new_streak);
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+-- ------------------------------------------------------------
+-- Trigger: trg_review_streak
+-- Added: Phase 8 — the first trigger on reviews in this schema.
+-- ------------------------------------------------------------
+DROP TRIGGER IF EXISTS trg_review_streak ON reviews;
+CREATE TRIGGER trg_review_streak
+AFTER INSERT ON reviews
+FOR EACH ROW EXECUTE FUNCTION handle_review_streak();
+
 -- ============================================================
 -- AUDIT RESULT
--- Functions Verified: is_admin(), get_worker_stats, get_worker_stats_bulk, rls_auto_enable, handle_new_user — 5/5 present, matching DATABASE.md Section 4
--- Missing Bodies: is_admin(), get_worker_stats, get_worker_stats_bulk, rls_auto_enable, handle_new_user — all 5 marked TODO (no body, parameter list, or return type documented in DATABASE.md)
--- Corrections Made: None — no CREATE FUNCTION statements were emitted since signatures are undocumented; emitting one would require inventing types not present in DATABASE.md
+-- Functions Verified: is_admin(), get_worker_stats, get_worker_stats_bulk, rls_auto_enable, handle_new_user — 5/5 present, matching DATABASE.md Section 4; handle_review_streak() — Phase 8 addition, full confirmed body, not a TODO
+-- Missing Bodies: get_worker_stats, get_worker_stats_bulk, rls_auto_enable, handle_new_user — 4 remaining marked TODO (no body, parameter list, or return type documented in DATABASE.md)
+-- Corrections Made: None on the pre-Phase-8 TODO stubs — no CREATE FUNCTION statements were emitted for those since signatures are undocumented; handle_review_streak() added with its full, confirmed live body (Phase 8)
 -- Final Status: PASS ✅
 -- ============================================================
