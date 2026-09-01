@@ -88,6 +88,7 @@ Backend access is exclusively through the Supabase JS client (`@supabase/supabas
 - External APIs called directly from the browser: Nominatim (`nominatim.openstreetmap.org`), Geoapify Routing and Reverse Geocoding (`api.geoapify.com`, key embedded in `config.js` as `CONFIG.GEOAPIFY_API_KEY`), OpenStreetMap tile servers.
 
 ### 2.5 Constraints (as observed in code)
+- **Correction (Phase 8):** an admin-issued write against `workers` (the ban feature's `UPDATE`) was found to be silently blocked by RLS with no client-visible error, because the pre-existing `workers_update` policy only permitted a worker to update their own row and no admin-scoped UPDATE policy existed. Fixed by adding `admins_can_update_any_worker` and by having the client append `.select()` to the write to detect an empty result. This is direct, first-hand confirmation — not a hypothetical — that a Supabase write silently succeeding with zero effect, due to RLS filtering, is a real failure mode in this codebase, consistent with the general RLS-unverifiability concern raised throughout `DATABASE.md`/`SECURITY.md`.
 - The Geoapify API key is a plaintext client-side constant in `config.js` — there is no server-side proxy or key rotation mechanism in the codebase.
 - **Correction:** booking creation, both OTP verifications, pass activation, QuickCoins crediting, and pass-visit consumption are now written via server-side RPCs (`create_booking`, `verify_arrival_otp`/`_customer`, `verify_completion_otp`/`_customer`, `activate_pass`, `award_quickcoins`, `consume_pass_visit`), each tagged "Phase 6.4" at its call site. Worker-assignment eligibility and the price shown to the customer before submission remain client-computed; `create_booking`'s own comment states price is re-validated server-side.
 - `index.js` contains an in-app worker registration form (`submitReg()`) whose fields (category, experience, price, bio, Aadhaar number/photo, PAN, emergency flag) are collected in the UI but the corresponding `DB.saveReg()` call persists only `id`, `name`, `phone`, and `role:'worker'` to a `profiles` table — none of the professional/verification fields collected by this form are written anywhere. This is a genuine implementation gap, not a PRD interpretation issue.
@@ -197,19 +198,19 @@ Each module below is documented with Description, Inputs, Outputs, Processing, E
 
 **Dependencies.** `getIST()` for all "today"/"tomorrow" comparisons.
 
-### 3.6 Reviews (`index.js: openReview/setRating/submitReview`, `DB.saveReview`)
+### 3.6 Reviews (`index.js: openReview/setRating/submitReview/toggleReviewTag`, `DB.saveReview`)
 
-**Description.** Post-completion 5-star rating with optional comment, gated to `Completed` bookings not yet rated (`bookingsByTab`/`renderBookings` only surface the "Rate" button when `b.status==='Completed' && !b.rated`).
+**Description.** Post-completion 5-star rating with a fixed pill-tag feedback catalog and a conditionally revealed comment, gated to `Completed` bookings not yet rated (`bookingsByTab`/`renderBookings` only surface the "Rate" button when `b.status==='Completed' && !b.rated`).
 
-**Inputs.** Star tap (1–5, `setRating()`), optional comment text.
+**Inputs.** Star tap (1–5, `setRating()`), zero or more tag selections from `REVIEW_TAGS` (8 `positive`, 6 `negative`, 1 `other`), and — only if a `negative` or `other` tag is selected — free-text comment.
 
-**Outputs.** `bookings.rated/review_rating/review_comment` updated; a row inserted into a `reviews` table with `booking_id, user_id, worker_id, rating, comment, created_at`.
+**Outputs.** `bookings.rated/review_rating/review_comment` updated; a row inserted into `reviews` with `booking_id, user_id, worker_id, rating, comment, tags, created_at`. Server-side (Phase 8), the `handle_review_streak()` trigger additionally updates `workers.positive_streak`/`bonus_balance` and may insert a `worker_bonuses` row, entirely outside client control.
 
-**Processing.** `submitReview()` blocks on `!revRat` (no rating selected) before any write; on success, both the booking-row update and the `reviews` insert are attempted (the insert's result/error is not checked).
+**Processing.** `submitReview()` blocks on `!revRat` (no rating selected) before any write. `toggleReviewTag()` shows/hides the comment `<textarea>` (`display:''`/`display:'none'`) based on whether the current tag selection includes any `negative`-typed tag or the `other` tag — selecting only `positive` tags keeps the comment field hidden and clears any previously entered text. On successful submission, `_replayReviewFaceAnimation()` re-triggers a CSS draw-in animation (a happy-face SVG if no negative tag was selected, a sad-face SVG otherwise) by cloning the SVG node, since a CSS animation does not replay on a static DOM element; the resulting modal's "Continue" button (`closeReviewThanksModal()`) both closes the modal and navigates the customer to the Home/Dashboard tab. Both the booking-row update and the `reviews` insert are attempted; the insert's result/error is still not checked (unchanged from pre-Phase-8 behavior).
 
 **Error Handling.** "Please select a star rating" toast if no star tapped; "Booking not found" toast guard if the target booking has disappeared from the current `DB.bookings()` snapshot.
 
-**Dependencies.** `bookings`, `reviews` tables.
+**Dependencies.** `bookings`, `reviews` tables; server-side, `handle_review_streak()` trigger and `worker_bonuses` table (Phase 8).
 
 ### 3.7 QuickCoins (`index.js`)
 
@@ -471,6 +472,38 @@ This section lists validation and failure handling actually present in the code,
 | Route/reverse-geocode network failure | Caught per-call; tracking continues with the previous route/placeholder ETA rather than failing the map |
 
 ---
+
+## 8A. Worker Discipline and Verification (Phase 8)
+
+### 8A.1 Ban Escalation (`admin.js: openBanModal/confirmBanWorker`, `auth.js: doLogin`, `dashboard.js`)
+
+**Description.** Admin-imposed, time-limited worker suspension, surfaced only against a review that indicates a genuine problem.
+
+**Inputs.** Ban amount (numeric) and unit (`minutes`/`hours`/`days`/`weeks`), defaulted per the worker's `ban_count` (1st: 5 hours, 2nd: 1 day, 3rd+: 5 days) but freely overridable.
+
+**Outputs.** `workers.banned_until/ban_count/last_ban_duration_label/is_available:false` updated; a `worker_bans` row inserted unconditionally as a permanent record.
+
+**Processing.** The Ban action itself (a button in the Reviews tab) is rendered only when the review's `tags` includes at least one `negative`-typed value, the review's `rating` is below 4, and the target worker is not already under an active ban (`banned_until > now`) — any one of these failing hides the action, replacing it with a static "Banned" badge or nothing at all. On confirmation, the write to `workers` is followed by `.select()`; an empty result array is treated as a failed write (see Section 2.5 correction below) rather than reported as success. `auth.js: doLogin()` independently checks `profile.banned_until > now` for a worker-role login and blocks it, showing the exact unban timestamp. `dashboard.js` subscribes to a Realtime channel scoped to the worker's own `workers` row; on any `UPDATE` where `payload.new.banned_until` is in the future, it immediately signs the worker out client-side (`_forceBanLogout()`), independent of the existing booking-list poll cycle.
+
+**Error Handling.** An empty `.select()` result on the ban write surfaces an explicit warning naming RLS/permissions as the likely cause, rather than the prior (pre-fix) behavior of reporting unconditional success. A banned login attempt shows a specific error naming the exact date/time the account becomes usable again, rather than a generic "invalid login" message.
+
+**Dependencies.** `workers`, `worker_bans` tables; Supabase Realtime (`workers` table in the `supabase_realtime` publication, `REPLICA IDENTITY FULL` required).
+
+### 8A.2 Worker Verification (`admin.js: setWorkerVerification`)
+
+**Description.** Admin review of a worker's uploaded ID document and profile photo, resulting in an Approved/Rejected status.
+
+**Processing.** `openAdminDocView()` retrieves the document via a signed URL (`createSignedUrl`, 5-minute expiry) rather than the stored public-URL string, since `worker-documents` is a private bucket (Section 2.5 correction). `openAdminImgView()` retrieves the profile photo via its existing public URL. `setWorkerVerification()` writes `workers.verification_status`; the Workers tab hides the Approve/Reject pill buttons once `status==='approved'`, showing only the Verification column's own status badge (avoiding a duplicate "approved" indicator that existed briefly during this feature's initial implementation).
+
+**Dependencies.** `workers` table; `storage.objects` (signed URL generation requires an admin-scoped SELECT policy on the bucket).
+
+### 8A.3 Positive Streak & Bonus (server-side trigger, `handle_review_streak()`)
+
+**Description.** The only Phase 8 feature implemented with no client-side write path — entirely a Postgres trigger, `AFTER INSERT ON reviews`.
+
+**Processing.** On every review insert, if the row's `tags` array contains no value from a fixed negative-tag list, `workers.positive_streak` is incremented for that `worker_id`; otherwise it is reset to 0. Every 5th consecutive positive value additionally credits `workers.bonus_balance` and inserts a row into `worker_bonuses`. The client (`dashboard.js`) only ever reads these two `workers` columns for display — it never writes them.
+
+**Dependencies.** `reviews`, `workers`, `worker_bonuses` tables.
 
 ## 9. Future Enhancements
 
