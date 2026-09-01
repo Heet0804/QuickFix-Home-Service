@@ -89,6 +89,23 @@ using (
   )
 );
 
+-- Phase 8 — admin.js: openAdminDocView() retrieves a document via
+-- createSignedUrl(), which itself requires the caller to pass a SELECT
+-- policy on storage.objects. "allow_worker_photos_upload 15rstgp_1"
+-- above already covers this via its OR is_admin() branch for a caller
+-- whose admins.is_active check resolves through is_admin() — this
+-- second, admins-table-scoped policy was added independently during
+-- Phase 8 and is functionally redundant with it, not a bug.
+drop policy if exists "admins_can_select_worker_documents" on storage.objects;
+create policy "admins_can_select_worker_documents"
+on storage.objects
+for select
+to public
+using (
+  bucket_id = 'worker-documents'
+  AND EXISTS (SELECT 1 FROM admins a WHERE a.email = auth.email() AND a.is_active = true)
+);
+
 -- ============================================================
 -- AUDIT RESULT
 -- Buckets Verified: worker-photos (public=true), worker-documents (public=false) — 2/2 match DATABASE.md Section 3
