@@ -76,19 +76,23 @@ async function adminLogout(){
 
 /* ── APP INIT ──────────────────────────────────────────────── */
 async function initAdminApp(){
-  await Promise.all([loadCampaigns(), loadPasses(), loadReviews(), loadBannedWorkers()]);
+  await Promise.all([loadCampaigns(), loadPasses(), loadReviews(), loadBannedWorkers(), loadUsers(), loadWorkersFull()]);
   renderCampaignsTable();
   renderPassesTable();
   renderReviewsTable();
   renderBannedWorkersTable();
+  renderUsersTable();
+  renderWorkersTable();
   renderAnalytics();
 
   setInterval(async ()=>{
-    await Promise.all([loadCampaigns(), loadPasses(), loadReviews(), loadBannedWorkers()]);
+    await Promise.all([loadCampaigns(), loadPasses(), loadReviews(), loadBannedWorkers(), loadUsers(), loadWorkersFull()]);
     renderCampaignsTable();
     renderPassesTable();
     renderReviewsTable();
     renderBannedWorkersTable();
+    renderUsersTable();
+    renderWorkersTable();
     renderAnalytics();
   }, CONSTANTS.ADMIN_DASHBOARD_POLL_INTERVAL_MS);
 
@@ -106,6 +110,174 @@ async function initAdminApp(){
       }
     )
     .subscribe();
+
+  /* Realtime: users/workers tables can change from anywhere — a
+     customer signing up, a worker completing a job (streak/bonus/
+     stats), or a direct SQL reset/truncate done outside the app
+     entirely. '*' (all events: INSERT/UPDATE/DELETE) keeps the Users
+     and Workers tabs, and everything derived from workers.banned_until
+     (Reviews tab's ban column, Banned Workers tab), in sync without
+     needing a manual refresh. */
+  sb.channel('admin-users')
+    .on(
+      'postgres_changes',
+      { event:'*', schema:'public', table:'users' },
+      async ()=>{
+        await loadUsers();
+        renderUsersTable();
+      }
+    )
+    .subscribe();
+
+  sb.channel('admin-workers')
+    .on(
+      'postgres_changes',
+      { event:'*', schema:'public', table:'workers' },
+      async ()=>{
+        await loadWorkersFull();
+        renderWorkersTable();
+        await loadReviews();
+        renderReviewsTable();
+        await loadBannedWorkers();
+        renderBannedWorkersTable();
+      }
+    )
+    .subscribe();
+}
+
+/* ── USERS TAB ─────────────────────────────────────────────── */
+let _allUsers = [];
+async function loadUsers(){
+  const {data, error} = await sb.from('users').select('*').order('created_at', {ascending:false});
+  if(error){ console.error('loadUsers:', error.message); _allUsers = []; return; }
+  _allUsers = data || [];
+}
+function renderUsersTable(){
+  const body = document.getElementById('usersBody');
+  const empty = document.getElementById('usersEmpty');
+  if(!_allUsers.length){ body.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+  body.innerHTML = _allUsers.map(u=>`
+    <tr>
+      <td>${u.name || '—'}</td>
+      <td>${u.email || '—'}</td>
+      <td>${u.phone || '—'}</td>
+      <td style="max-width:220px;white-space:normal">${u.saved_address || '—'}</td>
+      <td>${u.quickcoins_balance ?? 0} 🪙</td>
+      <td>${u.total_completed_bookings ?? 0}</td>
+      <td>${_fmtDate(u.created_at)}</td>
+    </tr>`).join('');
+}
+
+/* ── WORKERS TAB ───────────────────────────────────────────── */
+let _allWorkersFull = [];
+async function loadWorkersFull(){
+  /* workers table has no created_at column — order by name instead */
+  const {data, error} = await sb.from('workers').select('*').order('name', {ascending:true});
+  if(error){ console.error('loadWorkersFull:', error.message); _allWorkersFull = []; return; }
+  _allWorkersFull = data || [];
+}
+/* Profile photos live in a public bucket (worker-photos) — the stored
+   public URL just works. */
+function openAdminImgView(url){
+  if(!url){ alert('No image uploaded.'); return; }
+  document.getElementById('adminImgViewSrc').src = url;
+  document.getElementById('adminImgViewModal').classList.add('on');
+}
+
+/* Government ID documents live in a PRIVATE bucket (worker-documents —
+   see auth.js's Phase 6.6 comment on storage RLS). A stored public URL
+   for a private bucket doesn't actually resolve, which is why it shows
+   as a broken image. Generate a short-lived signed URL on demand
+   instead, using the stored filename. */
+async function openAdminDocView(documentName){
+  if(!documentName){ alert('No document uploaded.'); return; }
+  const {data, error} = await sb.storage.from('worker-documents').createSignedUrl(documentName, 300); /* 5 min */
+  if(error || !data?.signedUrl){
+    alert('Could not load document: '+(error?.message||'unknown error'));
+    return;
+  }
+  document.getElementById('adminImgViewSrc').src = data.signedUrl;
+  document.getElementById('adminImgViewModal').classList.add('on');
+}
+function renderWorkersTable(){
+  const body = document.getElementById('workersBody');
+  const empty = document.getElementById('workersEmpty');
+  if(!_allWorkersFull.length){ body.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+
+  const statusBadge = {
+    pending:  'badge-inactive',
+    approved: 'badge-active',
+    rejected: 'badge-rejected'
+  };
+
+  body.innerHTML = _allWorkersFull.map(w=>{
+    const status = w.verification_status || 'pending';
+    const docBtn = w.document_name
+      ? `<button class="btn bo bs" onclick="openAdminDocView('${w.document_name}')">📄 View</button>`
+      : '—';
+    const photoBtn = w.profile_photo_url
+      ? `<button class="btn bo bs" onclick="openAdminImgView('${w.profile_photo_url}')">🙂 View</button>`
+      : '—';
+    return `
+    <tr>
+      <td>${w.name || '—'}</td>
+      <td>${w.skill || '—'}</td>
+      <td>${w.phone || '—'}</td>
+      <td>${w.area || '—'}</td>
+      <td>${w.radius!=null ? w.radius+' km' : '—'}</td>
+      <td>${Number(w.rating||0).toFixed(1)}★</td>
+      <td>🔥 ${w.positive_streak ?? 0}</td>
+      <td>₹${Number(w.bonus_balance ?? 0).toLocaleString('en-IN')}</td>
+      <td>${docBtn}</td>
+      <td>${photoBtn}</td>
+      <td><span class="badge ${statusBadge[status]||'badge-inactive'}">${status.toUpperCase()}</span></td>
+      <td>
+        ${status === 'approved'
+          ? '—'
+          : `<div class="verify-actions-row">
+               <button class="verify-pill verify-pill-approve" onclick="setWorkerVerification('${w.id}','approved')">✅ Approve</button>
+               <button class="verify-pill verify-pill-reject" onclick="setWorkerVerification('${w.id}','rejected')">❌ Reject</button>
+             </div>`}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/* Renders the tick (approve) or cross (reject) SVG fresh into the
+   result modal each time, so the draw animation replays — same
+   principle as the ban tick/cross, but built inline here since the
+   icon shape differs per action rather than being fixed per modal. */
+function _renderVerifyResultIcon(isApprove){
+  const wrap = document.querySelector('#workerVerifyResultModal .verify-result-wrap');
+  if(!wrap) return;
+  wrap.innerHTML = isApprove
+    ? `<svg class="verify-result-svg verify-result-approve" viewBox="0 0 52 52">
+         <circle class="verify-result-circle" cx="26" cy="26" r="24" fill="none"/>
+         <path class="verify-result-mark" d="M14 27l7 7 16-16"/>
+       </svg>`
+    : `<svg class="verify-result-svg verify-result-reject" viewBox="0 0 52 52">
+         <circle class="verify-result-circle" cx="26" cy="26" r="24" fill="none"/>
+         <path class="verify-result-mark verify-result-mark-1" d="M17 17l18 18"/>
+         <path class="verify-result-mark verify-result-mark-2" d="M35 17l-18 18"/>
+       </svg>`;
+}
+
+async function setWorkerVerification(workerId, status){
+  const {error} = await sb.from('workers').update({verification_status: status}).eq('id', workerId);
+  if(error){ alert('Failed to update verification: '+error.message); return; }
+
+  const isApprove = status === 'approved';
+  _renderVerifyResultIcon(isApprove);
+  document.getElementById('verifyResultTitle').textContent = isApprove ? 'Worker Approved' : 'Worker Rejected';
+  document.getElementById('verifyResultMsg').textContent = isApprove
+    ? 'This worker has been verified and approved.'
+    : 'This worker has been marked as rejected.';
+  document.getElementById('workerVerifyResultModal').classList.add('on');
+
+  await loadWorkersFull();
+  renderWorkersTable();
 }
 
 function switchAdminTab(name){
@@ -511,14 +683,27 @@ async function renderReviewsTable(){
     }
   }
 
+  const NEGATIVE_REVIEW_TAG_IDS = ['late','rude','unprofessional','poor_quality','overcharged','untidy'];
+
   body.innerHTML = _allReviews.map(r=>{
     const u = userById[r.user_id] || {};
     const tagsHtml = (r.tags||[]).map(t=>`<span class="badge badge-inactive">${REVIEW_TAG_LABELS[t]||t}</span>`).join(' ');
     const bannedUntil = workerBannedUntilById[r.worker_id];
     const isBanned = bannedUntil && new Date(bannedUntil) > now;
-    const banBtn = r.worker_id
-      ? (isBanned ? `<span class="badge badge-inactive">🚫 Banned</span>` : `<button class="btn bd bs" onclick="openBanModal('${r.worker_id}')">🚫 Ban</button>`)
-      : '—';
+    const hasNegativeTag = (r.tags||[]).some(t=>NEGATIVE_REVIEW_TAG_IDS.includes(t));
+    const isHighRating = Number(r.rating||0) >= 4;
+    /* Ban action only makes sense on a review that actually flagged a
+       problem — a good review (no negative tags, OR a 4-5 star
+       rating) never shows a Ban button at all, regardless of the
+       worker's current ban status. A high rating overrides even if a
+       negative tag was somehow also selected alongside it. */
+    const banBtn = !r.worker_id
+      ? '—'
+      : isBanned
+        ? `<span class="badge badge-inactive">🚫 Banned</span>`
+        : (hasNegativeTag && !isHighRating)
+          ? `<button class="btn bd bs" onclick="openBanModal('${r.worker_id}')">🚫 Ban</button>`
+          : '—';
     const banColsHtml = anyBanned
       ? `<td>${isBanned ? (workerLastBanLabelById[r.worker_id]||'—') : '—'}</td><td>${isBanned ? _fmtDateTime(bannedUntil) : '—'}</td>`
       : '';
