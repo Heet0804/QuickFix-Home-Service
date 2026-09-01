@@ -154,8 +154,60 @@ There is no build tool, package manifest, or dev-server requirement in the proje
 |---|---|---|---|
 | Review prompt gating | Check for a "Rate" button on bookings in various states | Shown only when `status==='Completed' && !b.rated` | `SRS.md` §3.6 |
 | Submit without rating | Attempt to submit a review with no star selected | Blocked with a "Please select a star rating" toast before any write | `SRS.md` §3.6 |
-| Submit valid review | Select a star rating, optionally add a comment, submit | `bookings.rated/review_rating/review_comment` updated; a `reviews` row inserted | `SRS.md` §3.6 |
+| Submit valid review | Select a star rating, select zero or more tags, optionally add a comment, submit | `bookings.rated/review_rating/review_comment` updated; a `reviews` row inserted including `tags` | `SRS.md` §3.6 |
 | Booking disappears mid-review | Open the review modal, then have the underlying booking removed from the current `DB.bookings()` snapshot before submit | "Booking not found" toast guard | `SRS.md` §3.6 |
+| Positive-only tag selection | Select only positive tags (e.g. Punctual, Friendly), no comment | Comment field stays hidden throughout; submission succeeds with `tags` set, `comment` empty | `SRS.md` §8A.1 |
+| Negative tag reveals comment | Select a negative tag (e.g. Late) | Comment field becomes visible; remains optional to fill | `SRS.md` §8A.1 |
+| "Other" tag reveals comment | Select only the "Other" tag | Comment field becomes visible | `SRS.md` §8A.1 |
+| Deselecting last negative/other tag | Select a negative tag, then deselect it, leaving only positive tags (or none) | Comment field hides again and any entered text is cleared | `SRS.md` §8A.1 |
+| Happy-face outcome modal | Submit a review with only positive tags (or no tags) | Animated happy-face SVG modal shown; "Continue" navigates to Home/Dashboard | `SRS.md` §8A.1 |
+| Sad-face outcome modal | Submit a review with at least one negative tag | Animated sad-face SVG modal shown; "Continue" navigates to Home/Dashboard | `SRS.md` §8A.1 |
+| Worker cannot see full review detail | As the reviewed worker, attempt to view rating/comment/negative tags anywhere in the worker app | Not shown anywhere; only an aggregated positive-tag count is visible, via `get_worker_positive_tags()` | `SECURITY.md` §10A |
+
+### 3.9 Worker Ban Escalation (Phase 8)
+
+| Test Case | Steps | Expected Result | Reference |
+|---|---|---|---|
+| Ban action visibility — positive review | Open a review with no negative tags in the admin Reviews tab | No Ban button/action shown | `SRS.md` §8A.1 |
+| Ban action visibility — high rating | Open a 4- or 5-star review, even with a negative tag present | No Ban button/action shown | `SRS.md` §8A.1 |
+| Ban action visibility — already banned | Open any review for a worker currently under an active ban | "Banned" badge shown instead of a Ban button | `SRS.md` §8A.1 |
+| Ban duration suggestion — escalation | Ban the same worker three times in sequence | Suggested duration is 5 hours, then 1 day, then 5 days | `SRS.md` §8A.1 |
+| Ban duration override | Change the suggested amount/unit before confirming | The overridden value, not the suggestion, is what gets applied | `SRS.md` §8A.1 |
+| Ban write actually persists | Confirm a ban, then independently query `workers.banned_until` directly (e.g. via SQL) | Value matches what was set in the UI — this specifically re-tests the previously-found silent-RLS-failure bug (`SECURITY.md` §3.4) | `CHANGELOG.md` Phase 8 |
+| Ban history recorded | Confirm a ban, then check `worker_bans` | A new row exists with matching `duration_label`/`banned_at`/`banned_until` | `DATABASE.md` §8.1 |
+| Real-time forced logout | With a worker actively logged in on a separate session, ban that worker from the admin panel | The worker's session is signed out within seconds, without the worker taking any action | `SRS.md` §8A.1 |
+| Forced-logout fallback | Simulate the Realtime channel not firing (e.g. by disabling the `workers` publication temporarily) | The worker is still signed out on the next poll-driven `loadBookings()` refresh | `SRS.md` §8A.1 |
+| Login blocked while banned | Log out a banned worker, then attempt to log back in before `banned_until` | Login is blocked; the exact unban date/time is shown | `SRS.md` §8A.1 |
+| Login succeeds after ban expires | Attempt login after `banned_until` has passed | Login succeeds normally | `SRS.md` §8A.1 |
+
+### 3.10 Worker Verification (Phase 8)
+
+| Test Case | Steps | Expected Result | Reference |
+|---|---|---|---|
+| Document view — signed URL | Click "View" on a worker's ID Document in the admin Workers tab | A real image renders (via a freshly generated signed URL), not a broken image | `SRS.md` §8A.2 |
+| Photo view — public URL | Click "View" on a worker's Photo | Renders directly from the stored public URL | `SRS.md` §8A.2 |
+| Approve worker | Click Approve on a pending/rejected worker | `workers.verification_status='approved'`; Actions cell shows no buttons, only the Verification column's "APPROVED" badge (no duplicate) | `SRS.md` §8A.2 |
+| Reject worker | Click Reject on a pending/approved worker | `workers.verification_status='rejected'`; Approve/Reject buttons remain visible (reversible) | `SRS.md` §8A.2 |
+
+### 3.11 Positive Streak & Bonus (Phase 8)
+
+| Test Case | Steps | Expected Result | Reference |
+|---|---|---|---|
+| Streak increments | Submit five consecutive reviews for the same worker, all with no negative tags | `workers.positive_streak` reaches 5; a bonus is credited to `bonus_balance` and a `worker_bonuses` row is inserted on the 5th | `SRS.md` §8A.3 |
+| Streak resets | After building a streak, submit a review with a negative tag | `workers.positive_streak` resets to 0 | `SRS.md` §8A.3 |
+| Streak/bonus is trigger-only | Attempt to write `workers.positive_streak`/`bonus_balance` directly from a client session | Should not be reachable through any UI path — the client never issues this write; confirm via code inspection that no such call site exists | `SRS.md` §8A.3 |
+
+### 3.12 Admin Users/Workers Tabs and Realtime Sync (Phase 8)
+
+| Test Case | Steps | Expected Result | Reference |
+|---|---|---|---|
+| Users tab loads | Open the admin Users tab with at least one customer present | Name, email, phone, saved address, QuickCoins balance, completed bookings shown | `PRD.md` §9.15.8 |
+| Workers tab loads | Open the admin Workers tab with at least one worker present | Skill, phone, area, radius, rating, streak, bonus, document/photo view buttons, verification status all shown | `PRD.md` §9.15.9 |
+| Workers tab ordering regression | Confirm the Workers tab does not silently fail with "No workers yet" despite workers existing | This specifically re-tests the previously-found bad `.order('created_at', ...)` bug, now fixed to order by `name` | `API.md` §5.1 |
+| Realtime review sync | Submit a new review as a customer while the admin Reviews tab is open in another session | The new review appears without a manual refresh | `API.md` §9 |
+| Realtime user sync | Change a `users` row directly via SQL while the admin Users tab is open | The change appears without a manual refresh | `API.md` §9 |
+| Realtime worker sync | Change a `workers` row directly via SQL while the admin Workers/Reviews/Banned-Workers tabs are open | All three tabs reflect the change without a manual refresh | `API.md` §9 |
+| TRUNCATE does not sync | `TRUNCATE` (not `DELETE`) a table with an open admin tab | The change is **not** reflected until the next poll tick or manual refresh — confirms the documented `TRUNCATE`-does-not-fire-`postgres_changes` limitation still applies | `DATABASE.md` §8 |
 
 ---
 
