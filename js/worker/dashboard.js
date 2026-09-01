@@ -148,6 +148,16 @@ function showAchievementUnlockPopup(row){
     setTimeout(()=>{ window.location.href='auth.html?role=worker'; },CONSTANTS.WORKER_PROFILE_LOAD_FAIL_REDIRECT_MS);
     return;
   }
+
+  /* Already-banned worker landing here with a still-valid old session
+     (e.g. reopening a bfcache'd tab) — same block as auth.js's login
+     gate, applied here too since this page is reached without going
+     through doLogin() every time. */
+  if(wp.banned_until && new Date(wp.banned_until) > new Date()){
+    await _forceBanLogout(wp.banned_until);
+    return;
+  }
+
   W={...cached,...wp};
   sessionStorage.setItem('qf_user',JSON.stringify(W));
 
@@ -184,6 +194,35 @@ sb.channel('worker-bookings-' + W.id)
 )
 
 .subscribe();
+
+/* ---------- BAN ENFORCEMENT (real-time) ----------
+   If admin bans this worker while they're actively logged in, this
+   fires the moment the admin's update lands, and forces an immediate
+   logout — the worker is never left able to keep using an active
+   session after being banned. */
+sb.channel('worker-selfrow-' + W.id)
+.on(
+  'postgres_changes',
+  {
+    event: 'UPDATE',
+    schema: 'public',
+    table: 'workers',
+    filter: `id=eq.${W.id}`
+  },
+  (payload) => {
+    console.log('DEBUG realtime workers UPDATE received:', payload);
+    const newRow = payload.new;
+    if(newRow?.banned_until && new Date(newRow.banned_until) > new Date()){
+      console.log('DEBUG ban detected via realtime, forcing logout');
+      _forceBanLogout(newRow.banned_until);
+    } else {
+      console.log('DEBUG no active ban in this update, ignoring');
+    }
+  }
+)
+.subscribe((status)=>{
+  console.log('DEBUG worker-selfrow channel status:', status);
+});
 
 /* ---------- FALLBACK SYNC (same strategy as index.html) ----------
    postgres_changes only fires on row-level INSERT/UPDATE/DELETE.
@@ -332,6 +371,15 @@ if(!skipWorkerRefresh){
     .single();
 
   if(workerLive){
+    /* Fallback ban check — the realtime channel above is the primary
+       path, this poll-driven refresh (already running every interval
+       for other reasons) catches it too in case a realtime event was
+       ever missed. */
+    if(workerLive.banned_until && new Date(workerLive.banned_until) > new Date()){
+      await _forceBanLogout(workerLive.banned_until);
+      return;
+    }
+
     W = {...W,...workerLive};
 
     sessionStorage.setItem(
@@ -902,6 +950,40 @@ async function logout(){
   sessionStorage.removeItem('qf_role');
   sessionStorage.removeItem('qf_bookings_cache');
   window.location.href='auth.html';
+}
+
+/* Forces a banned worker out of an active session — used by both the
+   realtime channel above and the poll fallback in loadBookings(). */
+async function _forceBanLogout(bannedUntil){
+  const until=new Date(bannedUntil).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});
+  try{ await sb.auth.signOut(); }catch(e){ console.error('_forceBanLogout signOut:',e); }
+  sessionStorage.removeItem('qf_user');
+  sessionStorage.removeItem('qf_role');
+  sessionStorage.removeItem('qf_bookings_cache');
+
+  document.getElementById('banLogoutMsg').textContent =
+    `Your account has been suspended until ${until}. You have been logged out.`;
+  _replayBanCrossAnimation();
+  document.getElementById('banLogoutModal').classList.add('on');
+  /* Redirect happens only when the worker acknowledges the modal via
+     _confirmBanLogoutRedirect() below — not immediately, so they can
+     actually read the message before being sent to the login page. */
+}
+
+/* Re-triggers the cross-draw CSS animation each time this modal is
+   shown, same technique as the admin side's tick animation — cloning
+   the SVG forces the browser to treat it as a fresh element. */
+function _replayBanCrossAnimation(){
+  const wrap = document.querySelector('.ban-cross-wrap');
+  if(!wrap) return;
+  const oldSvg = wrap.querySelector('.ban-cross-svg');
+  if(!oldSvg) return;
+  const newSvg = oldSvg.cloneNode(true);
+  wrap.replaceChild(newSvg, oldSvg);
+}
+
+function _confirmBanLogoutRedirect(){
+  window.location.href='auth.html?role=worker';
 }
 
 /* ════════════════════════════════════════════════════════════
