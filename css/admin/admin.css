@@ -172,3 +172,36 @@ tbody tr:hover td{background:var(--brand-light)}
   .btn{min-height:44px}
   .bs{min-height:40px}
 }
+/* Ban success tick — GPay-style animated checkmark, no colored banner */
+.ban-success-tick-wrap{
+  display:flex;
+  justify-content:center;
+  margin:.5rem 0 .75rem;
+}
+.ban-success-tick-svg{
+  width:64px;
+  height:64px;
+}
+.ban-success-tick-circle{
+  stroke:#2e7d32;
+  stroke-width:3;
+  stroke-linecap:round;
+  stroke-dasharray:151;
+  stroke-dashoffset:151;
+  animation:banTickCircle .5s ease-out forwards;
+}
+.ban-success-tick-check{
+  stroke:#2e7d32;
+  stroke-width:4;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  stroke-dasharray:36;
+  stroke-dashoffset:36;
+  animation:banTickCheck .3s ease-out .5s forwards;
+}
+@keyframes banTickCircle{
+  to{ stroke-dashoffset:0; }
+}
+@keyframes banTickCheck{
+  to{ stroke-dashoffset:0; }
+}
