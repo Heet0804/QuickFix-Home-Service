@@ -193,3 +193,39 @@ Complete.
 
 ### Status
 Pending manual sign-off against `docs/VERIFICATION.md`.
+
+---
+
+## [Phase 8] — Structured Reviews, Worker Ban Escalation & Verification
+
+### Added
+- Structured review feedback: pill-shaped positive tags (well-mannered, punctual, professional, well-spoken, skilled, clean & tidy, good value, friendly), negative tags (late, rude, unprofessional, poor quality, overcharged, left a mess), and an "Other" pill that reveals a free-text comment field — replacing the previously always-visible open comment box.
+- Animated happy-face / sad-face SVG outcome modal shown immediately after review submission, chosen automatically based on whether any negative tag was selected.
+- Worker ban system: `workers.banned_until`, `workers.ban_count`, `workers.last_ban_duration_label` columns; a new `worker_bans` table logging every ban permanently (duration label, banned-at timestamp, banned-until timestamp), independent of the worker's current/latest ban state.
+- Admin "Ban" action on a review row, with a duration input supporting minutes/hours/days/weeks and a suggested amount that escalates with the worker's prior ban count (1st: 5 hours, 2nd: 1 day, 3rd+: 5 days) — always overridable by the admin.
+- Real-time forced logout: a Supabase Realtime channel on the worker's own `workers` row detects an incoming ban and immediately signs the worker out client-side, with a poll-based fallback for missed events.
+- Login-time ban gate in `auth.js`: a worker whose `banned_until` is still in the future is blocked from signing in and shown the exact unban time.
+- Worker verification workflow: `workers.verification_status` column (`pending` / `approved` / `rejected`), reviewable by admin from a new admin "Workers" tab showing the worker's uploaded government-ID document (served via a short-lived signed URL, since `worker-documents` is a private Storage bucket) and profile photo (served via its existing public URL), with Approve/Reject pill actions.
+- Positive-streak and bonus system: `workers.positive_streak` and `workers.bonus_balance` columns, plus a new `worker_bonuses` history table; a server-side Postgres trigger (`handle_review_streak`, fired `AFTER INSERT ON reviews`) increments the streak on any review with no negative tags, resets it to zero on a negative tag, and credits a bonus every 5th consecutive positive review — computed entirely server-side, never client-writable.
+- New admin tabs: "Banned Workers" (per-worker ban count and full ban history) and "Users" (customer profile, QuickCoins balance, completed-booking count).
+- Job (worker skill) and Service (specific booked item) columns added to the admin Reviews tab, resolved from the review's linked booking.
+- Supabase Realtime subscriptions added on `reviews` (INSERT), `users` (`*`), and `workers` (`*`) so the admin dashboard's Reviews, Users, Workers, and Banned Workers tabs reflect changes immediately, without a manual refresh, for any row-level change (a `TRUNCATE` does not emit `postgres_changes` events and still requires a manual refresh or targeted `DELETE`).
+
+### Changed
+- Admin ban/verification/reject/approve confirmations now use in-app modals with an animated SVG tick (green, success) or cross (red, ban/reject), replacing native `alert()` popups.
+- Admin Reviews tab: the "Ban" action is now hidden when the worker is already actively banned (shows a "Banned" badge instead), when the review has no negative tags, or when the review is rated 4–5 stars.
+- After a customer submits a review and dismisses the outcome modal, they are returned to the Home/Dashboard tab instead of remaining on My Bookings.
+- Customer-side `index.js` auth boot now checks the `admins` table before creating/using a `users` row, redirecting an admin account to `admin.html` instead of onboarding it as a customer.
+- Admin dashboard tab order changed: Analytics now appears directly after User Passes.
+
+### Fixed
+- Admin ban actions previously appeared to succeed (no error returned, success message shown) but silently failed to update the `workers` row, because the existing `workers_update` RLS policy only permitted a worker to update their own row. Added an admin-scoped `UPDATE` policy on `workers`, and `confirmBanWorker()` now verifies via `.select()` that a row was actually affected before reporting success.
+- Removed a stray admin-account row from the customer `users` table (admins are tracked exclusively in the `admins` table).
+- Fixed the new admin Workers tab showing "No workers yet" despite workers existing — `loadWorkersFull()` was ordering by a `created_at` column that does not exist on `workers`, causing every request to fail with an HTTP 400.
+- Fixed broken document-image previews in the admin Workers tab — `worker-documents` is a private Storage bucket, so the stored public URL never resolved; document viewing now generates a signed URL on demand.
+
+### Documentation
+- `docs/CHANGELOG.md` — this entry.
+
+### Status
+Complete, pending manual sign-off against an updated `docs/VERIFICATION.md`.
