@@ -199,6 +199,14 @@
         <div class="fg"><label class="flabel">Your Address</label><input type="text" class="finput" id="bkAddr" placeholder="Enter your full address…"/><div id="bkAddrAreaWarn" style="font-size:.74rem;color:var(--danger);margin-top:.35rem"></div></div>
         <div class="fg"><label class="flabel">Service Area</label><select class="fselect" id="bkArea" onchange="onAreaChange()"><option value="">Select your area…</option></select><div id="bkAreaNote" style="font-size:.74rem;color:var(--text3);margin-top:.35rem"></div></div>
         <div class="fg"><label class="flabel">Notes (Optional)</label><textarea class="finput" id="bkNotes" rows="3" placeholder="Describe the issue…" style="resize:vertical"></textarea></div>
+        <div class="fg">
+          <label class="flabel">🔁 Repeat this booking</label>
+          <select class="fselect" id="bkRecurrence">
+            <option value="">Don't repeat</option>
+            <option value="weekly">Every week</option>
+            <option value="monthly">Every month</option>
+          </select>
+        </div>
         <div class="fg" id="bkRedeemGrp"><label class="flabel">🪙 Redeem QuickCoins</label><select class="fselect" id="bkRedeem" onchange="updatePrice()"><option value="0">Don't redeem coins</option></select></div>      </div>
       <div>
         <div class="pricebox">
@@ -544,6 +552,53 @@
   </div>
 </div>
 
+<!-- DISPUTE SUBMITTED CONFIRMATION MODAL -->
+<div class="overlay" id="disputeSubmittedModal">
+  <div class="modal" style="max-width:380px;text-align:center">
+    <div class="action-success-wrap">
+      <svg class="action-success-svg" viewBox="0 0 52 52">
+        <circle class="action-success-circle" cx="26" cy="26" r="24" fill="none"/>
+        <path class="action-success-check" fill="none" d="M14 27l7 7 16-16"/>
+      </svg>
+    </div>
+    <h2>Report Submitted</h2>
+    <p style="font-size:.875rem;color:var(--text2);line-height:1.6;margin-bottom:1.35rem">
+      Thanks for letting us know. Our team will review this and follow up if needed.
+    </p>
+    <div style="display:flex;justify-content:center">
+      <button class="btn bp" onclick="closeModal('disputeSubmittedModal')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- DISPUTE MODAL -->
+<div class="overlay" id="disputeModal">
+  <div class="modal">
+    <div class="mico" style="background:#fce8e8">⚠️</div>
+    <h2>Report an Issue</h2>
+    <p style="font-size:.875rem;color:var(--text2);margin-bottom:1rem">Tell us what went wrong with this booking. Our team will review and get back to you.</p>
+    <div class="fg">
+      <label class="flabel">Reason</label>
+      <select class="fselect" id="disputeReason">
+        <option value="poor_quality">Poor quality of work</option>
+        <option value="incomplete">Job left incomplete</option>
+        <option value="damage">Property damage</option>
+        <option value="overcharge">Overcharged</option>
+        <option value="behavior">Worker behavior</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label class="flabel">Details</label>
+      <textarea class="finput" id="disputeDescription" rows="4" placeholder="Please describe what happened…" style="resize:vertical"></textarea>
+    </div>
+    <div style="display:flex;gap:.65rem;justify-content:center">
+      <button class="btn bo" onclick="closeModal('disputeModal')">Cancel</button>
+      <button class="btn bd" onclick="submitDispute()">Submit Report</button>
+    </div>
+  </div>
+</div>
+
 <!-- CLEAR HISTORY MODAL -->
 <div class="overlay" id="clrModal">
   <div class="modal" style="max-width:360px">
@@ -679,7 +734,7 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<footer><strong>QuickFix</strong> &nbsp;·&nbsp; Trusted local service booking &nbsp;·&nbsp; © 2025</footer>
+<footer><strong>QuickFix</strong> &nbsp;·&nbsp; Trusted local service booking &nbsp;·&nbsp; © 2026</footer>
 
 <script src="js/common/supabase.js"></script>
 <script src="js/common/config.js"></script>
