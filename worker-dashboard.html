@@ -193,6 +193,10 @@
     <h3>🚗 Verify Arrival OTP</h3>
     <p>Ask the customer for the 6-digit Arrival OTP and enter it below.</p>
     <input type="text" class="modal-otp-input" id="arrivalOtpInput" maxlength="6" placeholder="······" inputmode="numeric"/>
+    <div style="margin:.85rem 0">
+      <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.4rem">📸 Photo of site condition on arrival (optional)</label>
+      <input type="file" id="arrivalPhotoInput" accept="image/jpeg,image/png" capture="environment"/>
+    </div>
     <div class="modal-acts">
       <button class="mbtn-secondary" onclick="closeModal('arrivalOtpModal')">Cancel</button>
       <button class="mbtn-primary" onclick="submitArrivalOtp()">Verify</button>
@@ -206,6 +210,10 @@
     <h3>✅ Verify Completion OTP</h3>
     <p>Ask the customer for the 6-digit Completion OTP and enter it below.</p>
     <input type="text" class="modal-otp-input" id="completionOtpInput" maxlength="6" placeholder="······" inputmode="numeric"/>
+    <div style="margin:.85rem 0">
+      <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.4rem">📸 Photo of completed work (optional)</label>
+      <input type="file" id="completionPhotoInput" accept="image/jpeg,image/png" capture="environment"/>
+    </div>
     <div class="modal-acts">
       <button class="mbtn-secondary" onclick="closeModal('completionOtpModal')">Cancel</button>
       <button class="mbtn-primary" onclick="submitCompletionOtp()">Verify</button>
