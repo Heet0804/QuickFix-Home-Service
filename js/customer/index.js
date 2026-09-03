@@ -387,6 +387,13 @@ const DB = {
     bk.wStatus        = result.w_status;
     bk.createdAt       = result.created_at;
 
+    /* create_booking's RPC signature doesn't accept recurrence yet —
+       written as a direct follow-up update rather than changing the
+       RPC, same pattern already used for live GPS coordinates. */
+    if(bk.recurrence){
+      await sb.from('bookings').update({recurrence: bk.recurrence}).eq('id', String(bk.id));
+    }
+
     return true;
   },
 
@@ -756,6 +763,28 @@ let revSelectedTags=new Set();
 const POLL_MAX=CONSTANTS.PAYMENT_POLL_MAX_ATTEMPTS, POLL_MS=CONSTANTS.PAYMENT_POLL_INTERVAL_MS;
 
 setInterval(tickClock,CONSTANTS.CLOCK_TICK_INTERVAL_MS); tickClock();
+
+/* ── BROWSER NOTIFICATIONS ────────────────────────────────────
+   Native Notification API — no service worker, no push server. Only
+   fires when the tab is NOT visible/focused, since a foreground toast
+   already covers the visible-tab case; avoids double-notifying. */
+let _notifPermissionAsked = false;
+async function _ensureNotifPermission(){
+  if(!('Notification' in window)) return false;
+  if(Notification.permission==='granted') return true;
+  if(Notification.permission==='denied') return false;
+  if(_notifPermissionAsked) return false;
+  _notifPermissionAsked = true;
+  const perm = await Notification.requestPermission();
+  return perm==='granted';
+}
+async function notifyIfBackground(title, body){
+  if(document.visibilityState==='visible') return; /* toast already covers this */
+  const ok = await _ensureNotifPermission();
+  if(!ok) return;
+  try{ new Notification(title, {body, icon:'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>'}); }
+  catch(e){ console.error('Notification failed:', e); }
+}
 
 /* ── HELPERS ───────────────────────────────────────────────── */
 function stars(r){ return Array.from({length:5},(_,i)=>`<span class="star${i<Math.round(r)?'':' empty'}">★</span>`).join(''); }
@@ -1259,7 +1288,7 @@ function goPage(id){
 
   if(id==='services') renderServices();
   if(id==='home'){ renderHomeCats(); }
-  if(id==='bookings') renderBookings();
+  if(id==='bookings'){ renderBookings(); _ensureNotifPermission(); }
   if(id==='account') renderAccount();
   if(id==='househelp') renderHousehelp();
   if(id==='offers') renderOffers();
@@ -1290,8 +1319,30 @@ function goPage(id){
     window._bookingSnapshot = snapshot;
     renderBookings();
   }
+  _checkNotifiableTransitions(all);
 }, CONSTANTS.CUSTOMER_BOOKING_POLL_INTERVAL_MS);
   }
+}
+
+/* Fires a background notification on the same "observed transition"
+   pattern already used for QuickCoins/pass-consumption — never on
+   first sighting, only on an actual change witnessed this session. */
+const _notifLastStatus = new Map();
+function _checkNotifiableTransitions(all){
+  all.forEach(b=>{
+    const prev = _notifLastStatus.get(b.id);
+    if(prev===undefined){ _notifLastStatus.set(b.id, b.status); return; }
+    if(prev!==b.status){
+      if(b.status===CONSTANTS.BOOKING_STATUS.ACCEPTED){
+        notifyIfBackground('Worker Assigned! 🔧', `A ${b.workerRole} has accepted your booking.`);
+      } else if(b.status===CONSTANTS.BOOKING_STATUS.ARRIVED){
+        notifyIfBackground('Worker Has Arrived 📍', 'Your worker is at your location.');
+      } else if(b.status===CONSTANTS.BOOKING_STATUS.COMPLETED){
+        notifyIfBackground('Job Completed ✅', 'Your service is complete — don\'t forget to rate it!');
+      }
+    }
+    _notifLastStatus.set(b.id, b.status);
+  });
 }
 function toggleMenu(){
   document.getElementById('navLinks').classList.toggle('open');
@@ -2162,7 +2213,8 @@ async function initiateBooking(){
     notes:document.getElementById('bkNotes').value.trim(),
     isEmergency:e||!inWork(time),
     areaId, areaName:area.name, areaLat:area.lat, areaLng:area.lng,
-    customerLat:null, customerLng:null
+    customerLat:null, customerLng:null,
+    recurrence: document.getElementById('bkRecurrence')?.value || null
   };
 
   await _resolveCustomerPin(addr, areaId, geo);
@@ -2333,6 +2385,7 @@ async function startBroadcast(){
     paymentMethod,
     passUsed:     pendBk.passUsed || false,
     passId:       pendBk.passId || null,
+    recurrence:   pendBk.recurrence || null,
     // Same basePrice already computed in initiateBooking() for every
     // booking (normal or pass-covered) — reused as-is, never recalculated.
     workerEarning: pendBk.basePrice,
@@ -3136,6 +3189,7 @@ async function renderBookings(){
      Arrived -> Completed. See checkQuickCoinsRewards(). */
   checkQuickCoinsRewards(all);
   checkServicePassConsumption(all);
+  checkRecurringRebooking(all);
   let list=all;
   if(curTab==='upcoming') list=all.filter(b=>[CONSTANTS.BOOKING_STATUS.SCHEDULED,CONSTANTS.BOOKING_STATUS.CONFIRMED,CONSTANTS.BOOKING_STATUS.ACCEPTED,CONSTANTS.BOOKING_STATUS.WORKER_ON_WAY,CONSTANTS.BOOKING_STATUS.ARRIVED].includes(b.status));
   if(curTab==='completed') list=all.filter(b=>b.status===CONSTANTS.BOOKING_STATUS.COMPLETED);
@@ -3158,18 +3212,18 @@ async function renderBookings(){
   || ([CONSTANTS.BOOKING_STATUS.ACCEPTED,CONSTANTS.BOOKING_STATUS.CONFIRMED,CONSTANTS.BOOKING_STATUS.WORKER_ON_WAY,CONSTANTS.BOOKING_STATUS.ARRIVED,CONSTANTS.BOOKING_STATUS.SCHEDULED].includes(b.status)&&rev);
     const rf=b.isAdvance?revealAt(b.time):null;
     const payLabel=b.paymentMethod==='gpay'?'📱 GPay (Paid)':'💵 Cash on Arrival';
+    /* Once the worker has physically arrived (Arrival OTP verified),
+       there's nothing left to call about before the job starts — hide
+       the Call Worker action but keep showing who the worker is. */
+    const canCallWorker = ![CONSTANTS.BOOKING_STATUS.ARRIVED, CONSTANTS.BOOKING_STATUS.COMPLETED].includes(b.status);
     const contactHtml = show
   ? `
     <div class="cbox" style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap">
       ${b.workerPhotoUrl?`<img src="${b.workerPhotoUrl}" alt="Worker profile photo" onclick="openPhotoLightbox('${b.workerPhotoUrl}')" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:1.5px solid var(--teal);flex-shrink:0;cursor:pointer">`:''}
-      <span>
+      <span style="flex:1">
         <strong>👤 ${b.workerName}</strong>
-        &nbsp; 📞
-        <a href="tel:${b.workerPhone}"
-           style="color:#266049;font-weight:600;text-decoration:none">
-           ${b.workerPhone}
-        </a>
       </span>
+      ${canCallWorker ? `<a href="tel:${b.workerPhone}" class="btn bt" style="font-size:.75rem;padding:5px 12px;text-decoration:none">📞 Call Worker</a>` : ''}
     </div>`
   : b.isAdvance
     ? `
@@ -3207,6 +3261,13 @@ const cancelBtn=canCancel
   :([CONSTANTS.BOOKING_STATUS.CONFIRMED,CONSTANTS.BOOKING_STATUS.SCHEDULED].includes(b.status)&&rev)?`<div style="font-size:.65rem;color:var(--danger);font-weight:600;margin-top:4px">🔒 Cancellation locked — worker is on the way</div>`:'' ;
     const bookAgainBtn=b.status===CONSTANTS.BOOKING_STATUS.CANCELLED?`<button class="btn bp" style="font-size:.72rem;padding:5px 10px" onclick="goPage('services')">🔄 Book Again</button>`:'';
     const rateBtn=b.status===CONSTANTS.BOOKING_STATUS.COMPLETED&&!b.rated?`<button class="btn" style="font-size:.72rem;padding:5px 10px;background:var(--amber);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:600" onclick="openReview('${b.id}')">⭐ Rate</button>`:'';
+    const disputeBtn=b.status===CONSTANTS.BOOKING_STATUS.COMPLETED?`<button class="btn bo" style="font-size:.72rem;padding:5px 10px" onclick="openDisputeModal('${b.id}')">⚠️ Report Issue</button>`:'';
+    const photosHtml = (b.arrival_photo_url || b.completion_photo_url) ? `
+      <div style="display:flex;gap:.5rem;margin-top:.5rem">
+        ${b.arrival_photo_url?`<div><div style="font-size:.68rem;color:var(--text3);margin-bottom:3px">Before</div><img src="${b.arrival_photo_url}" onclick="openPhotoLightbox('${b.arrival_photo_url}')" style="width:64px;height:64px;border-radius:8px;object-fit:cover;cursor:pointer;border:1px solid var(--border)"></div>`:''}
+        ${b.completion_photo_url?`<div><div style="font-size:.68rem;color:var(--text3);margin-bottom:3px">After</div><img src="${b.completion_photo_url}" onclick="openPhotoLightbox('${b.completion_photo_url}')" style="width:64px;height:64px;border-radius:8px;object-fit:cover;cursor:pointer;border:1px solid var(--border)"></div>`:''}
+      </div>` : '';
+
     return `<div class="bkitem">
       <div class="bkico">${b.workerEmoji}</div>
       <div class="bkdet">
@@ -3216,8 +3277,8 @@ const cancelBtn=canCancel
 
         </div>
         <div class="bkmeta"><span>${b.workerRole}</span><span>${fmtDate(b.date)} · ${fmt12(b.time)}</span><span>₹${b.price}</span></div>
-        ${schedNote}${contactHtml}${otpHtml}${payHtml}
-        <div class="bkacts">${trackBtn}${compBtn}${cancelBtn}${bookAgainBtn}${rateBtn}</div>
+        ${schedNote}${contactHtml}${otpHtml}${payHtml}${photosHtml}
+        <div class="bkacts">${trackBtn}${compBtn}${cancelBtn}${bookAgainBtn}${rateBtn}${disputeBtn}</div>
         <button class="tl-toggle" id="tl-btn-${b.id}" onclick="toggleTimeline('${b.id}')">▼ View Timeline <span class="tl-arr">▼</span></button>
         <div class="tl-wrap" id="tl-wrap-${b.id}">${buildTimeline(b)}</div>
         ${[CONSTANTS.BOOKING_STATUS.ACCEPTED,CONSTANTS.BOOKING_STATUS.WORKER_ON_WAY].includes(b.status)?`
@@ -3457,6 +3518,72 @@ async function awardQuickCoins(booking){
   if(rewardModalEl) rewardModalEl.classList.add('on');
 }
 function closeRewardModal(){ closeModal('rewardModal'); }
+
+/* ── RECURRING BOOKINGS ───────────────────────────────────────
+   Same "first sighting = baseline only" pattern as QuickCoins/pass
+   consumption — fires only on an OBSERVED Arrived -> Completed
+   transition for a booking that opted into weekly/monthly repeat,
+   so a page refresh after completion never double-creates the next
+   occurrence. */
+const rbLastStatus  = new Map();
+const rbRebookedIds = new Set();
+
+function checkRecurringRebooking(all){
+  all.forEach(b=>{
+    const prevStatus = rbLastStatus.get(b.id);
+    if(prevStatus===undefined){
+      rbLastStatus.set(b.id, b.status);
+      return;
+    }
+    if(prevStatus===CONSTANTS.BOOKING_STATUS.ARRIVED && b.status===CONSTANTS.BOOKING_STATUS.COMPLETED
+       && b.recurrence && !rbRebookedIds.has(b.id)){
+      rbRebookedIds.add(b.id);
+      createNextRecurringBooking(b);
+    }
+    rbLastStatus.set(b.id, b.status);
+  });
+}
+
+async function createNextRecurringBooking(prevBooking){
+  const nextDate = new Date(prevBooking.date);
+  if(prevBooking.recurrence==='weekly') nextDate.setDate(nextDate.getDate()+7);
+  else if(prevBooking.recurrence==='monthly') nextDate.setMonth(nextDate.getMonth()+1);
+  else return;
+
+  const nextDateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth()+1).padStart(2,'0')}-${String(nextDate.getDate()).padStart(2,'0')}`;
+
+  const bk = {
+    id: Date.now(),
+    workerId: null, /* re-broadcast fresh, same as any new booking */
+    workerRole: prevBooking.workerRole,
+    workerEmoji: prevBooking.workerEmoji,
+    service: prevBooking.service,
+    date: nextDateStr,
+    time: prevBooking.time,
+    address: prevBooking.address,
+    areaId: prevBooking.areaId,
+    customer_lat: prevBooking.customer_lat,
+    customer_lng: prevBooking.customer_lng,
+    price: prevBooking.price,
+    basePrice: prevBooking.basePrice,
+    notes: prevBooking.notes,
+    isEmergency: false,
+    isAdvance: true,
+    paymentMethod: prevBooking.paymentMethod,
+    recurrence: prevBooking.recurrence,
+    status: CONSTANTS.BOOKING_STATUS.PENDING,
+    wStatus: CONSTANTS.BOOKING_STATUS.PENDING,
+    arrivalOtp: genOtp(),
+    completionOtp: genOtp(),
+    rated: false,
+    createdAt: new Date().toISOString()
+  };
+
+  const saved = await DB.save(bk);
+  if(saved){
+    showToast(`🔁 Your next ${prevBooking.recurrence} booking has been scheduled for ${fmtDate(nextDateStr)}`);
+  }
+}
 
 const spLastStatus  = new Map();
 const spConsumedIds = new Set();
@@ -3712,6 +3839,56 @@ async function submitReview(){
   /* Navigation to Home now happens when the user clicks Continue on
      the modal (closeReviewThanksModal), not immediately here — so
      they actually see the modal before being moved off the page. */
+}
+
+/* ── DISPUTES ─────────────────────────────────────────────── */
+let disputeBookingId = null;
+
+function openDisputeModal(bkId){
+  disputeBookingId = String(bkId);
+  document.getElementById('disputeReason').value = 'poor_quality';
+  document.getElementById('disputeDescription').value = '';
+  document.getElementById('disputeModal').classList.add('on');
+}
+
+async function submitDispute(){
+  const reason = document.getElementById('disputeReason').value;
+  const description = document.getElementById('disputeDescription').value.trim();
+
+  const {data:{session}} = await sb.auth.getSession();
+  if(!session?.user){ showToast('⚠️ Please sign in again'); return; }
+
+  const all = await DB.bookings();
+  const b = all.find(x=>String(x.id)===disputeBookingId);
+  if(!b){ showToast('⚠️ Booking not found'); return; }
+
+  const {error} = await sb.from('disputes').insert({
+    booking_id: disputeBookingId,
+    user_id: session.user.id,
+    worker_id: b.workerId || b.worker_id || null,
+    reason,
+    description
+  });
+
+  if(error){
+    showToast('⚠️ Could not submit report: '+error.message);
+    return;
+  }
+
+  closeModal('disputeModal');
+  _replayActionSuccessAnimation('disputeSubmittedModal');
+  document.getElementById('disputeSubmittedModal').classList.add('on');
+}
+
+/* Replays the tick-draw animation each time this modal is shown — same
+   clone-node technique used for the review happy/sad faces. */
+function _replayActionSuccessAnimation(modalId){
+  const wrap = document.querySelector('#'+modalId+' .action-success-wrap');
+  if(!wrap) return;
+  const oldSvg = wrap.querySelector('.action-success-svg');
+  if(!oldSvg) return;
+  const newSvg = oldSvg.cloneNode(true);
+  wrap.replaceChild(newSvg, oldSvg);
 }
 
 /* ── AADHAAR UPLOAD ───────────────────────────────────────── */
