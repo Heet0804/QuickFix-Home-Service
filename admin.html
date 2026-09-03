@@ -68,6 +68,7 @@
       <button class="tab" data-tab="analytics" onclick="switchAdminTab('analytics')">Analytics</button>
       <button class="tab" data-tab="reviews" onclick="switchAdminTab('reviews')">Reviews</button>
       <button class="tab" data-tab="banned" onclick="switchAdminTab('banned')">Banned Workers</button>
+      <button class="tab" data-tab="disputes" onclick="switchAdminTab('disputes')">Disputes</button>
       <button class="tab" data-tab="users" onclick="switchAdminTab('users')">Users</button>
       <button class="tab" data-tab="workers" onclick="switchAdminTab('workers')">Workers</button>
     </div>
@@ -148,6 +149,22 @@
           <div class="empty-ic">🚫</div>
           <div class="empty-title">No workers banned yet</div>
           <div class="empty-sub">Workers who receive bans will show up here.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DISPUTES TAB -->
+    <div class="tabpane" id="tab-disputes">
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th>Customer</th><th>Worker</th><th>Reason</th><th>Description</th><th>Status</th><th>Date</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="disputesBody"></tbody>
+        </table>
+        <div class="empty" id="disputesEmpty" style="display:none">
+          <div class="empty-ic">⚠️</div>
+          <div class="empty-title">No disputes yet</div>
         </div>
       </div>
     </div>
