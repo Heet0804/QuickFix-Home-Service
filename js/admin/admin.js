@@ -76,13 +76,14 @@ async function adminLogout(){
 
 /* ── APP INIT ──────────────────────────────────────────────── */
 async function initAdminApp(){
-  await Promise.all([loadCampaigns(), loadPasses(), loadReviews(), loadBannedWorkers(), loadUsers(), loadWorkersFull()]);
+  await Promise.all([loadCampaigns(), loadPasses(), loadReviews(), loadBannedWorkers(), loadUsers(), loadWorkersFull(), loadDisputes()]);
   renderCampaignsTable();
   renderPassesTable();
   renderReviewsTable();
   renderBannedWorkersTable();
   renderUsersTable();
   renderWorkersTable();
+  renderDisputesTable();
   renderAnalytics();
 
   setInterval(async ()=>{
@@ -143,6 +144,89 @@ async function initAdminApp(){
       }
     )
     .subscribe();
+
+  sb.channel('admin-disputes')
+    .on(
+      'postgres_changes',
+      { event:'INSERT', schema:'public', table:'disputes' },
+      async (payload)=>{
+        console.log('DEBUG admin-disputes INSERT received:', payload);
+        await loadDisputes();
+        renderDisputesTable();
+      }
+    )
+    .subscribe((status)=>{
+      console.log('DEBUG admin-disputes channel status:', status);
+    });
+}
+
+/* ── DISPUTES ─────────────────────────────────────────────── */
+let _allDisputes = [];
+const DISPUTE_REASON_LABELS = {
+  poor_quality:'Poor quality of work', incomplete:'Job left incomplete',
+  damage:'Property damage', overcharge:'Overcharged',
+  behavior:'Worker behavior', other:'Other'
+};
+
+async function loadDisputes(){
+  const {data, error} = await sb.from('disputes').select('*').order('created_at',{ascending:false});
+  if(error){ console.error('loadDisputes:', error.message); _allDisputes = []; return; }
+  _allDisputes = data || [];
+}
+
+async function renderDisputesTable(){
+  const body = document.getElementById('disputesBody');
+  const empty = document.getElementById('disputesEmpty');
+  if(!_allDisputes.length){ body.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+
+  const userIds = [...new Set(_allDisputes.map(d=>d.user_id).filter(Boolean))];
+  const workerIds = [...new Set(_allDisputes.map(d=>d.worker_id).filter(Boolean))];
+  const [{data:userRows}, {data:workerRows}] = await Promise.all([
+    sb.from('users').select('id,name').in('id', userIds.length?userIds:['00000000-0000-0000-0000-000000000000']),
+    sb.from('workers').select('id,name').in('id', workerIds.length?workerIds:['00000000-0000-0000-0000-000000000000'])
+  ]);
+  const userById={}; (userRows||[]).forEach(u=>{ userById[u.id]=u.name; });
+  const workerById={}; (workerRows||[]).forEach(w=>{ workerById[w.id]=w.name; });
+
+  body.innerHTML = _allDisputes.map(d=>{
+    const statusBadgeCls = d.status==='open' ? 'badge-inactive' : d.status==='resolved' ? 'badge-active' : 'badge-rejected';
+    const actions = d.status==='open'
+      ? `<div class="actionrow">
+           <button class="btn bt bs" onclick="resolveDispute('${d.id}','resolved')">✅ Resolve</button>
+           <button class="btn bd bs" onclick="resolveDispute('${d.id}','dismissed')">✖ Dismiss</button>
+         </div>`
+      : `<span class="badge ${statusBadgeCls}">${d.status.toUpperCase()}</span>`;
+    return `
+    <tr>
+      <td>${userById[d.user_id] || '—'}</td>
+      <td>${workerById[d.worker_id] || '—'}</td>
+      <td>${DISPUTE_REASON_LABELS[d.reason] || d.reason}</td>
+      <td style="max-width:260px;white-space:normal">${d.description || '—'}</td>
+      <td><span class="badge ${statusBadgeCls}">${d.status.toUpperCase()}</span></td>
+      <td>${_fmtDate(d.created_at)}</td>
+      <td>${actions}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function resolveDispute(disputeId, newStatus){
+  const {error} = await sb.from('disputes').update({
+    status: newStatus,
+    resolved_at: new Date().toISOString()
+  }).eq('id', disputeId);
+  if(error){ alert('Failed to update dispute: '+error.message); return; }
+
+  const isResolve = newStatus === 'resolved';
+  _renderVerifyResultIcon(isResolve);
+  document.getElementById('verifyResultTitle').textContent = isResolve ? 'Dispute Resolved' : 'Dispute Dismissed';
+  document.getElementById('verifyResultMsg').textContent = isResolve
+    ? 'This dispute has been marked as resolved.'
+    : 'This dispute has been dismissed.';
+  document.getElementById('workerVerifyResultModal').classList.add('on');
+
+  await loadDisputes();
+  renderDisputesTable();
 }
 
 /* ── USERS TAB ─────────────────────────────────────────────── */
