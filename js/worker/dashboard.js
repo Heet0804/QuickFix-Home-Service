@@ -210,19 +210,13 @@ sb.channel('worker-selfrow-' + W.id)
     filter: `id=eq.${W.id}`
   },
   (payload) => {
-    console.log('DEBUG realtime workers UPDATE received:', payload);
     const newRow = payload.new;
     if(newRow?.banned_until && new Date(newRow.banned_until) > new Date()){
-      console.log('DEBUG ban detected via realtime, forcing logout');
       _forceBanLogout(newRow.banned_until);
-    } else {
-      console.log('DEBUG no active ban in this update, ignoring');
     }
   }
 )
-.subscribe((status)=>{
-  console.log('DEBUG worker-selfrow channel status:', status);
-});
+.subscribe();
 
 /* ---------- FALLBACK SYNC (same strategy as index.html) ----------
    postgres_changes only fires on row-level INSERT/UPDATE/DELETE.
@@ -346,6 +340,16 @@ async function loadBookings(skipWorkerRefresh=false){
 
   bookings=data||[];
 
+  /* Resolve customer phone numbers for the Call Customer button —
+     bookings has no customer_phone column, so pull it from users. */
+  const custIds=[...new Set(bookings.map(b=>b.user_id).filter(Boolean))];
+  if(custIds.length){
+    const {data:custRows}=await sb.from('users').select('id,phone').in('id',custIds);
+    const phoneById={};
+    (custRows||[]).forEach(u=>{ phoneById[u.id]=u.phone; });
+    bookings.forEach(b=>{ b.customer_phone=phoneById[b.user_id]||null; });
+  }
+
   /* Phase 6.6: unassigned jobs this worker is eligible for. RLS has
      no policy granting SELECT on worker_id IS NULL rows, so this
      MUST go through the RPC (SECURITY DEFINER), which applies the
@@ -418,8 +422,13 @@ function bookingsByTab(tab){
   }
 
   if(tab==='accepted'){
+    /* Some accept_booking RPC paths may set status='Accepted' without
+       also setting w_status (or vice versa) — checking both means a
+       job that was genuinely just accepted never silently disappears
+       from this tab regardless of which field actually got written. */
     return bookings.filter(b=>
-      b.w_status===CONSTANTS.BOOKING_STATUS.ACCEPTED
+      b.w_status===CONSTANTS.BOOKING_STATUS.ACCEPTED ||
+      b.status===CONSTANTS.BOOKING_STATUS.ACCEPTED
     );
   }
 
@@ -541,6 +550,10 @@ function renderJobCard(b){
                 : (b.is_emergency ? 'urgent' : '');
   const earning = b.worker_earning!=null ? Number(b.worker_earning) : Math.round((Number(b.price)||0)*0.80);
 
+  const customerCallBtn = (b.status===CONSTANTS.BOOKING_STATUS.ACCEPTED && b.customer_phone)
+    ? `<a href="tel:${b.customer_phone}" class="jbtn" style="background:var(--teal,#2f9e5c);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:4px">📞 Call Customer</a>`
+    : '';
+
   let actions='';
   if([CONSTANTS.BOOKING_STATUS.PENDING,CONSTANTS.BOOKING_STATUS.CONFIRMED,CONSTANTS.BOOKING_STATUS.SCHEDULED].includes(b.status)){
     actions=`
@@ -553,6 +566,7 @@ function renderJobCard(b){
     actions=`
       <div class="job-acts">
         <button class="jbtn jbtn-arrive" onclick="markArrived('${b.id}')">📍 Mark Arrived</button>
+        ${customerCallBtn}
         <button class="jbtn jbtn-reject" onclick="promptCancelAccepted('${b.id}')">✖ Cancel Booking</button>
       </div>`;
   } else if(b.status===CONSTANTS.BOOKING_STATUS.ARRIVED){
@@ -780,6 +794,23 @@ async function submitArrivalOtp() {
   closeModal('arrivalOtpModal');
   showToast('✅ Arrival confirmed!');
 
+  /* Optional arrival photo — uploaded after OTP success so a failed
+     upload never blocks the actual status transition. */
+  const arrivalPhotoInput = document.getElementById('arrivalPhotoInput');
+  const arrivalFile = arrivalPhotoInput?.files[0];
+  if(arrivalFile){
+    try{
+      const ext = arrivalFile.name.split('.').pop().toLowerCase();
+      const fileName = `arrival_${b.id}_${Date.now()}.${ext}`;
+      const {error: upErr} = await sb.storage.from('booking-photos').upload(fileName, arrivalFile);
+      if(!upErr){
+        const {data: pub} = sb.storage.from('booking-photos').getPublicUrl(fileName);
+        await sb.from('bookings').update({arrival_photo_url: pub.publicUrl}).eq('id', b.id);
+      }
+    }catch(e){ console.error('arrival photo upload:', e); }
+    arrivalPhotoInput.value = '';
+  }
+
   /* Phase 4.1, requirement 5: worker has reached the customer —
      tear down the Track Customer map for this booking now. */
   _destroyCustomerTrackMap(b.id);
@@ -829,6 +860,23 @@ async function submitCompletionOtp(){
 
   closeModal('completionOtpModal');
   input.value = '';
+
+  /* Optional completion photo — same pattern as arrival, uploaded
+     after the status transition already succeeded. */
+  const completionPhotoInput = document.getElementById('completionPhotoInput');
+  const completionFile = completionPhotoInput?.files[0];
+  if(completionFile){
+    try{
+      const ext = completionFile.name.split('.').pop().toLowerCase();
+      const fileName = `completion_${b.id}_${Date.now()}.${ext}`;
+      const {error: upErr} = await sb.storage.from('booking-photos').upload(fileName, completionFile);
+      if(!upErr){
+        const {data: pub} = sb.storage.from('booking-photos').getPublicUrl(fileName);
+        await sb.from('bookings').update({completion_photo_url: pub.publicUrl}).eq('id', b.id);
+      }
+    }catch(e){ console.error('completion photo upload:', e); }
+    completionPhotoInput.value = '';
+  }
 
   /* AUTO ONLINE: job finished — worker is free for new bookings */
   await setWorkerAvailability(true);
