@@ -624,3 +624,39 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
 @keyframes reviewFaceMouth{
   to{ stroke-dashoffset:0; }
 }
+
+/* Generic reusable tick animation for customer-side confirmation
+   modals — same draw-in technique as the review outcome faces and
+   the admin ban-success tick, just without the eyes/mouth. */
+.action-success-wrap{
+  display:flex;
+  justify-content:center;
+  margin:.5rem 0 .75rem;
+}
+.action-success-svg{
+  width:64px;
+  height:64px;
+}
+.action-success-circle{
+  stroke:#2e7d32;
+  stroke-width:3;
+  stroke-linecap:round;
+  stroke-dasharray:151;
+  stroke-dashoffset:151;
+  animation:actionSuccessCircle .5s ease-out forwards;
+}
+.action-success-check{
+  stroke:#2e7d32;
+  stroke-width:4;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  stroke-dasharray:36;
+  stroke-dashoffset:36;
+  animation:actionSuccessCheck .3s ease-out .5s forwards;
+}
+@keyframes actionSuccessCircle{
+  to{ stroke-dashoffset:0; }
+}
+@keyframes actionSuccessCheck{
+  to{ stroke-dashoffset:0; }
+}
