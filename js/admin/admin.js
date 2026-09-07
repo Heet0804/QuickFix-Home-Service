@@ -148,16 +148,13 @@ async function initAdminApp(){
   sb.channel('admin-disputes')
     .on(
       'postgres_changes',
-      { event:'INSERT', schema:'public', table:'disputes' },
-      async (payload)=>{
-        console.log('DEBUG admin-disputes INSERT received:', payload);
+      { event:'*', schema:'public', table:'disputes' },
+      async ()=>{
         await loadDisputes();
         renderDisputesTable();
       }
     )
-    .subscribe((status)=>{
-      console.log('DEBUG admin-disputes channel status:', status);
-    });
+    .subscribe();
 }
 
 /* ── DISPUTES ─────────────────────────────────────────────── */
