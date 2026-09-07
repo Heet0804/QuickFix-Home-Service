@@ -64,3 +64,41 @@ function escHtml(s){
     .replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;');
 }
+
+/* ── IMAGE COMPRESSION ────────────────────────────────────────
+   Resizes an image file down to a max dimension and re-encodes it
+   as JPEG at the given quality, via an off-screen canvas. Used
+   before every user-photo upload (worker docs/photos, booking
+   arrival/completion photos) to keep Storage usage and page load
+   times reasonable. Falls back to the original file untouched if
+   anything goes wrong (unsupported format, canvas failure, etc.) —
+   compression is a nice-to-have, never a blocker on upload. */
+function compressImageFile(file, maxDimension=1280, quality=0.75){
+  return new Promise((resolve)=>{
+    if(!file || !file.type.startsWith('image/')){ resolve(file); return; }
+    const img=new Image();
+    const reader=new FileReader();
+    reader.onload=(e)=>{
+      img.onload=()=>{
+        let {width,height}=img;
+        if(width>maxDimension || height>maxDimension){
+          if(width>height){ height=Math.round(height*(maxDimension/width)); width=maxDimension; }
+          else{ width=Math.round(width*(maxDimension/height)); height=maxDimension; }
+        }
+        const canvas=document.createElement('canvas');
+        canvas.width=width; canvas.height=height;
+        const ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,width,height);
+        canvas.toBlob((blob)=>{
+          if(!blob){ resolve(file); return; }
+          const compressed=new File([blob], file.name.replace(/\.\w+$/,'.jpg'), {type:'image/jpeg'});
+          resolve(compressed.size<file.size ? compressed : file);
+        }, 'image/jpeg', quality);
+      };
+      img.onerror=()=>resolve(file);
+      img.src=e.target.result;
+    };
+    reader.onerror=()=>resolve(file);
+    reader.readAsDataURL(file);
+  });
+}
