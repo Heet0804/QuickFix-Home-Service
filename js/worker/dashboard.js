@@ -800,9 +800,10 @@ async function submitArrivalOtp() {
   const arrivalFile = arrivalPhotoInput?.files[0];
   if(arrivalFile){
     try{
-      const ext = arrivalFile.name.split('.').pop().toLowerCase();
+      const compressedArrival = await compressImageFile(arrivalFile);
+      const ext = compressedArrival.name.split('.').pop().toLowerCase();
       const fileName = `arrival_${b.id}_${Date.now()}.${ext}`;
-      const {error: upErr} = await sb.storage.from('booking-photos').upload(fileName, arrivalFile);
+      const {error: upErr} = await sb.storage.from('booking-photos').upload(fileName, compressedArrival);
       if(!upErr){
         const {data: pub} = sb.storage.from('booking-photos').getPublicUrl(fileName);
         await sb.from('bookings').update({arrival_photo_url: pub.publicUrl}).eq('id', b.id);
@@ -867,9 +868,10 @@ async function submitCompletionOtp(){
   const completionFile = completionPhotoInput?.files[0];
   if(completionFile){
     try{
-      const ext = completionFile.name.split('.').pop().toLowerCase();
+      const compressedCompletion = await compressImageFile(completionFile);
+      const ext = compressedCompletion.name.split('.').pop().toLowerCase();
       const fileName = `completion_${b.id}_${Date.now()}.${ext}`;
-      const {error: upErr} = await sb.storage.from('booking-photos').upload(fileName, completionFile);
+      const {error: upErr} = await sb.storage.from('booking-photos').upload(fileName, compressedCompletion);
       if(!upErr){
         const {data: pub} = sb.storage.from('booking-photos').getPublicUrl(fileName);
         await sb.from('bookings').update({completion_photo_url: pub.publicUrl}).eq('id', b.id);
