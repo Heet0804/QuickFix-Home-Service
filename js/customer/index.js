@@ -2132,6 +2132,17 @@ function _openPinPicker(addr, areaId, geo, saved){
 
 /* ── INITIATE BOOKING ─────────────────────────────────────── */
 async function initiateBooking(){
+  const btn = document.getElementById('bkBtn');
+  if(btn.disabled) return; /* guard against double-submit while the async flow below is in progress */
+  btn.disabled = true;
+  try{
+    await _initiateBookingInner();
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function _initiateBookingInner(){
   const date=document.getElementById('bkDate').value;
   const addr=document.getElementById('bkAddr').value.trim();
   const areaId=document.getElementById('bkArea').value;
