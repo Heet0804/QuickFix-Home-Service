@@ -351,11 +351,12 @@ async function doSignup(role){
     /* Step 2: Upload document to Supabase Storage — now authenticated */
     let docUrl='',docFileName='';
     try{
-      const ext=docFile.name.split('.').pop().toLowerCase();
+      const compressedDoc = docFile.type.startsWith('image/') ? await compressImageFile(docFile) : docFile;
+      const ext=compressedDoc.name.split('.').pop().toLowerCase();
       docFileName='worker_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+ext;
       const {error:uploadErr}=await sb.storage
         .from('worker-documents')
-        .upload(docFileName,docFile,{cacheControl:CONSTANTS.STORAGE_UPLOAD_CACHE_CONTROL,upsert:false});
+        .upload(docFileName,compressedDoc,{cacheControl:CONSTANTS.STORAGE_UPLOAD_CACHE_CONTROL,upsert:false});
       if(uploadErr)throw uploadErr;
       const {data:publicData}=sb.storage.from('worker-documents').getPublicUrl(docFileName);
       docUrl=publicData.publicUrl||'';
@@ -371,11 +372,12 @@ async function doSignup(role){
        Deliberately NOT the same bucket as the Government ID document. */
     let photoUrl='';
     try{
-      const pext=photoFile.name.split('.').pop().toLowerCase();
+      const compressedPhoto = await compressImageFile(photoFile);
+      const pext=compressedPhoto.name.split('.').pop().toLowerCase();
       const photoFileName='profile_'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+pext;
       const {error:photoUploadErr}=await sb.storage
         .from('worker-photos')
-        .upload(photoFileName,photoFile,{cacheControl:CONSTANTS.STORAGE_UPLOAD_CACHE_CONTROL,upsert:false});
+        .upload(photoFileName,compressedPhoto,{cacheControl:CONSTANTS.STORAGE_UPLOAD_CACHE_CONTROL,upsert:false});
       if(photoUploadErr)throw photoUploadErr;
       const {data:photoPublicData}=sb.storage.from('worker-photos').getPublicUrl(photoFileName);
       photoUrl=photoPublicData.publicUrl||'';
