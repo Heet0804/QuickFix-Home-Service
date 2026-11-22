@@ -102,7 +102,7 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 .pc-info{flex:1;min-width:140px}
 .pc-name{font-size:1.1rem;font-weight:800;color:var(--text);margin-bottom:2px;overflow-wrap:break-word}
 .pc-meta{font-size:.78rem;color:var(--text2);display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
-.pc-skill{display:inline-flex;align-items:center;gap:4px;background:var(--brand-light);color:var(--brand);font-size:.72rem;font-weight:700;padding:2px 9px;border-radius:50px}
+.pc-skill{display:inline-flex;align-items:center;gap:4px;background:var(--brand-light);color:var(--brand);font-size:.72rem;font-weight:700;padding:2px 9px;border-radius:50px;max-width:100%;overflow-wrap:anywhere}
 .pc-radius{font-size:.72rem;color:var(--text3);font-weight:500}
 .pc-toggles{
   display:flex;flex-direction:row;align-items:center;flex-wrap:nowrap;
@@ -327,7 +327,7 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
 
   /* Avatar + name stay side-by-side; only the stats row wraps below,
      via profile-card's existing flex-wrap (not touched here) */
-  .pc-stats{width:100%;justify-content:space-between}
+  .pc-stats{width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem}
   .pc-stat{flex:1;padding:.55rem .4rem;min-width:0}
 
   /* Perf grid: 2 columns on mobile */
@@ -335,9 +335,9 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
   .earn-grid,.accept-row{grid-template-columns:repeat(3,1fr)}
 
   /* Tabs: full width, scroll if needed */
-  .tabs{width:100%;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .tabs{width:100%;flex-wrap:wrap}
   .tabs::-webkit-scrollbar{display:none}
-  .tab{font-size:.76rem;padding:6px 10px;white-space:nowrap;flex-shrink:0}
+  .tab{font-size:.76rem;padding:6px 10px;white-space:nowrap;flex:1 1 auto;justify-content:center}
 
   /* Job card */
   .job-top{flex-wrap:wrap}
@@ -365,7 +365,7 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.
   .ltxt{font-size:.92rem}
   .clock{padding:3px 7px;gap:4px}
   .clock .ctm{font-size:.68rem}
-  .pc-toggles{gap:.6rem;overflow-x:auto}
+  .pc-toggles{gap:.6rem;flex-wrap:wrap}
   .pc-toggles .avail-lbl{font-size:.68rem}
 }
 
