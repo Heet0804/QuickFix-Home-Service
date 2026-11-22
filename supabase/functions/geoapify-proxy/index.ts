@@ -48,7 +48,13 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    geoapifyUrl = `https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lon}&apiKey=${GEOAPIFY_API_KEY}`;
+    if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) {
+      return new Response(JSON.stringify({ error: 'lat/lon must be numbers' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    geoapifyUrl = `https://api.geoapify.com/v1/geocode/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&apiKey=${GEOAPIFY_API_KEY}`;
 
   } else if (type === 'routing') {
     const from = url.searchParams.get('from');
@@ -56,6 +62,14 @@ Deno.serve(async (req) => {
     const mode = url.searchParams.get('mode') || 'drive';
     if (!from || !to) {
       return new Response(JSON.stringify({ error: 'Missing from/to' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const point = /^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/;
+    const modes = ['drive', 'walk', 'bicycle', 'motorcycle'];
+    if (!point.test(from) || !point.test(to) || !modes.includes(mode)) {
+      return new Response(JSON.stringify({ error: 'Invalid from/to/mode' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
