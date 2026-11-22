@@ -69,7 +69,7 @@ sb.auth.onAuthStateChange(async (event, session)=>{
       email: session.user.email,
       name:  session.user.user_metadata?.name || '',
       phone: '',
-      role:  session.user.user_metadata?.role || 'user'
+      role:  'user'
     }).select('*').single();
     if(!healErr) u = healed;
   }
@@ -347,7 +347,7 @@ const DB = {
     const {error:userHealErr}=await sb.from('users').upsert({
       id:    user.id,
       email: user.email,
-      role:  user.user_metadata?.role || 'user'
+      role:  'user'
     }, { onConflict:'id', ignoreDuplicates:true });
     if(userHealErr) console.error('DB.save: users self-heal failed:', userHealErr.message);
 
@@ -729,6 +729,7 @@ function tickClock(){
   if(e!==prev){
     if(isActivePage('home')) renderHomeCats();
     if(isActivePage('services')) renderServices();
+    if(isActivePage('booking')) syncBkDate(e);
   }
   if(isActivePage('booking')&&!document.getElementById('bkTime').value) setBkBtn(e);
 }
@@ -1205,7 +1206,7 @@ async function renderOffers(){
       <div class="campaign-hero">
         <div class="campaign-icon">${c.icon}</div>
         <h2 class="campaign-title">${c.title}</h2>
-        ${c.description ? `<p class="campaign-desc">${c.description}</p>` : ''}
+        ${c.description ? `<p class="campaign-desc">${escHtml(c.description)}</p>` : ''}
         <div class="campaign-price-amt">${c.price}</div>
       </div>
       <ul class="campaign-perks">
@@ -1493,7 +1494,7 @@ function wCard(w){
       </div>
     </div>
     <div class="wdesc">
-  ${w.skill || w.role}
+  ${escHtml(w.skill || w.role)}
 </div>
     <div class="wfoot">
       <div>
@@ -1503,7 +1504,7 @@ function wCard(w){
   </div>
 
   <div class="wmeta2">
-    📍 ${w.dist ?? 5} km away · ${w.experience || w.exp || 0} yrs
+    📍 ${w.dist ?? 5} km away · ${escHtml(w.experience || w.exp || 0)} yrs
   </div>
 </div>
       <button class="btn${e?' be':' bp'}" onclick="event.stopPropagation();openBooking(${w.id})">Book</button>
@@ -1561,7 +1562,7 @@ async function openProfile(id){
         <span class="bdg bgn">✔ Verified</span>&nbsp;<span class="bdg bgg">📞 Name &amp; contact after booking</span>
         <div style="margin-top:.4rem;font-size:.76rem;color:var(--text2)">📍 ${w.dist} km away</div>
         <div class="pstats">
-          <div class="pstat"><strong>${w.exp}</strong><span>Experience</span></div>
+          <div class="pstat"><strong>${escHtml(w.exp)}</strong><span>Experience</span></div>
           <div class="pstat"><strong>${w.reviews}</strong><span>Reviews</span></div>
           <div class="pstat"><strong>See services</strong><span>Pricing</span></div>
           <div class="pstat"><strong>${w.rating}★</strong><span>Rating</span></div>
@@ -1569,7 +1570,7 @@ async function openProfile(id){
       </div>
       <div style="align-self:center"><button class="btn bp blg" onclick="openBooking(${w.id})">📅 Book Service</button></div>
     </div>
-    <div class="csec"><div class="cst">📖 About</div><p style="font-size:.875rem;color:var(--text2);line-height:1.65">${w.desc} With ${w.exp} of experience, has served 200+ satisfied customers.</p></div>
+    <div class="csec"><div class="cst">📖 About</div><p style="font-size:.875rem;color:var(--text2);line-height:1.65">${escHtml(w.desc)} With ${escHtml(w.exp)} of experience, has served 200+ satisfied customers.</p></div>
     <div class="csec"><div class="cst">🛠 Services &amp; Pricing</div><ul class="svlist">${w.svcs.map(s=>`<li class="svitem"><span class="svnm">${s.n}</span><span class="svpr">₹${s.p}</span></li>`).join('')}</ul></div>
     <div class="csec"><div class="cst">💬 Reviews (${w.revs.length})</div><div class="revlist">${w.revs.map(r=>`<div class="revcard"><div class="revhdr"><span class="revauth">${r.a}</span><span>${stars(r.s)}</span></div><p class="revtxt">${r.t}</p></div>`).join('')}</div></div>`;
   goPage('profile');
@@ -1596,10 +1597,10 @@ async function renderAccount(){
     det.textContent='Could not load account details.';
   } else {
     det.innerHTML=`
-      <div><strong>Name:</strong> ${u.name||'—'}</div>
-      <div><strong>Email:</strong> ${u.email||session.user.email||'—'}</div>
-      <div><strong>Phone:</strong> ${u.phone||'—'}</div>
-      <div><strong>Saved Address:</strong> ${u.saved_address||'—'}</div>`;
+      <div><strong>Name:</strong> ${escHtml(u.name||'—')}</div>
+      <div><strong>Email:</strong> ${escHtml(u.email||session.user.email||'—')}</div>
+      <div><strong>Phone:</strong> ${escHtml(u.phone||'—')}</div>
+      <div><strong>Saved Address:</strong> ${escHtml(u.saved_address||'—')}</div>`;
   }
   const acctUsernameEl=document.getElementById('acctUsername');
   if(acctUsernameEl) acctUsernameEl.value = u?.email || session.user.email || ''; 
@@ -1615,7 +1616,7 @@ async function renderAccount(){
     <div class="bkitem">
       <div class="bkico">${b.workerEmoji||'🔧'}</div>
       <div class="bkdet">
-        <div class="bktit">${b.service||'Service'}</div>
+        <div class="bktit">${escHtml(b.service||'Service')}</div>
         <div class="bkmeta"><span>${fmtDate(b.date)}</span><span>${fmt12(b.time)}</span></div>
       </div>
       <div class="bkst"><span class="bdg bgg">${b.status||'—'}</span></div>
@@ -1713,10 +1714,11 @@ async function openBookingForRole(catId){
   document.getElementById('bkDate').min=today;
   document.getElementById('bkDate').max=maxStr;
   document.getElementById('bkDate').value='';
+  syncBkDate(e);
   document.getElementById('bkAddr').value='';
   await populateAreaDropdown();
   document.getElementById('bkAreaNote').textContent='';
-  document.getElementById('bkNotice').innerHTML=e?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Emergency Hours Active (8:30 PM – 8:30 AM IST)</strong><br/>Nearest available worker will be dispatched. Time set to now automatically.</div></div>`:'';
+  document.getElementById('bkNotice').innerHTML=e?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Emergency Hours Active (8:30 PM – 8:30 AM IST)</strong><br/>Nearest available worker will be dispatched. Date and time are set to now automatically.</div></div>`:'';
   setBkBtn(e); updatePrice(); goPage('booking');
 }
 
@@ -1771,8 +1773,22 @@ async function openBooking(id){
   document.getElementById('bkAddr').value='';
   await populateAreaDropdown();
   document.getElementById('bkAreaNote').textContent='';
-  document.getElementById('bkNotice').innerHTML=e?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Emergency Hours Active (8:30 PM – 8:30 AM IST)</strong><br/>Worker dispatched immediately. Time set to now automatically.</div></div>`:'';
+  document.getElementById('bkNotice').innerHTML=e?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Emergency Hours Active (8:30 PM – 8:30 AM IST)</strong><br/>Worker dispatched immediately. Date and time are set to now automatically.</div></div>`:'';
   setBkBtn(e); updatePrice(); goPage('booking');
+}
+
+/* Emergency bookings are always "now": lock the date to today's IST date.
+   Normal bookings keep the date picker free. */
+function syncBkDate(e){
+  const d=document.getElementById('bkDate'), tag=document.getElementById('bkDateAuto');
+  if(e){
+    const t=istDateStr();
+    d.min=t; d.max=t; d.value=t; d.disabled=true;
+    d.classList.remove('err');
+  } else {
+    d.disabled=false;
+  }
+  if(tag) tag.style.display=e?'':'none';
 }
 
 function setBkBtn(e){
@@ -2143,7 +2159,7 @@ async function initiateBooking(){
 }
 
 async function _initiateBookingInner(){
-  const date=document.getElementById('bkDate').value;
+  const date=isEmerg()?istDateStr():document.getElementById('bkDate').value;
   const addr=document.getElementById('bkAddr').value.trim();
   const areaId=document.getElementById('bkArea').value;
   const sel=document.getElementById('bkSvc');
@@ -2523,7 +2539,7 @@ async function onAccepted(){
         </div>` : ''}
       <div class="mrow">
         <span class="ml">Service</span>
-        <span class="mv">${bk.service}</span>
+        <span class="mv">${escHtml(bk.service)}</span>
       </div>
 
       <div class="mrow">
@@ -2535,7 +2551,7 @@ async function onAccepted(){
         <span class="ml">Address</span>
         <span class="mv"
           style="max-width:260px;text-align:right;white-space:normal;word-break:break-word;line-height:1.4">
-          ${bk.address}
+          ${escHtml(bk.address)}
         </span>
       </div>
 
@@ -2559,12 +2575,12 @@ async function onAccepted(){
         : `
           <div class="mrow">
             <span class="ml">Worker</span>
-            <span class="mv">${nearest.name}</span>
+            <span class="mv">${escHtml(nearest.name)}</span>
           </div>
 
           <div class="mrow">
             <span class="ml">Phone</span>
-            <span class="mv">${nearest.phone}</span>
+            <span class="mv">${escHtml(nearest.phone)}</span>
           </div>
 
           <div class="mrow">
@@ -3230,11 +3246,11 @@ async function renderBookings(){
     const contactHtml = show
   ? `
     <div class="cbox" style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap">
-      ${b.workerPhotoUrl?`<img src="${b.workerPhotoUrl}" alt="Worker profile photo" onclick="openPhotoLightbox('${b.workerPhotoUrl}')" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:1.5px solid var(--teal);flex-shrink:0;cursor:pointer">`:''}
+      ${b.workerPhotoUrl?`<img src="${escHtml(b.workerPhotoUrl)}" alt="Worker profile photo" onclick="openPhotoLightbox(${escHtml(JSON.stringify(b.workerPhotoUrl))})" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:1.5px solid var(--teal);flex-shrink:0;cursor:pointer">`:''}
       <span style="flex:1">
         <strong>👤 ${b.workerName}</strong>
       </span>
-      ${canCallWorker ? `<a href="tel:${b.workerPhone}" class="btn bt" style="font-size:.75rem;padding:5px 12px;text-decoration:none">📞 Call Worker</a>` : ''}
+      ${canCallWorker ? `<a href="tel:${escHtml(b.workerPhone)}" class="btn bt" style="font-size:.75rem;padding:5px 12px;text-decoration:none">📞 Call Worker</a>` : ''}
     </div>`
   : b.isAdvance
     ? `
@@ -3275,19 +3291,19 @@ const cancelBtn=canCancel
     const disputeBtn=b.status===CONSTANTS.BOOKING_STATUS.COMPLETED?`<button class="btn bo" style="font-size:.72rem;padding:5px 10px" onclick="openDisputeModal('${b.id}')">⚠️ Report Issue</button>`:'';
     const photosHtml = (b.arrival_photo_url || b.completion_photo_url) ? `
       <div style="display:flex;gap:.5rem;margin-top:.5rem">
-        ${b.arrival_photo_url?`<div><div style="font-size:.68rem;color:var(--text3);margin-bottom:3px">Before</div><img src="${b.arrival_photo_url}" onclick="openPhotoLightbox('${b.arrival_photo_url}')" style="width:64px;height:64px;border-radius:8px;object-fit:cover;cursor:pointer;border:1px solid var(--border)"></div>`:''}
-        ${b.completion_photo_url?`<div><div style="font-size:.68rem;color:var(--text3);margin-bottom:3px">After</div><img src="${b.completion_photo_url}" onclick="openPhotoLightbox('${b.completion_photo_url}')" style="width:64px;height:64px;border-radius:8px;object-fit:cover;cursor:pointer;border:1px solid var(--border)"></div>`:''}
+        ${b.arrival_photo_url?`<div><div style="font-size:.68rem;color:var(--text3);margin-bottom:3px">Before</div><img src="${escHtml(b.arrival_photo_url)}" onclick="openPhotoLightbox(${escHtml(JSON.stringify(b.arrival_photo_url))})" style="width:64px;height:64px;border-radius:8px;object-fit:cover;cursor:pointer;border:1px solid var(--border)"></div>`:''}
+        ${b.completion_photo_url?`<div><div style="font-size:.68rem;color:var(--text3);margin-bottom:3px">After</div><img src="${escHtml(b.completion_photo_url)}" onclick="openPhotoLightbox(${escHtml(JSON.stringify(b.completion_photo_url))})" style="width:64px;height:64px;border-radius:8px;object-fit:cover;cursor:pointer;border:1px solid var(--border)"></div>`:''}
       </div>` : '';
 
     return `<div class="bkitem">
       <div class="bkico">${b.workerEmoji}</div>
       <div class="bkdet">
-        <div class="bktit">${b.service}
+        <div class="bktit">${escHtml(b.service)}
           ${b.isEmergency?'&nbsp;<span class="bdg bge">🚨 Emergency</span>':''}
           ${b.isAdvance&&b.status===CONSTANTS.BOOKING_STATUS.SCHEDULED?'&nbsp;<span class="bdg bgb">📅 Advance</span>':''}
 
         </div>
-        <div class="bkmeta"><span>${b.workerRole}</span><span>${fmtDate(b.date)} · ${fmt12(b.time)}</span><span>₹${b.price}</span></div>
+        <div class="bkmeta"><span>${escHtml(b.workerRole)}</span><span>${fmtDate(b.date)} · ${fmt12(b.time)}</span><span>₹${b.price}</span></div>
         ${schedNote}${contactHtml}${otpHtml}${payHtml}${photosHtml}
         <div class="bkacts">${trackBtn}${compBtn}${cancelBtn}${bookAgainBtn}${rateBtn}${disputeBtn}</div>
         <button class="tl-toggle" id="tl-btn-${b.id}" onclick="toggleTimeline('${b.id}')">▼ View Timeline <span class="tl-arr">▼</span></button>
@@ -3791,7 +3807,7 @@ async function openReview(bkId){
   const all=await DB.bookings();
   const b=all.find(x=>String(x.id)===String(bkId));
   if(!b){ showToast('⚠️ Booking not found'); return; }
-  document.getElementById('reviewDesc').innerHTML=`How was your <strong>${b.workerRole||b.worker_role||'service'}</strong> experience?`;
+  document.getElementById('reviewDesc').innerHTML=`How was your <strong>${escHtml(b.workerRole||b.worker_role||'service')}</strong> experience?`;
   setRating(0);
   renderReviewTags();
   document.getElementById('reviewComment').value='';
