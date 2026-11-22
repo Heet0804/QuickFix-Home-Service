@@ -1,0 +1,195 @@
+/* ===== QuickFix — Shared theme stylesheet (light / dark) =====
+   Linked AFTER each page's own stylesheet. Light mode = the existing
+   look (nothing here changes it, except the toggle button). Dark mode
+   is switched by <html data-theme="dark">, set by js/common/theme.js. */
+
+/* ── Toggle button ── */
+.theme-toggle{
+  background:var(--surface3);border:1px solid var(--border);border-radius:50%;
+  width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:1rem;line-height:1;flex-shrink:0;padding:0;
+  transition:border-color .2s,background .2s;
+}
+.theme-toggle:hover{border-color:var(--brand)}
+
+/* ── Dark tokens ── */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  /* charcoal base with a faint warm tint; each layer a clear step lighter */
+  --bg:#0f0e0c;--surface:#181613;--surface2:#1e1b17;--surface3:#26221d;
+  --border:#34302a;--border2:#2a2621;
+  --text:#f5f0e8;--text2:#c4bcb0;--text3:#9a9183;
+  --brand:#c97526;--brand-light:#2b1d10;--brand-mid:#f0a45a;
+  --teal-light:#162a22;
+  --emerg:#ff8f8f;--emerg-light:#2a1414;--emerg-border:#5c2a2a;
+  --danger:#ff7a7a;--danger-light:#341a1a;
+  --online-light:#143021;--offline-light:#24211d;--offline:#a3a3ab;
+  --sh0:0 1px 3px rgba(0,0,0,.5);
+  --sh1:0 4px 18px rgba(0,0,0,.55);
+  --sh2:0 12px 40px rgba(0,0,0,.65);
+}
+
+/* ── Shared overrides for hard-coded light colours ── */
+[data-theme="dark"] .finput:focus,
+[data-theme="dark"] .fselect:focus{background-color:var(--surface)}
+[data-theme="dark"] .finput.err,
+[data-theme="dark"] .fselect.err{background:#3a1818!important}
+[data-theme="dark"] .toast,
+[data-theme="dark"] .tip::after{background:var(--surface3);color:var(--text);border:1px solid var(--border)}
+[data-theme="dark"] .fdbtag{color:#7fd1b0}
+
+/* ── Customer (index.html) ── */
+[data-theme="dark"] .hsrch{background:var(--surface)}
+[data-theme="dark"] footer{background:var(--surface);border-top:1px solid var(--border);color:var(--text3)}
+[data-theme="dark"] footer strong{color:var(--text)}
+[data-theme="dark"] .clock.em .ctm{color:#ff9d9d}
+[data-theme="dark"] .hnotice.normal{background:#33290a;border-color:#6b5514;color:#f0d98a}
+[data-theme="dark"] .hnotice.emerg{color:#ffb4b4}
+[data-theme="dark"] .bgn{background:var(--teal-light);color:#7fd1b0}
+[data-theme="dark"] .bga{background:#3a2c0a;color:#f0c75a}
+[data-theme="dark"] .bgr{background:#3a1818;color:#ff9d9d}
+[data-theme="dark"] .bgg{background:#2e2a25;color:var(--text2)}
+[data-theme="dark"] .bgb{background:#14264a;color:#8fb3ff}
+[data-theme="dark"] .bgbr{color:var(--brand-mid)}
+[data-theme="dark"] .revtag.sel.other{color:var(--brand-mid)}
+[data-theme="dark"] .revtag.sel.positive{color:#7fd1b0}
+[data-theme="dark"] .revtag.sel.negative{background:#3a1818;color:#ff9d9d}
+[data-theme="dark"] .cbox strong{color:#7fd1b0}
+[data-theme="dark"] .trk-toggle:hover{background:#1b3a2d;border-color:#3a7a5e}
+[data-theme="dark"] #campaignModal .modal.campaign-modal,
+[data-theme="dark"] .offer-card{background:linear-gradient(160deg,#2a2016 0%,var(--surface) 55%)}
+[data-theme="dark"] .campaign-unit{background:linear-gradient(160deg,var(--surface),#33220f)}
+[data-theme="dark"] .campaign-close-x{background:rgba(255,255,255,.1)}
+[data-theme="dark"] .campaign-close-x:hover{background:rgba(255,255,255,.2)}
+[data-theme="dark"] .pass-row{border-bottom-color:rgba(255,255,255,.08)}
+/* inline pastel backgrounds used in index.html / index.js */
+[data-theme="dark"] [style*="background:#e8f4ef"]{background:#1b2e26!important}
+[data-theme="dark"] [style*="background:#fef3d0"]{background:#3a2c0a!important}
+[data-theme="dark"] [style*="background:#fce8e8"]{background:#3a1818!important}
+[data-theme="dark"] [style*="background:#fff8e6"]{background:#33290a!important;border-color:#6b5514!important;color:#f0d98a!important}
+
+/* ── Worker (worker-dashboard.html / worker-profile.html) ── */
+[data-theme="dark"] .emerg-toggle input:checked~.emerg-track{background:#4a1c1c}
+[data-theme="dark"] .emerg-track,
+[data-theme="dark"] .avail-track{border-color:#4b4b52}
+[data-theme="dark"] .offline-banner{background:var(--offline-light);border-color:#4b4b52}
+[data-theme="dark"] .offline-banner h3{color:var(--text)}
+[data-theme="dark"] .offline-banner p{color:var(--text2)}
+[data-theme="dark"] .job-card.urgent{background:#33290a;border-color:#8a6a10}
+[data-theme="dark"] .job-ico.urg{background:#3a2c0a}
+[data-theme="dark"] .bdg-pending{background:#3a2c0a;color:#f0c75a}
+[data-theme="dark"] .bdg-arrived{background:#14264a;color:#8fb3ff}
+[data-theme="dark"] .rank-gold{background:#3a2c0a;color:#f0c75a;border-color:#8a6a10}
+[data-theme="dark"] .rank-silver{background:#25282e;color:#cbd5e1;border-color:#64748b}
+[data-theme="dark"] .rank-bronze{background:var(--brand-light);color:var(--brand-mid)}
+[data-theme="dark"] .rel-excellent{background:#143021;color:#86efac}
+[data-theme="dark"] .rel-good,
+[data-theme="dark"] .cancel-warn-mild{background:#33290a;color:#f0d98a}
+[data-theme="dark"] .cal-day.cal-mid{background:#3a2c0a}
+[data-theme="dark"] .cal-day.cal-high{background:#3a1818}
+[data-theme="dark"] .pc-av{background:linear-gradient(135deg,var(--brand-light),#2a2016)}
+
+/* ── Light mode: tell the browser (scrollbars, date pickers, form controls) ── */
+:root[data-theme="light"]{color-scheme:light}
+
+/* ── Smooth switch (class is added for ~0.3s while changing, never on first load) ── */
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after{
+  transition:background-color .25s ease,color .25s ease,border-color .25s ease,box-shadow .25s ease,fill .25s ease,stroke .25s ease!important;
+}
+@media (prefers-reduced-motion:reduce){
+  .theme-switching,.theme-switching *,.theme-switching *::before,.theme-switching *::after{transition:none!important}
+}
+
+/* ── Theme button + Light / Dark / System menu ── */
+.theme-toggle:focus-visible,
+.qf-theme-item:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.theme-toggle[aria-expanded="true"]{border-color:var(--brand)}
+.qf-theme-menu{
+  position:fixed;z-index:100000;min-width:176px;padding:6px;
+  background:var(--surface,#fff);border:1px solid var(--border,#e8e0d4);
+  border-radius:14px;box-shadow:var(--sh2,0 10px 36px rgba(0,0,0,.18));
+  display:none;font-family:inherit;
+}
+.qf-theme-menu.open{display:block;animation:qfThemeIn .14s ease-out}
+@keyframes qfThemeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.qf-theme-menu.open{animation:none}}
+.qf-theme-item{
+  display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:0 12px;
+  background:transparent;border:0;border-radius:10px;color:var(--text,#1e150a);
+  font:inherit;font-size:.9rem;text-align:left;cursor:pointer;
+}
+.qf-theme-item:hover{background:var(--surface3,#f7f3ec)}
+.qf-theme-ico{font-size:1.05rem;width:1.4em;text-align:center}
+.qf-theme-txt{flex:1}
+.qf-theme-tick{visibility:hidden;font-weight:700;color:var(--brand,#b5651d)}
+.qf-theme-item[aria-checked="true"]{background:var(--brand-light,#fdf6ee);font-weight:600}
+.qf-theme-item[aria-checked="true"] .qf-theme-tick{visibility:visible}
+
+/* ── Maps: soften the bright OpenStreetMap tiles in dark mode ── */
+[data-theme="dark"] .leaflet-container{background:#262019}
+[data-theme="dark"] .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.9) contrast(.9) saturate(.75)}
+
+/* ── Dark polish: depth, glow and readable alerts ── */
+[data-theme="dark"] nav{background:rgba(24,22,19,.82);-webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px)}
+[data-theme="dark"] #page-home .hero{
+  background:radial-gradient(120% 120% at 92% 0%,rgba(255,176,90,.32) 0%,rgba(255,176,90,0) 58%),linear-gradient(135deg,#b9651a 0%,#8a4410 52%,#4d2608 100%);
+  box-shadow:0 22px 60px -24px rgba(201,117,38,.45),inset 0 1px 0 rgba(255,255,255,.14);
+}
+[data-theme="dark"] #page-home .hero::before{background:rgba(255,255,255,.08)}
+[data-theme="dark"] #page-home .hero::after{content:'';position:absolute;right:34px;top:-34px;width:340px;height:340px;border-radius:50%;border:1.5px solid rgba(255,255,255,.08);pointer-events:none}
+[data-theme="dark"] .hsrch{background:rgba(15,14,12,.8);border:1px solid rgba(255,255,255,.16);box-shadow:0 10px 30px rgba(0,0,0,.4)}
+[data-theme="dark"] .catc{box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+[data-theme="dark"] .ebar{background:linear-gradient(90deg,#3a1313,#561a1a);border-bottom:1px solid #6b2525}
+[data-theme="dark"] .ebanner{background:linear-gradient(135deg,#3a1313,#5a1c1c);border:1px solid #6b2525}
+[data-theme="dark"] ::selection{background:rgba(217,130,43,.4)}
+[data-theme="dark"] .bd{background:#c53d3d}
+[data-theme="dark"] .be{background:#b83232}
+
+/* ── Public pages (landing / login): theme button position ── */
+.theme-toggle-float{position:fixed;top:16px;right:16px;z-index:60}
+@media(max-width:780px){.theme-toggle-float{top:76px;right:14px}}
+
+/* ── Login page (auth.html): hard-coded light fills ── */
+[data-theme="dark"] .finput,
+[data-theme="dark"] .fselect{background-color:var(--surface2)}
+[data-theme="dark"] .sbtn{background:var(--surface2)}
+[data-theme="dark"] .sbtn:hover{border-color:var(--brand)}
+[data-theme="dark"] .file-upload-label{background:var(--surface2)}
+[data-theme="dark"] .err-banner{background:#2a1414;border-color:#5c2a2a}
+
+/* ── Landing page (landing.html) ── */
+[data-theme="dark"] .path-user{background:linear-gradient(145deg,var(--surface) 0%,var(--brand-light) 100%);box-shadow:0 4px 24px rgba(0,0,0,.45)}
+[data-theme="dark"] section.hero{background:radial-gradient(70% 55% at 50% 0%,rgba(201,117,38,.22),rgba(201,117,38,0) 70%)}
+
+/* ── Layout safety: long names, emails and addresses wrap instead of scrolling sideways ── */
+.page,.wrap{min-width:0}
+.page{overflow-wrap:break-word}
+.irow,.irow>*{min-width:0;overflow-wrap:anywhere}
+.pc-skill,.pc-radius,.tl-name,.tl-meta,.cbox>span,.ei-left,.ei-left>*,.ei-svc{min-width:0;overflow-wrap:anywhere}
+
+/* ── Worker pages (dashboard + profile): depth and readable accent numbers ── */
+[data-theme="dark"] body{background:radial-gradient(1000px 420px at 50% -120px,rgba(201,117,38,.10),rgba(201,117,38,0) 70%) no-repeat,var(--bg)}
+[data-theme="dark"] .profile-card{
+  background:linear-gradient(180deg,rgba(201,117,38,.10) 0%,rgba(201,117,38,0) 170px),var(--surface);
+  box-shadow:0 18px 40px -22px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.05);
+}
+[data-theme="dark"] .pc-stat{background:linear-gradient(180deg,#221e19,#1b1815);border-color:#2f2a24}
+[data-theme="dark"] .perf-card,
+[data-theme="dark"] .earn-card,
+[data-theme="dark"] .accept-card,
+[data-theme="dark"] .timeline-wrap{box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 8px 20px -14px rgba(0,0,0,.75)}
+[data-theme="dark"] .perf-card.good strong,
+[data-theme="dark"] .earn-card strong,
+[data-theme="dark"] .accept-rate-val{color:#4cc29a!important}
+[data-theme="dark"] .perf-card.bad strong{color:#f08a80}
+[data-theme="dark"] .perf-card.warn strong{color:#f2b24d}
+[data-theme="dark"] .section-hdr{color:#d9a066}
+[data-theme="dark"] .section-hdr::after{background:linear-gradient(90deg,#4a3a28,rgba(74,58,40,0))}
+[data-theme="dark"] .perf-card,
+[data-theme="dark"] .earn-card,
+[data-theme="dark"] .accept-card,
+[data-theme="dark"] .timeline-wrap,
+[data-theme="dark"] .profile-card{border-color:#3a352d}
