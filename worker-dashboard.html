@@ -10,7 +10,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="js/common/theme.js"></script>
 <link rel="stylesheet" href="css/worker/dashboard.css">
+<link rel="stylesheet" href="css/common/theme.css">
 </head>
 <body>
 
@@ -22,6 +24,7 @@
       <span class="ltxt">Quick<span>Fix</span> <small style="font-size:.6rem;color:var(--text3);font-weight:600">WORKER</small></span>
     </a>
     <div class="clock"><span class="cdot"></span><span class="ctm" id="istTime">--:--:--</span></div>
+    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">🌙</button>
     <div class="nav-overlay" id="navOverlay" onclick="toggleMenu()"></div>
     <div class="nav-right" id="navRight">
       <button class="nav-close" onclick="toggleMenu()" aria-label="Close menu">✕</button>
