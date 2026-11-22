@@ -10,7 +10,9 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/common/theme.js"></script>
 <link rel="stylesheet" href="css/customer/index.css">
+<link rel="stylesheet" href="css/common/theme.css">
 </head>
 <body>
 
@@ -39,6 +41,7 @@
       <button class="nl nl-signout" onclick="signOut()" style="color:var(--danger)">Sign Out</button>
     </div>
     <div style="display:flex;align-items:center;gap:10px">
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">🌙</button>
       <div class="clock" id="istClock"><div class="cdot"></div><span class="ctm" id="istTime">--:-- --</span><span style="color:var(--text3);font-size:.68rem">IST</span></div>
     </div>
   </div>
@@ -194,7 +197,7 @@
         <div id="bkWorkerInfo" style="margin-bottom:1.1rem"></div>
         <div class="fg"><label class="flabel">Select Service</label><select class="fselect" id="bkSvc" onchange="updatePrice()"></select></div>
         <div class="bk-date-time-row" style="display:grid;grid-template-columns:1fr 1fr;gap:.95rem">
-          <div class="fg"><label class="flabel">Date</label><input type="date" class="finput" id="bkDate" onchange="onDateChange()"/></div>
+          <div class="fg"><label class="flabel">Date <span id="bkDateAuto" style="display:none;font-weight:500;color:var(--text3)">(auto — emergency)</span></label><input type="date" class="finput" id="bkDate" onchange="onDateChange()"/></div>
           <div class="fg" id="bkTimeGrp"><label class="flabel">Time (8:30 AM – 8:30 PM)</label><select class="fselect" id="bkTime" onchange="onTimeChange()"><option value="">Select time…</option></select></div>
         </div>
         <div class="fg"><label class="flabel">Your Address</label><input type="text" class="finput" id="bkAddr" placeholder="Enter your full address…"/><div id="bkAddrAreaWarn" style="font-size:.74rem;color:var(--danger);margin-top:.35rem"></div></div>
