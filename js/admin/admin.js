@@ -198,8 +198,8 @@ async function renderDisputesTable(){
     <tr>
       <td>${userById[d.user_id] || '—'}</td>
       <td>${workerById[d.worker_id] || '—'}</td>
-      <td>${DISPUTE_REASON_LABELS[d.reason] || d.reason}</td>
-      <td style="max-width:260px;white-space:normal">${d.description || '—'}</td>
+      <td>${escHtml(DISPUTE_REASON_LABELS[d.reason] || d.reason)}</td>
+      <td style="max-width:260px;white-space:normal">${escHtml(d.description || '—')}</td>
       <td><span class="badge ${statusBadgeCls}">${d.status.toUpperCase()}</span></td>
       <td>${_fmtDate(d.created_at)}</td>
       <td>${actions}</td>
@@ -240,10 +240,10 @@ function renderUsersTable(){
   empty.style.display = 'none';
   body.innerHTML = _allUsers.map(u=>`
     <tr>
-      <td>${u.name || '—'}</td>
-      <td>${u.email || '—'}</td>
-      <td>${u.phone || '—'}</td>
-      <td style="max-width:220px;white-space:normal">${u.saved_address || '—'}</td>
+      <td>${escHtml(u.name || '—')}</td>
+      <td>${escHtml(u.email || '—')}</td>
+      <td>${escHtml(u.phone || '—')}</td>
+      <td style="max-width:220px;white-space:normal">${escHtml(u.saved_address || '—')}</td>
       <td>${u.quickcoins_balance ?? 0} 🪙</td>
       <td>${u.total_completed_bookings ?? 0}</td>
       <td>${_fmtDate(u.created_at)}</td>
@@ -296,17 +296,17 @@ function renderWorkersTable(){
   body.innerHTML = _allWorkersFull.map(w=>{
     const status = w.verification_status || 'pending';
     const docBtn = w.document_name
-      ? `<button class="btn bo bs" onclick="openAdminDocView('${w.document_name}')">📄 View</button>`
+      ? `<button class="btn bo bs" onclick="openAdminDocView(${escHtml(JSON.stringify(w.document_name))})">📄 View</button>`
       : '—';
     const photoBtn = w.profile_photo_url
-      ? `<button class="btn bo bs" onclick="openAdminImgView('${w.profile_photo_url}')">🙂 View</button>`
+      ? `<button class="btn bo bs" onclick="openAdminImgView(${escHtml(JSON.stringify(w.profile_photo_url))})">🙂 View</button>`
       : '—';
     return `
     <tr>
-      <td>${w.name || '—'}</td>
-      <td>${w.skill || '—'}</td>
-      <td>${w.phone || '—'}</td>
-      <td>${w.area || '—'}</td>
+      <td>${escHtml(w.name || '—')}</td>
+      <td>${escHtml(w.skill || '—')}</td>
+      <td>${escHtml(w.phone || '—')}</td>
+      <td>${escHtml(w.area || '—')}</td>
       <td>${w.radius!=null ? w.radius+' km' : '—'}</td>
       <td>${Number(w.rating||0).toFixed(1)}★</td>
       <td>🔥 ${w.positive_streak ?? 0}</td>
@@ -410,8 +410,8 @@ function renderCampaignsTable(){
   const methodLabel = { gpay:'📱 GPay', coins:'🪙 Coins' };
   body.innerHTML = rows.map(c => `
     <tr>
-      <td><strong>${c.title||''}</strong></td>
-      <td>${c.service||''}</td>
+      <td><strong>${escHtml(c.title||'')}</strong></td>
+      <td>${escHtml(c.service||'')}</td>
       <td>${methodLabel[c.purchase_method]||'📱 GPay'}</td>
       <td>${c.purchase_method==='coins' ? `${c.coin_price} 🪙` : `₹${c.price ?? 0}`}</td>
       <td>${c.number_of_visits ?? 1}</td>
@@ -620,8 +620,8 @@ async function renderPassesTable(){
     const statusLabel = expired ? 'EXPIRED' : String(p.status||'').toUpperCase();
     return `
     <tr>
-      <td>${u.name || '—'}</td>
-      <td>${u.email || '—'}</td>
+      <td>${escHtml(u.name || '—')}</td>
+      <td>${escHtml(u.email || '—')}</td>
       <td>${titleById[p.campaign_id] || '—'}</td>
       <td>${_fmtDate(p.purchase_date)}</td>
       <td>${_fmtDate(p.expiry_date)}</td>
@@ -690,7 +690,7 @@ async function renderBannedWorkersTable(){
     ).join('');
     return `
     <tr>
-      <td>${w.name || '—'}</td>
+      <td>${escHtml(w.name || '—')}</td>
       <td>${bans.length}</td>
       <td style="max-width:340px">${historyHtml}</td>
       <td>${isBanned ? `<span class="badge badge-inactive">🚫 Banned until ${_fmtDateTime(w.banned_until)}</span>` : `<span class="badge badge-active">Active</span>`}</td>
@@ -790,13 +790,13 @@ async function renderReviewsTable(){
       : '';
     return `
     <tr>
-      <td>${u.name || '—'}<div style="font-size:.7rem;color:var(--text3)">${u.email || ''}</div></td>
+      <td>${escHtml(u.name || '—')}<div style="font-size:.7rem;color:var(--text3)">${escHtml(u.email || '')}</div></td>
       <td>${workerNameById[r.worker_id] || '—'}</td>
       <td>${workerSkillById[r.worker_id] || '—'}</td>
       <td>${serviceByBookingId[r.booking_id] || '—'}</td>
       <td>${'★'.repeat(r.rating||0)}${'☆'.repeat(5-(r.rating||0))}</td>
       <td style="max-width:220px">${tagsHtml || '—'}</td>
-      <td style="max-width:260px;white-space:normal">${r.comment ? r.comment : '—'}</td>
+      <td style="max-width:260px;white-space:normal">${escHtml(r.comment ? r.comment : '—')}</td>
       <td>${_fmtDate(r.created_at)}</td>
       ${banColsHtml}
       <td>${banBtn}</td>
@@ -955,7 +955,7 @@ function renderAnalytics(){
     const revenue = passes.length * (Number(c.price)||0);
     return `
     <tr>
-      <td><strong>${c.title}</strong></td>
+      <td><strong>${escHtml(c.title)}</strong></td>
       <td>${passes.length}</td>
       <td>${active}</td>
       <td>${expired}</td>
