@@ -5,7 +5,7 @@
   --brand:#b5651d;--brand-dark:#7a3f0d;--brand-light:#fdf6ee;--brand-mid:#d4875a;
   --teal:#4a8b6e;--teal-light:#eaf4ef;--amber:#d4890a;--danger:#b83232;
   --bg:#faf8f3;--surface:#fff;--surface2:#fdf9f4;--surface3:#f7f3ec;
-  --border:#e8e0d4;--border2:#ede6da;--text:#1e150a;--text2:#6b5744;--text3:#a8917c;
+  --border:#e8e0d4;--border2:#ede6da;--text:#1e150a;--text2:#6b5744;--text3:#80695a;
   --radius:14px;--radius-sm:9px;--radius-xs:5px;
   --sh0:0 1px 3px rgba(80,40,10,.06),0 1px 2px rgba(0,0,0,.04);
   --sh1:0 3px 16px rgba(80,40,10,.08),0 1px 4px rgba(0,0,0,.05);
@@ -294,7 +294,7 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);position:sti
 .progwrap{width:100%;height:7px;background:var(--border);border-radius:99px;overflow:hidden;margin-bottom:1.4rem}
 .progbar{height:100%;background:var(--brand);border-radius:99px;transition:width 1s linear}
 
-.overlay{display:none;position:fixed;inset:0;background:rgba(30,18,5,.5);backdrop-filter:blur(5px);z-index:500;align-items:center;justify-content:center;padding:1rem}
+.overlay{display:none;position:fixed;inset:0;background:rgba(30,18,5,.5);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);z-index:500;align-items:center;justify-content:center;padding:1rem}
 .overlay.on{display:flex;animation:fi .22s ease}
 @keyframes fi{from{opacity:0}to{opacity:1}}
 .modal{background:var(--surface);border-radius:18px;padding:2.25rem 1.75rem;max-width:440px;width:100%;text-align:center;box-shadow:0 20px 56px rgba(30,18,5,.22);animation:pi .28s cubic-bezier(.34,1.56,.64,1);max-height:92vh;overflow-y:auto}
@@ -458,7 +458,7 @@ footer strong{color:#fff;font-family:'Sora',sans-serif}
   100%{opacity:0;transform:translateY(84vh) rotate(320deg)}
 }
 
-/* Campaign Popup (Phase 2 - Part A) — scoped to #campaignModal / .campaign-* 
+/* Campaign Popup (Phase 2 - Part A) — scoped to #campaignModal / .campaign-*
    only. Does not modify .overlay, .modal, .btn, .bp, .bo, or any shared
    class definition — reuses them as-is and adds on top. */
 #campaignModal .modal.campaign-modal{
