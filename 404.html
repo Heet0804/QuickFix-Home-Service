@@ -34,14 +34,17 @@
     display:inline-flex;
     align-items:center;
     gap:8px;
-    background:#c0691b;
+    background:#a85a14;
     color:#fff;
     text-decoration:none;
     font-weight:700;
     font-size:.9rem;
     padding:.8rem 1.6rem;
     border-radius:999px;
+    transition:background .2s,transform .2s;
   }
+  .btn:hover{ background:#8a4a12; transform:translateY(-1px) }
+  .btn:focus-visible{ outline:2px solid #c0691b; outline-offset:3px }
   [data-theme="dark"] body{ background:#0f0e0c; color:#f5f0e8 }
   [data-theme="dark"] p{ color:#c4bcb0 }
 </style>
