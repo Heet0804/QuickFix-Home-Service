@@ -205,7 +205,7 @@ function renderDetails(){
   document.getElementById('vName').textContent=W.name||'—';
   document.getElementById('vPhone').textContent=W.phone||'—';
   document.getElementById('vSkill').textContent=W.skill||'—';
-  document.getElementById('vExperience').textContent=W.experience||'—';
+  document.getElementById('vExperience').textContent=W.exp||'—';
   document.getElementById('vArea').textContent=W.area||'—';
   document.getElementById('vRadius').textContent=W.radius!=null?`${W.radius} km`:'—';
 }
@@ -341,7 +341,7 @@ function startEdit(){
   document.getElementById('eName').value=W.name||'';
   document.getElementById('ePhone').value=W.phone||'';
   document.getElementById('eSkill').value=W.skill||'';
-  document.getElementById('eExperience').value=W.experience||'';
+  document.getElementById('eExperience').value=W.exp||'';
   document.getElementById('eArea').value=W.area||'';
   document.getElementById('eRadius').value=W.radius!=null?W.radius:'';
 
@@ -383,7 +383,7 @@ async function saveProfile(){
   if(!valid){ showToast('⚠️ Please fix the highlighted fields'); return; }
 
   const updates={name,phone,skill};
-  if(experience) updates.experience=experience;
+  if(experience) updates.exp=experience;
   if(area) updates.area=area;
   if(radius!=null) updates.radius=radius;
 
