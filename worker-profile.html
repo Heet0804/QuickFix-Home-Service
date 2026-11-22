@@ -8,7 +8,9 @@
 <meta name="description" content="View and manage your QuickFix worker profile, performance stats, and earnings history.">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/common/theme.js"></script>
 <link rel="stylesheet" href="css/worker/profile.css">
+<link rel="stylesheet" href="css/common/theme.css">
 </head>
 <body>
 
@@ -24,6 +26,7 @@
     <div class="nav-right" id="navRight">
       <button class="nav-close" onclick="toggleMenu()" aria-label="Close menu">✕</button>
       <a class="nav-back" href="worker-dashboard.html">← Back to Dashboard</a>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">🌙</button>
       <div class="nav-profile">
         <div class="nav-av">🔧</div>
         <div>
