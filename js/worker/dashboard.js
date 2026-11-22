@@ -558,16 +558,16 @@ function renderJobCard(b){
   if([CONSTANTS.BOOKING_STATUS.PENDING,CONSTANTS.BOOKING_STATUS.CONFIRMED,CONSTANTS.BOOKING_STATUS.SCHEDULED].includes(b.status)){
     actions=`
       <div class="job-acts">
-        <button class="jbtn jbtn-accept" onclick="promptAccept('${b.id}')">✅ Accept</button>
-        <button class="jbtn jbtn-reject" onclick="promptReject('${b.id}')">✖ Reject</button>
+        <button class="jbtn jbtn-accept" onclick="promptAccept(${escHtml(JSON.stringify(b.id))})">✅ Accept</button>
+        <button class="jbtn jbtn-reject" onclick="promptReject(${escHtml(JSON.stringify(b.id))})">✖ Reject</button>
       </div>`;
   } else if(b.status===CONSTANTS.BOOKING_STATUS.ACCEPTED){
 
     actions=`
       <div class="job-acts">
-        <button class="jbtn jbtn-arrive" onclick="markArrived('${b.id}')">📍 Mark Arrived</button>
+        <button class="jbtn jbtn-arrive" onclick="markArrived(${escHtml(JSON.stringify(b.id))})">📍 Mark Arrived</button>
         ${customerCallBtn}
-        <button class="jbtn jbtn-reject" onclick="promptCancelAccepted('${b.id}')">✖ Cancel Booking</button>
+        <button class="jbtn jbtn-reject" onclick="promptCancelAccepted(${escHtml(JSON.stringify(b.id))})">✖ Cancel Booking</button>
       </div>`;
   } else if(b.status===CONSTANTS.BOOKING_STATUS.ARRIVED){
 
@@ -575,7 +575,7 @@ function renderJobCard(b){
        Only Completion OTP remains. */
     actions=`
       <div class="job-acts">
-        <button class="jbtn jbtn-complete" onclick="openOtpModal('completion','${b.id}')">✅ Verify Completion OTP</button>
+        <button class="jbtn jbtn-complete" onclick="openOtpModal('completion',${escHtml(JSON.stringify(b.id))})">✅ Verify Completion OTP</button>
       </div>`;
   }
 
@@ -587,7 +587,7 @@ function renderJobCard(b){
      toggleTrackCustomer() the first time it's opened. */
   const trackCustomerHtml = b.status===CONSTANTS.BOOKING_STATUS.ACCEPTED ? `
 
-         <button class="trk-toggle" id="trkc-btn-${b.id}" onclick="toggleTrackCustomer('${b.id}')">📍 Track Customer <span class="trk-arr">▼</span></button>
+         <button class="trk-toggle" id="trkc-btn-${b.id}" onclick="toggleTrackCustomer(${escHtml(JSON.stringify(b.id))})">📍 Track Customer <span class="trk-arr">▼</span></button>
         <div class="trk-wrap" id="trkc-wrap-${b.id}">
           <div class="trk-body">
             <div class="trk-map" id="trkc-slot-${b.id}"></div>
@@ -605,10 +605,10 @@ function renderJobCard(b){
       <div class="job-left">
         <div class="job-ico ${b.is_emergency?'urg':''}">${b.is_emergency?'🚨':'🔧'}</div>
         <div style="min-width:0">
-          <div class="job-name">${b.service||'Service'} ${b.is_emergency?'<span class="badge bdg-emerg">🚨 Emergency</span>':''}</div>
+          <div class="job-name">${escHtml(b.service||'Service')} ${b.is_emergency?'<span class="badge bdg-emerg">🚨 Emergency</span>':''}</div>
           <div class="job-meta">${statusBadge(b.status)}</div>
-          ${b.address?`<div class="job-addr">📍 ${b.address}</div>`:''}
-          ${b.notes?`<div class="job-notes">"${b.notes}"</div>`:''}
+          ${b.address?`<div class="job-addr">📍 ${escHtml(b.address)}</div>`:''}
+          ${b.notes?`<div class="job-notes">"${escHtml(b.notes)}"</div>`:''}
           ${otpRow}
         </div>
       </div>
@@ -630,7 +630,7 @@ function promptAccept(id){
   if(!b)return;
   const earning=Math.round((Number(b.price)||0)*0.80);
   document.getElementById('acceptModalDesc').innerHTML=
-    `<strong>${b.service_name||'Service'}</strong>${b.address?`<br/>📍 ${b.address}`:''}<br/>💰 You earn <strong style="color:var(--teal)">₹${earning}</strong> for this job.`;
+    `<strong>${escHtml(b.service_name||'Service')}</strong>${b.address?`<br/>📍 ${escHtml(b.address)}`:''}<br/>💰 You earn <strong style="color:var(--teal)">₹${earning}</strong> for this job.`;
   document.getElementById('acceptModal').classList.add('on');
 }
 async function confirmAccept(){
@@ -1201,12 +1201,12 @@ function renderTimeline(){
     const lbl=ds===todayStr?'📅 Today':ds===tomorrowStr?'📅 Tomorrow':`📅 ${ds}`;
     html+=`<div class="tl-day-lbl">${lbl}</div>`;
     groups[ds].forEach(b=>{
-      const name=b.service_name||b.service||'Service';
+      const name=escHtml(b.service_name||b.service||'Service');
       html+=`<div class="tl-item">
         <div class="tl-dot"></div>
         <div>
           <div class="tl-name">${name}</div>
-          <div class="tl-meta">${b.address||'No address'} · <span style="font-size:.65rem;font-weight:700;padding:1px 6px;border-radius:50px;background:var(--surface3);color:var(--text2)">${b.status}</span></div>
+          <div class="tl-meta">${escHtml(b.address||'No address')} · <span style="font-size:.65rem;font-weight:700;padding:1px 6px;border-radius:50px;background:var(--surface3);color:var(--text2)">${b.status}</span></div>
         </div>
       </div>`;
     });
@@ -1778,7 +1778,7 @@ function renderCalendarBookingList(key){
     return `<div class="cal-booking-item">
       <div>🕒 ${time}</div>
       <div>🔧 ${service}</div>
-      ${b.address?`<div>🏠 ${b.address}</div>`:''}
+      ${b.address?`<div>🏠 ${escHtml(b.address)}</div>`:''}
       <div>📍 ${b.status||'—'}</div>
     </div>`;
   }).join('<div class="cal-booking-sep"></div>');
