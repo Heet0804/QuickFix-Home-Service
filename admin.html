@@ -7,8 +7,11 @@
 <meta name="description" content="QuickFix admin portal — manage campaigns, review disputes, and monitor platform activity.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'"/>
+<noscript><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet"/></noscript>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous"></script>
 <script src="js/common/theme.js"></script>
 <link rel="stylesheet" href="css/admin/admin.css">
 <link rel="stylesheet" href="css/common/theme.css">
@@ -23,6 +26,7 @@
      context and shown a plain "not authorized" message, they are NOT
      redirected into index.html/worker-dashboard.html automatically
      (avoids surprising a logged-in user by bouncing them elsewhere). -->
+<main id="main">
 <div id="gate">
   <div class="left">
     <div class="logo-mark">Q</div>
@@ -226,6 +230,7 @@
     </div>
   </div>
 </div>
+</main>
 
 <!-- WORKER VERIFICATION RESULT MODAL (Approve/Reject confirmation) -->
 <div class="overlay" id="workerVerifyResultModal">
@@ -351,9 +356,9 @@
   </div>
 </div>
 
-<script src="js/common/supabase.js"></script>
-<script src="js/common/constants.js"></script>
-<script src="js/common/utils.js"></script>
-<script src="js/admin/admin.js"></script>
+<script defer src="js/common/supabase.js"></script>
+<script defer src="js/common/constants.js"></script>
+<script defer src="js/common/utils.js"></script>
+<script defer src="js/admin/admin.js"></script>
 </body>
 </html>
