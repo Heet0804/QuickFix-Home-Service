@@ -6,8 +6,12 @@
 <title>QuickFix — My Profile</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>"/>
 <meta name="description" content="View and manage your QuickFix worker profile, performance stats, and earnings history.">
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'"/>
+<noscript><link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/></noscript>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous"></script>
 <script src="js/common/theme.js"></script>
 <link rel="stylesheet" href="css/worker/profile.css">
 <link rel="stylesheet" href="css/common/theme.css">
@@ -17,7 +21,7 @@
 <!-- ── NAV ── -->
 <nav>
   <div class="navi">
-    <button class="hbg" onclick="toggleMenu()"><span></span><span></span><span></span></button>
+    <button class="hbg" onclick="toggleMenu()" aria-label="Open menu"><span></span><span></span><span></span></button>
     <a class="logo" href="worker-dashboard.html">
       <div class="lmark">Q</div>
       <span class="ltxt">Quick<span>Fix</span> <small style="font-size:.6rem;color:var(--text3);font-weight:600">WORKER</small></span>
@@ -40,7 +44,7 @@
 </nav>
 
 <!-- ── MAIN ── -->
-<div class="wrap">
+<main class="wrap" id="main">
 
   <!-- Loading -->
   <div class="loading-overlay" id="loadingState">
@@ -205,14 +209,14 @@
     </div>
 
   </div><!-- /profileContent -->
-</div>
+</main>
 
 <!-- ── BADGES MODAL ── -->
 <div class="badges-modal-bg" id="badgesModal">
   <div class="badges-modal">
     <div class="badges-modal-hdr">
       <h3>🏅 All Badges</h3>
-      <button class="badges-modal-close" onclick="closeBadgesModal()">×</button>
+      <button aria-label="Close" class="badges-modal-close" onclick="closeBadgesModal()">×</button>
     </div>
     <div id="badgesModalBody"></div>
   </div>
@@ -220,12 +224,12 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="js/common/supabase.js"></script>
-<script src="js/common/config.js"></script>
-<script src="js/common/constants.js"></script>
-<script src="js/common/utils.js"></script>
-<script src="js/common/toast.js"></script>
-<script src="js/common/nav.js"></script>
-<script src="js/worker/profile.js"></script>
+<script defer src="js/common/supabase.js"></script>
+<script defer src="js/common/config.js"></script>
+<script defer src="js/common/constants.js"></script>
+<script defer src="js/common/utils.js"></script>
+<script defer src="js/common/toast.js"></script>
+<script defer src="js/common/nav.js"></script>
+<script defer src="js/worker/profile.js"></script>
 </body>
 </html>
