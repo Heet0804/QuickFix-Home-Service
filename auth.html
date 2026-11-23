@@ -6,8 +6,12 @@
 <title>QuickFix — Sign In</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>"/>
 <meta name="description" content="Sign in or create an account on QuickFix to book home services or start receiving job requests as a service professional.">
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'"/>
+<noscript><link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/></noscript>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous"></script>
 <script src="js/common/theme.js"></script>
 <link rel="stylesheet" href="css/auth/auth.css">
 <link rel="stylesheet" href="css/common/theme.css">
@@ -24,7 +28,7 @@
   <div class="left-footer">© 2025 QuickFix &nbsp;·&nbsp; <a href="landing.html">Home</a></div>
 </div>
 
-<div class="right">
+<main class="right" id="main">
   <button class="theme-toggle theme-toggle-float" type="button" aria-label="Change theme">🌙</button>
   <a class="back-link" href="landing.html">← Back to Home</a>
   <div class="role-toggle">
@@ -121,14 +125,14 @@
       <button class="sbtn" onclick="showToast('📌 Phone OTP coming soon')">📱 Phone OTP</button>
     </div>
   </div>
-</div>
+</main>
 
 <div class="toast" id="toast"></div>
 
-<script src="js/common/supabase.js"></script>
-<script src="js/common/constants.js"></script>
-<script src="js/common/utils.js"></script>
-<script src="js/common/toast.js"></script>
-<script src="js/auth/auth.js"></script>
+<script defer src="js/common/supabase.js"></script>
+<script defer src="js/common/constants.js"></script>
+<script defer src="js/common/utils.js"></script>
+<script defer src="js/common/toast.js"></script>
+<script defer src="js/auth/auth.js"></script>
 </body>
 </html>
