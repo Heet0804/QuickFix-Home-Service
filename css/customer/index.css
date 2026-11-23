@@ -15,6 +15,8 @@
 }
 html{height:100%;width:100%;scroll-behavior:smooth}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);height:100%;width:100%;display:flex;flex-direction:column;overflow-x:hidden;margin:0;padding:0}
+/* Landmark wrapper: display:contents keeps .page elements as direct flex children of body, so layout is unchanged */
+main{display:contents}
 h1,h2,h3,h4{font-family:'Sora',sans-serif}
 button,input,select,textarea{font-family:'DM Sans',sans-serif}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--brand-mid);border-radius:99px}
