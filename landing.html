@@ -6,8 +6,12 @@
 <title>QuickFix — On-Demand Local Services</title>
 <meta name="description" content="Book trusted, verified local electricians, plumbers, carpenters and more in minutes. Live tracking, OTP-verified service delivery, and secure payment — QuickFix."/>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>"/>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'"/>
+<noscript><link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/></noscript>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous"></script>
 <script src="js/common/theme.js"></script>
 <link rel="stylesheet" href="css/landing/landing.css">
 <link rel="stylesheet" href="css/common/theme.css">
@@ -30,6 +34,7 @@
 </nav>
 <div class="nav-overlay" id="navOverlay"></div>
 
+<main id="main">
 <section class="hero">
   <div class="hero-badge"><span class="pulse"></span>500+ Verified Professionals · Live Now</div>
   <h1>Your home fixed,<br/><span class="accent">on demand</span></h1>
@@ -107,6 +112,7 @@
     <a class="svc-pill" href="auth.html?role=user"><span class="svc-pill-ico">🏠</span><span class="svc-pill-lbl">Househelp</span></a>
   </div>
 </div>
+</main>
 
 <footer>
   <p style="margin-bottom:.75rem"><strong>QuickFix</strong></p>
@@ -117,8 +123,8 @@
   <p style="margin-top:1rem">© 2026 QuickFix · Trusted local services on demand</p>
 </footer>
 
-<script src="js/common/supabase.js"></script>
-<script src="js/common/constants.js"></script>
-<script src="js/landing/landing.js"></script>
+<script defer src="js/common/supabase.js"></script>
+<script defer src="js/common/constants.js"></script>
+<script defer src="js/landing/landing.js"></script>
 </body>
 </html>
