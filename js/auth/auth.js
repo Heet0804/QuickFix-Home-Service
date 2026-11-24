@@ -89,7 +89,7 @@ function updateLeftPanel(role){
   document.getElementById('leftMain').innerHTML=`<div class="left-tag">${c.tag}</div><h2>${c.heading}</h2><p class="left-desc">${c.desc}</p><ul class="left-perks">${c.perks.map(p=>`<li><div class="perk-ico">✓</div>${p}</li>`).join('')}</ul>`;
 }
 function updateAuthText(){
-  const T={user:{login:'Welcome back',signup:'Create your account'},worker:{login:'Worker sign in',signup:'Join as a Worker'}};
+  const T={user:{login:'Welcome back',signup:'Create your account'},worker:{login:'Professional sign in',signup:'Join as a Professional'}};
   const S={user:{login:'Sign in to book services near you.',signup:'Set up your account in seconds.'},worker:{login:'Sign in to see job requests near you.',signup:'Register to start receiving local jobs.'}};
   document.getElementById('authTitle').textContent=T[curRole][curForm]||'Welcome';
   document.getElementById('authSub').textContent=S[curRole][curForm]||'';
@@ -341,7 +341,7 @@ async function doSignup(role){
       options:{data:{name,role:'worker'}}
     });
     if(ae){
-      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
+      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Professional →');
       showErr(ae.message.includes('already registered')?'Email already registered. Try signing in.':ae.message);
       return;
     }
@@ -363,7 +363,7 @@ async function doSignup(role){
     }catch(uploadEx){
       console.error('Document upload error:', uploadEx?.message || uploadEx);
       alert(uploadEx?.message || JSON.stringify(uploadEx,null,2));
-      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
+      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Professional →');
       await sb.auth.signOut();
       return;
     }
@@ -384,15 +384,15 @@ async function doSignup(role){
     }catch(photoUploadEx){
       console.error("PHOTO UPLOAD ERROR:", photoUploadEx);
       alert(photoUploadEx?.message || JSON.stringify(photoUploadEx,null,2));
-      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
+      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Professional →');
       await sb.auth.signOut();
       return;
     }
 
     /* Step 2: Insert into workers table ONLY — name, phone, skill, radius, exp, area/lat/lng all explicit */
     if(we?.message?.includes('already registered under a different account role')){
-      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
-      showErr('This phone number is already linked to a customer account. A worker account must use a different phone number.');
+      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Professional →');
+      showErr('This phone number is already linked to a customer account. A professional account must use a different phone number.');
       await sb.from('workers').delete().eq('id',uid);
       await sb.auth.signOut();
       return;
@@ -416,8 +416,8 @@ async function doSignup(role){
       profile_photo_url: photoUrl
     });
     if(we){
-      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
-      showErr('Worker profile save failed: '+we.message);
+      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Professional →');
+      showErr('Professional profile save failed: '+we.message);
       await sb.from('workers').delete().eq('id',uid);
       await sb.auth.signOut();
       return;
@@ -439,7 +439,7 @@ async function doSignup(role){
     };
     sessionStorage.setItem('qf_user',JSON.stringify(sess));
     sessionStorage.setItem('qf_role','worker');
-    setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Worker →');
+    setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Professional →');
     showToast('🎉 Registration successful. Document uploaded successfully.');
     setTimeout(()=>redirect('worker'),CONSTANTS.AUTH_REDIRECT_DELAY_MS);
   }
