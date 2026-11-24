@@ -13,7 +13,7 @@
       dash.classList.add('show');
       dash.style.display='inline-flex';
       dash.href=role==='worker'?'worker-dashboard.html':'index.html';
-      dash.textContent=role==='worker'?'Worker Dashboard →':'My Dashboard →';
+      dash.textContent=role==='worker'?'Professional Dashboard →':'My Dashboard →';
     }
   }
 })();
