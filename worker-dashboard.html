@@ -203,9 +203,21 @@
     <h3>🚗 Verify Arrival OTP</h3>
     <p>Ask the customer for the 6-digit Arrival OTP and enter it below.</p>
     <input type="text" class="modal-otp-input" id="arrivalOtpInput" maxlength="6" placeholder="······" inputmode="numeric"/>
-    <div style="margin:.85rem 0">
-      <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.4rem">📸 Photo of site condition on arrival (optional)</label>
-      <input type="file" id="arrivalPhotoInput" accept="image/jpeg,image/png" capture="environment"/>
+    <div class="photo-card" id="arrivalPhotoCard">
+      <div class="photo-card-hdr">
+        <span class="photo-card-title">📸 Before photo · site condition on arrival</span>
+        <span class="photo-card-tag">Recommended</span>
+      </div>
+      <p class="photo-card-sub">Optional, but customers see this photo on their booking.</p>
+      <input type="file" class="photo-input" id="arrivalPhotoInput" accept="image/jpeg,image/png" capture="environment"/>
+      <label class="photo-drop" for="arrivalPhotoInput" id="arrivalPhotoDrop">
+        <span class="photo-drop-ico" aria-hidden="true">📷</span>
+        <span class="photo-drop-text">
+          <span class="photo-drop-main" id="arrivalPhotoMain" data-default="Tap to add a before photo">Tap to add a before photo</span>
+          <span class="photo-drop-sub" id="arrivalPhotoSub" data-default="Opens your camera · JPG or PNG">Opens your camera · JPG or PNG</span>
+        </span>
+        <img class="photo-drop-thumb" id="arrivalPhotoThumb" alt="Selected photo preview" hidden>
+      </label>
     </div>
     <div class="modal-acts">
       <button class="mbtn-secondary" onclick="closeModal('arrivalOtpModal')">Cancel</button>
@@ -220,9 +232,21 @@
     <h3>✅ Verify Completion OTP</h3>
     <p>Ask the customer for the 6-digit Completion OTP and enter it below.</p>
     <input type="text" class="modal-otp-input" id="completionOtpInput" maxlength="6" placeholder="······" inputmode="numeric"/>
-    <div style="margin:.85rem 0">
-      <label style="font-size:.8rem;font-weight:600;display:block;margin-bottom:.4rem">📸 Photo of completed work (optional)</label>
-      <input type="file" id="completionPhotoInput" accept="image/jpeg,image/png" capture="environment"/>
+    <div class="photo-card" id="completionPhotoCard">
+      <div class="photo-card-hdr">
+        <span class="photo-card-title">📸 After photo · completed work</span>
+        <span class="photo-card-tag">Recommended</span>
+      </div>
+      <p class="photo-card-sub">Optional, but customers see this photo on their booking.</p>
+      <input type="file" class="photo-input" id="completionPhotoInput" accept="image/jpeg,image/png" capture="environment"/>
+      <label class="photo-drop" for="completionPhotoInput" id="completionPhotoDrop">
+        <span class="photo-drop-ico" aria-hidden="true">📷</span>
+        <span class="photo-drop-text">
+          <span class="photo-drop-main" id="completionPhotoMain" data-default="Tap to add an after photo">Tap to add an after photo</span>
+          <span class="photo-drop-sub" id="completionPhotoSub" data-default="Opens your camera · JPG or PNG">Opens your camera · JPG or PNG</span>
+        </span>
+        <img class="photo-drop-thumb" id="completionPhotoThumb" alt="Selected photo preview" hidden>
+      </label>
     </div>
     <div class="modal-acts">
       <button class="mbtn-secondary" onclick="closeModal('completionOtpModal')">Cancel</button>
