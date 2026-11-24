@@ -102,3 +102,53 @@ function compressImageFile(file, maxDimension=1280, quality=0.75){
     reader.readAsDataURL(file);
   });
 }
+
+/* ── Notification sound ─────────────────────────────────────
+   Short two-tone beep made with the Web Audio API (no audio file).
+   Browsers keep audio locked until the person has clicked, tapped or
+   pressed a key on the page once, so the first interaction unlocks it.
+   Calls within 3 seconds of the last beep are ignored, so two code
+   paths reacting to the same event never double-ring. */
+(function(){
+  function unlockAudio(){
+    try{
+      const AC=window.AudioContext||window.webkitAudioContext;
+      if(!AC) return;
+      if(!window._qfAudioCtx) window._qfAudioCtx=new AC();
+      if(window._qfAudioCtx.state==='suspended') window._qfAudioCtx.resume();
+    }catch(e){}
+    ['click','touchstart','keydown'].forEach(ev=>document.removeEventListener(ev,unlockAudio,true));
+  }
+  ['click','touchstart','keydown'].forEach(ev=>document.addEventListener(ev,unlockAudio,true));
+})();
+
+function playNotifySound(){
+  try{
+    const now=Date.now();
+    if(window._qfLastBeep && now-window._qfLastBeep<3000) return;
+    window._qfLastBeep=now;
+
+    const AC=window.AudioContext||window.webkitAudioContext;
+    if(!AC) return;
+    if(!window._qfAudioCtx) window._qfAudioCtx=new AC();
+    const ctx=window._qfAudioCtx;
+    if(ctx.state==='suspended') ctx.resume();
+
+    const t0=ctx.currentTime+0.02;
+    [[880,0],[1175,0.18]].forEach(([freq,offset])=>{
+      const osc=ctx.createOscillator();
+      const gain=ctx.createGain();
+      osc.type='sine';
+      osc.frequency.value=freq;
+      gain.gain.setValueAtTime(0.0001,t0+offset);
+      gain.gain.exponentialRampToValueAtTime(0.25,t0+offset+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001,t0+offset+0.16);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t0+offset);
+      osc.stop(t0+offset+0.18);
+    });
+  }catch(e){
+    console.warn('Notification sound failed:',e);
+  }
+}
