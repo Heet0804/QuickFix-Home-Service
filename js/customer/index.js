@@ -135,7 +135,7 @@ function normalizeBookings(raw){
     id: b.id ?? b.booking_id ?? String(Date.now()+Math.random()),
     status: b.status || CONSTANTS.BOOKING_STATUS.CONFIRMED,
     workerRole: b.workerRole || b.worker_role || 'Service',
-    workerName: b.workerName || b.worker_name || 'Worker',
+    workerName: b.workerName || b.worker_name || 'Professional',
     workerPhone: b.workerPhone || b.worker_phone || '',
     workerEmoji: b.workerEmoji || b.worker_emoji || '🔧',
     paymentMethod: b.paymentMethod || b.payment_method || 'cash',
@@ -600,7 +600,7 @@ async function bookCategoryService(serviceName, catId){
      worker on submit — it's no longer locked to whichever worker
      happened to be nearest at click time. */
   const workers=await DB.workers(catId);
-  if(!workers.length){ showToast(`⚠️ No ${catId} workers available right now`); return; }
+  if(!workers.length){ showToast(`⚠️ No ${catId} professionals available right now`); return; }
   sst={catId, item:serviceName, issue:''};
   openBookingForRole(catId);
 }
@@ -1336,11 +1336,11 @@ function _checkNotifiableTransitions(all){
     if(prev!==b.status){
       if(b.status===CONSTANTS.BOOKING_STATUS.ACCEPTED){
         playNotifySound();
-        notifyIfBackground('Worker Assigned! 🔧', `A ${b.workerRole} has accepted your booking.`);
+        notifyIfBackground('Professional Assigned! 🔧', `A ${b.workerRole} has accepted your booking.`);
       } else if(b.status===CONSTANTS.BOOKING_STATUS.ARRIVED){
-        notifyIfBackground('Worker Has Arrived 📍', 'Your worker is at your location.');
+        notifyIfBackground('Professional Has Arrived 📍', 'Your professional is at your location.');
       } else if(b.status===CONSTANTS.BOOKING_STATUS.COMPLETED){
-        notifyIfBackground('Job Completed ✅', 'Your service is complete — don\'t forget to rate it!');
+        notifyIfBackground('Job Completed ✅', 'The professional has completed the service — don\'t forget to rate it!');
       }
     }
     _notifLastStatus.set(b.id, b.status);
@@ -1394,7 +1394,7 @@ function renderHousehelp(){
 
 async function bookHousehelp(serviceName, price){
   const workers=await DB.workers('Househelp');
-  if(!workers.length){ showToast('⚠️ No Househelp workers available right now'); return; }
+  if(!workers.length){ showToast('⚠️ No Househelp professionals available right now'); return; }
   sst={catId:'Househelp', item:serviceName, issue:''};
   openBookingForRole('Househelp');
 }
@@ -1420,7 +1420,7 @@ async function renderStep(step){
       <div class="fg"><textarea class="finput" id="issueText" rows="4" placeholder="e.g. My fan makes a noise and spins slowly…" style="resize:vertical">${sst.issue}</textarea></div>
       <div style="display:flex;gap:.65rem">
         <button class="btn bo" onclick="renderStep(1)">← Back</button>
-        <button class="btn bp" style="flex:1;justify-content:center" onclick="runSearch()">🔍 Find Workers →</button>
+        <button class="btn bp" style="flex:1;justify-content:center" onclick="runSearch()">🔍 Find Professionals →</button>
       </div></div>`;
   }
 
@@ -1434,8 +1434,8 @@ async function renderStep(step){
     const noW=pool.length===0;
     const nearest=pool[0];
     document.getElementById('ss3').innerHTML=
-      (e?`<div class="ebanner"><div class="ebi">🚨</div><div><h3>Emergency Hours (8:30 PM – 8:30 AM IST)</h3><p>Only 24/7 emergency workers shown. Nearest worker auto-assigned.</p></div></div>`:'')+
-      (noW?`<div class="hnotice emerg"><span class="hi">⚠️</span><div><strong>No workers available right now</strong><br/>Please try again shortly or choose a different category.</div></div>`:'')+
+      (e?`<div class="ebanner"><div class="ebi">🚨</div><div><h3>Emergency Hours (8:30 PM – 8:30 AM IST)</h3><p>Only 24/7 emergency professionals shown. Nearest professional auto-assigned.</p></div></div>`:'')+
+      (noW?`<div class="hnotice emerg"><span class="hi">⚠️</span><div><strong>No professionals available right now</strong><br/>Please try again shortly or choose a different category.</div></div>`:'')+
       `<div class="ibox" style="margin-bottom:1rem">
         <div style="font-size:.79rem;color:var(--text2);margin-bottom:.4rem">Your request:</div>
         <strong>${cat.em} ${sst.item}</strong>
@@ -1446,12 +1446,12 @@ async function renderStep(step){
         <div style="font-size:2rem;margin-bottom:.5rem">📋</div>
         <h3 style="font-size:1rem;font-weight:700;margin-bottom:.4rem">Ready to Book</h3>
         <p style="font-size:.82rem;color:var(--text2);margin-bottom:1.25rem">
-          ${noW?'No workers available in your area right now.'
-            :`${pool.length} worker${pool.length!==1?'s':''} available · Nearest is <strong>${nearest.dist} km</strong> away`}
+          ${noW?'No professionals available in your area right now.'
+            :`${pool.length} professional${pool.length!==1?'s':''} available · Nearest is <strong>${nearest.dist} km</strong> away`}
         </p>
         <button class="btn${e?' be':' bp'} blg bfull"
           ${noW?'disabled style="opacity:.5;cursor:not-allowed"':'onclick="openBookingFromSmart()"'}>
-          ${noW?'⚠️ No Workers Available':e?'🚨 Request Emergency Worker':'📅 Continue to Booking'}
+          ${noW?'⚠️ No Professionals Available':e?'🚨 Request Emergency Professional':'📅 Continue to Booking'}
         </button>
       </div>`;
   }
@@ -1463,7 +1463,7 @@ async function openBookingFromSmart(){
   const e=isEmerg();
   let pool=await DB.workers(sst.catId);
   if(e) pool=pool.filter(w=>w.ea);
-  if(!pool.length){ showToast('⚠️ No workers available right now.'); return; }
+  if(!pool.length){ showToast('⚠️ No professionals available right now.'); return; }
   openBookingForRole(sst.catId);
 }
 
@@ -1543,7 +1543,7 @@ async function renderServices(){
   if(filters.sort==='rating') ws.sort((a,b)=>b.rating-a.rating);
   if(filters.sort==='price-asc') ws.sort((a,b)=>a.price-b.price);
   if(filters.sort==='price-desc') ws.sort((a,b)=>b.price-a.price);
-  const note=e?`<div style="grid-column:1/-1;font-size:.78rem;color:var(--emerg);font-weight:600;background:var(--emerg-light);border:1px solid var(--emerg-border);border-radius:var(--radius-sm);padding:.5rem .875rem;margin-bottom:.875rem">🚨 Emergency Hours — Only Electrician &amp; Plumber (24/7) workers shown (8:30 PM – 8:30 AM IST)</div>`:'';
+  const note=e?`<div style="grid-column:1/-1;font-size:.78rem;color:var(--emerg);font-weight:600;background:var(--emerg-light);border:1px solid var(--emerg-border);border-radius:var(--radius-sm);padding:.5rem .875rem;margin-bottom:.875rem">🚨 Emergency Hours — Only Electrician &amp; Plumber (24/7) professionals shown (8:30 PM – 8:30 AM IST)</div>`:'';
   document.getElementById('svcCount').textContent=`Showing ${ws.length} professional${ws.length!==1?'s':''}`;
   document.getElementById('svcGrid').innerHTML=note+(ws.length===0?`<div class="empty" style="grid-column:1/-1"><div class="emptyico">🔍</div><h3>No results</h3><p>Try different filters.</p></div>`:ws.map(wCard).join(''));
 }
@@ -1687,7 +1687,7 @@ async function openBookingForRole(catId){
       <div style="width:44px;height:44px;border-radius:50%;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">${emoji}</div>
       <div>
         <div style="font-weight:700;font-size:.9rem">${label} Service</div>
-        <div style="font-size:.76rem;color:var(--text2)">Your job will be sent to nearby available workers — first to accept gets it</div>
+        <div style="font-size:.76rem;color:var(--text2)">Your job will be sent to nearby available professionals — first to accept gets it</div>
       </div>
     </div>`;
 
@@ -1719,7 +1719,7 @@ async function openBookingForRole(catId){
   document.getElementById('bkAddr').value='';
   await populateAreaDropdown();
   document.getElementById('bkAreaNote').textContent='';
-  document.getElementById('bkNotice').innerHTML=e?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Emergency Hours Active (8:30 PM – 8:30 AM IST)</strong><br/>Nearest available worker will be dispatched. Date and time are set to now automatically.</div></div>`:'';
+  document.getElementById('bkNotice').innerHTML=e?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Emergency Hours Active (8:30 PM – 8:30 AM IST)</strong><br/>Nearest available professional will be dispatched. Date and time are set to now automatically.</div></div>`:'';
   setBkBtn(e); updatePrice(); goPage('booking');
 }
 
@@ -1734,7 +1734,7 @@ async function openBooking(id){
       <div style="width:44px;height:44px;border-radius:50%;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">${w.emoji}</div>
       <div>
         <div style="font-weight:700;font-size:.9rem">${w.role} Service</div>
-        <div style="font-size:.76rem;color:var(--text2)">Nearest worker · ${w.dist} km radius</div>
+        <div style="font-size:.76rem;color:var(--text2)">Nearest professional · ${w.dist} km radius</div>
         ${w.ea?'<span class="bdg bge" style="margin-top:3px;display:inline-flex">🚨 Emergency Available</span>':''}
       </div>
       <div style="margin-left:auto;text-align:right">
@@ -1774,7 +1774,7 @@ async function openBooking(id){
   document.getElementById('bkAddr').value='';
   await populateAreaDropdown();
   document.getElementById('bkAreaNote').textContent='';
-  document.getElementById('bkNotice').innerHTML=e?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Emergency Hours Active (8:30 PM – 8:30 AM IST)</strong><br/>Worker dispatched immediately. Date and time are set to now automatically.</div></div>`:'';
+  document.getElementById('bkNotice').innerHTML=e?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Emergency Hours Active (8:30 PM – 8:30 AM IST)</strong><br/>Professional dispatched immediately. Date and time are set to now automatically.</div></div>`:'';
   setBkBtn(e); updatePrice(); goPage('booking');
 }
 
@@ -1794,7 +1794,7 @@ function syncBkDate(e){
 
 function setBkBtn(e){
   const b=document.getElementById('bkBtn');
-  b.textContent=e?'🚨 Request Emergency Worker & Pay':'📡 Book & Pay';
+  b.textContent=e?'🚨 Request Emergency Professional & Pay':'📡 Book & Pay';
   b.className=`btn ${e?'be':'bp'} bfull blg`;
 }
 
@@ -1828,9 +1828,9 @@ async function onAreaChange(){
   const e=isEmerg();
   const eligible=await getEligibleWorkersForArea(curW.role, area, {emergencyOnly:e});
   if(!eligible.length){
-    note.innerHTML=`<span style="color:var(--danger)">⚠️ No ${curW.role} workers available within ${MAX_ASSIGN_KM} km of ${area.name} right now.</span>`;
+    note.innerHTML=`<span style="color:var(--danger)">⚠️ No ${curW.role} professionals available within ${MAX_ASSIGN_KM} km of ${area.name} right now.</span>`;
   } else {
-    note.innerHTML=`<span style="color:var(--teal)">✔ ${eligible.length} worker${eligible.length>1?'s':''} available near ${area.name} (nearest ${eligible[0].kmDist.toFixed(1)} km)</span>`;
+    note.innerHTML=`<span style="color:var(--teal)">✔ ${eligible.length} professional${eligible.length>1?'s':''} available near ${area.name} (nearest ${eligible[0].kmDist.toFixed(1)} km)</span>`;
   }
 }
 
@@ -1855,7 +1855,7 @@ function onTimeChange(){
   const t=document.getElementById('bkTime').value, el=document.getElementById('bkNotice');
   if(!t){el.innerHTML='';return;}
   el.innerHTML=!inWork(t)
-    ?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Outside working hours (8:30 AM – 8:30 PM)</strong><br/>Request goes to 24/7 emergency workers only.</div></div>`
+    ?`<div class="hnotice emerg"><span class="hi">🚨</span><div><strong>Outside working hours (8:30 AM – 8:30 PM)</strong><br/>Request goes to 24/7 emergency professionals only.</div></div>`
     :`<div class="hnotice normal"><span class="hi">🕙</span><div>Working hours: <strong>8:30 AM – 8:30 PM</strong>. Slot is within working hours.</div></div>`;
 }
 
@@ -2198,7 +2198,7 @@ async function _initiateBookingInner(){
   }
   const eligible=await getEligibleWorkersForArea(curW.role, area, {emergencyOnly:e});
   if(!eligible.length){
-    showToast(`⚠️ No ${curW.role} workers available within ${MAX_ASSIGN_KM} km of ${area.name} right now.`);
+    showToast(`⚠️ No ${curW.role} professionals available within ${MAX_ASSIGN_KM} km of ${area.name} right now.`);
     return;
   }
 
@@ -2526,12 +2526,12 @@ async function onAccepted(){
     ico.className = 'mico anim';
 
     document.getElementById('confTitle').textContent =
-      advance ? 'Booking Scheduled!' : 'Worker Assigned!';
+      advance ? 'Booking Scheduled!' : 'Professional Assigned!';
 
     document.getElementById('confDesc').innerHTML =
       advance
-      ? `Your service is booked for <strong>${fmtDate(bk.date)} at ${sf}</strong>.<br/>Worker details & OTPs appear in My Bookings at <strong>${rf}</strong> (30 min before).`
-      : `The nearest available worker accepted. Their details are now in My Bookings.`;
+      ? `Your service is booked for <strong>${fmtDate(bk.date)} at ${sf}</strong>.<br/>Professional details & OTPs appear in My Bookings at <strong>${rf}</strong> (30 min before).`
+      : `The nearest available professional accepted. Their details are now in My Bookings.`;
 
     const _totalDiscount = Number(bk.discount_amount||0) + Number(bk.milestone_discount||0);
     document.getElementById('confDet').innerHTML = `
@@ -2561,7 +2561,7 @@ async function onAccepted(){
         advance
         ? `
           <div class="mrow">
-            <span class="ml">Worker</span>
+            <span class="ml">Professional</span>
             <span class="mv" style="color:var(--text3);font-style:italic">
               🔒 Revealed at ${rf}
             </span>
@@ -2576,7 +2576,7 @@ async function onAccepted(){
         `
         : `
           <div class="mrow">
-            <span class="ml">Worker</span>
+            <span class="ml">Professional</span>
             <span class="mv">${escHtml(nearest.name)}</span>
           </div>
 
@@ -2637,7 +2637,7 @@ async function onAccepted(){
               🚗 Arrival OTP
               <br>
               <span style="font-size:.58rem;opacity:.75">
-                Give to worker on arrival
+                Give to professional on arrival
               </span>
             </div>
 
@@ -2710,10 +2710,10 @@ function buildTimeline(b){
 
   const steps = [
     { ico:'🟢', label:'Booking Created',   ts: fmtTlTs(ct) || bkTimeLbl },
-    { ico:'👷', label:'Worker Assigned',   ts: fmtTlTs(ct) || bkTimeLbl },
-    { ico:'👍', label:'Worker Accepted',   ts: fmtTlTs(b.accepted_at) },
-    { ico:'🚗', label:'Worker On The Way', ts: fmtTlTs(b.on_way_at) },
-    { ico:'📍', label:'Worker Arrived',    ts: fmtTlTs(b.arrived_at) },
+    { ico:'👷', label:'Professional Assigned',   ts: fmtTlTs(ct) || bkTimeLbl },
+    { ico:'👍', label:'Professional Accepted',   ts: fmtTlTs(b.accepted_at) },
+    { ico:'🚗', label:'Professional On The Way', ts: fmtTlTs(b.on_way_at) },
+    { ico:'📍', label:'Professional Arrived',    ts: fmtTlTs(b.arrived_at) },
     { ico:'🛠', label:'Service Started',   ts: fmtTlTs(b.started_at) },
     { ico:'✅', label:'Service Completed', ts: fmtTlTs(b.completed_at) },
     { ico:'⭐', label:'Review Submitted',  ts: fmtTlTs(b.completed_at) },
@@ -2841,8 +2841,8 @@ function toggleTracking(bkId){
   wrap.classList.toggle('open', opening);
   btn.classList.toggle('open', opening);
   btn.innerHTML = opening
-    ? '📍 Track Worker <span class="trk-arr">▲</span>'
-    : '📍 Track Worker <span class="trk-arr">▼</span>';
+    ? '📍 Track Professional <span class="trk-arr">▲</span>'
+    : '📍 Track Professional <span class="trk-arr">▼</span>';
   if(opening){
     /* Build/reattach immediately — do not wait for the CSS panel
        transition. Leaflet can measure a fixed-height child even while
@@ -3037,7 +3037,7 @@ async function _buildTrackingMap(b){
   _trkState[b.id] = { map, marker, container:mapEl, customerMarker:null, routeLine:null, initialized:false, lastRouteFetch:0, autoFollow:true, lastWorkerPt:null };
 
   const msgEl = document.getElementById('trk-eta-'+b.id);
-  if(msgEl) msgEl.textContent = '📍 Live worker location';
+  if(msgEl) msgEl.textContent = '📍 Live professional location';
 
   /* Requirement 6: Uber-style auto-follow. Any user-initiated drag
      disables it and reveals a Re-center button; tapping the button
@@ -3159,7 +3159,7 @@ function updateTrackingMaps(bookingList){
     const isOpen = wrap?.classList.contains('open');
 
     if(!hasCoords){
-  if(msgEl) msgEl.textContent = 'Waiting for worker location...';
+  if(msgEl) msgEl.textContent = 'Waiting for professional location...';
 
   // If panel is open, keep checking when location arrives
   return;
@@ -3172,7 +3172,7 @@ function updateTrackingMaps(bookingList){
          changes zoom, so the user's zoom level is always preserved. */
       _animateMarkerTo(st.marker, lat, lng, 900);
       if(st.autoFollow) st.map.panTo([lat, lng], { animate:true, duration:0.9 });
-      if(msgEl) msgEl.textContent = '📍 Live worker location';
+      if(msgEl) msgEl.textContent = '📍 Live professional location';
       /* Phase 4.4/4.7: refresh the road route on every live GPS fix,
          but _drawOrUpdateRoute now skips the Geoapify call itself if
          the worker hasn't actually moved (Requirement 8) — this call
@@ -3194,7 +3194,7 @@ function updateTrackingMaps(bookingList){
       _buildTrackingMap(b);
     } else {
       /* Panel closed — update message, map will be built when user opens */
-      if(msgEl) msgEl.textContent = '📍 Live worker location';
+      if(msgEl) msgEl.textContent = '📍 Live professional location';
     }
   });
 }
@@ -3248,11 +3248,11 @@ async function renderBookings(){
     const contactHtml = show
   ? `
     <div class="cbox" style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap">
-      ${b.workerPhotoUrl?`<img src="${escHtml(b.workerPhotoUrl)}" alt="Worker profile photo" onclick="openPhotoLightbox(${escHtml(JSON.stringify(b.workerPhotoUrl))})" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:1.5px solid var(--teal);flex-shrink:0;cursor:pointer">`:''}
+      ${b.workerPhotoUrl?`<img src="${escHtml(b.workerPhotoUrl)}" alt="Professional profile photo" onclick="openPhotoLightbox(${escHtml(JSON.stringify(b.workerPhotoUrl))})" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:1.5px solid var(--teal);flex-shrink:0;cursor:pointer">`:''}
       <span style="flex:1">
         <strong>👤 ${b.workerName}</strong>
       </span>
-      ${canCallWorker ? `<a href="tel:${escHtml(b.workerPhone)}" class="btn bt" style="font-size:.75rem;padding:5px 12px;text-decoration:none">📞 Call Worker</a>` : ''}
+      ${canCallWorker ? `<a href="tel:${escHtml(b.workerPhone)}" class="btn bt" style="font-size:.75rem;padding:5px 12px;text-decoration:none">📞 Call Professional</a>` : ''}
     </div>`
   : b.isAdvance
     ? `
@@ -3263,7 +3263,7 @@ async function renderBookings(){
                   margin-top:.55rem;
                   font-size:.79rem;
                   color:var(--text2)">
-          🔒 Worker details revealed at
+          🔒 Professional details revealed at
           <strong>${rf}</strong>
       </div>`
     : '';
@@ -3272,22 +3272,22 @@ async function renderBookings(){
          arrival_otp is nulled after verification; completion_otp only exists after Arrived. */
       if(b.status===CONSTANTS.BOOKING_STATUS.ARRIVED&&b.completion_otp){
         return `<div class="otppair" style="grid-template-columns:1fr">
-          <div class="otpbox c2"><div class="otplbl">Completion OTP</div><div class="otpcode c2">${b.completion_otp}</div><div style="font-size:.72rem;color:var(--text2);margin-top:.3rem">Share this OTP with the worker after the service is completed.</div></div></div>`;
+          <div class="otpbox c2"><div class="otplbl">Completion OTP</div><div class="otpcode c2">${b.completion_otp}</div><div style="font-size:.72rem;color:var(--text2);margin-top:.3rem">Share this OTP with the professional after the service is completed.</div></div></div>`;
       }
             if([CONSTANTS.BOOKING_STATUS.ACCEPTED,CONSTANTS.BOOKING_STATUS.CONFIRMED,CONSTANTS.BOOKING_STATUS.WORKER_ON_WAY].includes(b.status)&&b.arrival_otp){
         return `<div class="otppair" style="grid-template-columns:1fr">
-          <div class="otpbox"><div class="otplbl">🚗 Arrival OTP — Share with worker on arrival</div><div class="otpcode">${b.arrival_otp}</div></div></div>`;
+          <div class="otpbox"><div class="otplbl">🚗 Arrival OTP — Share with professional on arrival</div><div class="otpcode">${b.arrival_otp}</div></div></div>`;
       }
       return '';
     })():'';
     const payHtml=(show||b.status===CONSTANTS.BOOKING_STATUS.SCHEDULED)?`<div style="font-size:.72rem;color:var(--text2);margin-top:.3rem">${payLabel}</div>`:'';
-    const schedNote=b.status===CONSTANTS.BOOKING_STATUS.SCHEDULED&&!rev?`<div style="font-size:.76rem;color:var(--brand);font-weight:600;margin-top:.4rem">📅 Scheduled for ${fmt12(b.time)} · Worker assigned</div>`:'';
+    const schedNote=b.status===CONSTANTS.BOOKING_STATUS.SCHEDULED&&!rev?`<div style="font-size:.76rem;color:var(--brand);font-weight:600;margin-top:.4rem">📅 Scheduled for ${fmt12(b.time)} · Professional assigned</div>`:'';
     const trackBtn=([CONSTANTS.BOOKING_STATUS.ACCEPTED,CONSTANTS.BOOKING_STATUS.CONFIRMED].includes(b.status)&&show)?`<button class="btn bt" style="font-size:.72rem;padding:5px 10px" onclick="openArrival(${b.id})">🚗 Track</button>`:'';
     const compBtn='';
     const canCancel=[CONSTANTS.BOOKING_STATUS.ACCEPTED,CONSTANTS.BOOKING_STATUS.CONFIRMED,CONSTANTS.BOOKING_STATUS.SCHEDULED].includes(b.status)&&!rev;
 const cancelBtn=canCancel
   ?`<div><button class="btn bd" style="font-size:.72rem;padding:5px 10px" onclick="cancelBk(${b.id})">❌ Cancel</button><div style="font-size:.65rem;color:var(--text3);margin-top:3px">Free cancellation up to 10 min before</div></div>`
-  :([CONSTANTS.BOOKING_STATUS.CONFIRMED,CONSTANTS.BOOKING_STATUS.SCHEDULED].includes(b.status)&&rev)?`<div style="font-size:.65rem;color:var(--danger);font-weight:600;margin-top:4px">🔒 Cancellation locked — worker is on the way</div>`:'' ;
+  :([CONSTANTS.BOOKING_STATUS.CONFIRMED,CONSTANTS.BOOKING_STATUS.SCHEDULED].includes(b.status)&&rev)?`<div style="font-size:.65rem;color:var(--danger);font-weight:600;margin-top:4px">🔒 Cancellation locked — professional is on the way</div>`:'' ;
     const bookAgainBtn=b.status===CONSTANTS.BOOKING_STATUS.CANCELLED?`<button class="btn bp" style="font-size:.72rem;padding:5px 10px" onclick="goPage('services')">🔄 Book Again</button>`:'';
     const rateBtn=b.status===CONSTANTS.BOOKING_STATUS.COMPLETED&&!b.rated?`<button class="btn" style="font-size:.72rem;padding:5px 10px;background:var(--amber);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;font-weight:600" onclick="openReview('${b.id}')">⭐ Rate</button>`:'';
     const disputeBtn=b.status===CONSTANTS.BOOKING_STATUS.COMPLETED?`<button class="btn bo" style="font-size:.72rem;padding:5px 10px" onclick="openDisputeModal('${b.id}')">⚠️ Report Issue</button>`:'';
@@ -3311,11 +3311,11 @@ const cancelBtn=canCancel
         <button class="tl-toggle" id="tl-btn-${b.id}" onclick="toggleTimeline('${b.id}')">▼ View Timeline <span class="tl-arr">▼</span></button>
         <div class="tl-wrap" id="tl-wrap-${b.id}">${buildTimeline(b)}</div>
         ${[CONSTANTS.BOOKING_STATUS.ACCEPTED,CONSTANTS.BOOKING_STATUS.WORKER_ON_WAY].includes(b.status)?`
-         <button class="trk-toggle" id="trk-btn-${b.id}" onclick="toggleTracking('${b.id}')">📍 Track Worker <span class="trk-arr">▼</span></button>
+         <button class="trk-toggle" id="trk-btn-${b.id}" onclick="toggleTracking('${b.id}')">📍 Track Professional <span class="trk-arr">▼</span></button>
         <div class="trk-wrap" id="trk-wrap-${b.id}">
           <div class="trk-body">
             <div class="trk-map" id="trk-slot-${b.id}"></div>
-            <div class="trk-meta" id="trk-meta-${b.id}"><span class="trk-dot"></span><span id="trk-eta-${b.id}">Waiting for worker location...</span></div>
+            <div class="trk-meta" id="trk-meta-${b.id}"><span class="trk-dot"></span><span id="trk-eta-${b.id}">Waiting for professional location...</span></div>
             <div id="trk-building-${b.id}" style="font-size:.78rem;font-weight:600;color:var(--teal,#2f9e5c);text-align:center;margin-top:.3rem"></div>
             <div class="trk-eta-panel" id="trk-etapanel-${b.id}" style="display:flex;gap:1.5rem;justify-content:center;margin-top:.5rem;font-size:.85rem;color:var(--text2,#666)">
               <span>🚗 Distance Remaining<br><b id="trk-dist-${b.id}">--</b></span>
@@ -3349,7 +3349,7 @@ openTrks.forEach(id=>{
 
   wrap.classList.add('open');
   btn.classList.add('open');
-  btn.innerHTML='📍 Track Worker <span class="trk-arr">▲</span>';
+  btn.innerHTML='📍 Track Professional <span class="trk-arr">▲</span>';
 
   const booking = all.find(b => String(b.id) === String(id));
   if(!booking) return;
@@ -3416,7 +3416,7 @@ async function autoCancel(){
      boundary. Customers cannot set is_no_show themselves (enforced at
      the database level as of Phase 6.2). This will be re-enabled once a
      real no-show rule is defined and enforced server-side, not before. */
-  showToast('Worker has not arrived yet. This booking has not been auto-cancelled — you can cancel it manually if you no longer want it.');
+  showToast('Professional has not arrived yet. This booking has not been auto-cancelled — you can cancel it manually if you no longer want it.');
   renderBookings();
 }
 
@@ -3424,7 +3424,7 @@ async function autoCancel(){
 function triggerOtp(mode,id){
   otpMode=mode; if(id) pendBkId=id;
   document.getElementById('otpTitle').textContent=mode==='arrival'?'Verify Arrival OTP':'Verify Completion OTP';
-  document.getElementById('otpDesc').textContent=mode==='arrival'?'Enter the 6-digit Arrival OTP to confirm the worker has arrived.':'Enter the 6-digit Completion OTP to mark the service as done.';
+  document.getElementById('otpDesc').textContent=mode==='arrival'?'Enter the 6-digit Arrival OTP to confirm the professional has arrived.':'Enter the 6-digit Completion OTP to mark the service as done.';
   document.getElementById('otpInput').value='';
   document.getElementById('otpModal').classList.add('on');
 }
