@@ -162,7 +162,7 @@ let _allDisputes = [];
 const DISPUTE_REASON_LABELS = {
   poor_quality:'Poor quality of work', incomplete:'Job left incomplete',
   damage:'Property damage', overcharge:'Overcharged',
-  behavior:'Worker behavior', other:'Other'
+  behavior:'Professional behavior', other:'Other'
 };
 
 async function loadDisputes(){
@@ -351,10 +351,10 @@ async function setWorkerVerification(workerId, status){
 
   const isApprove = status === 'approved';
   _renderVerifyResultIcon(isApprove);
-  document.getElementById('verifyResultTitle').textContent = isApprove ? 'Worker Approved' : 'Worker Rejected';
+  document.getElementById('verifyResultTitle').textContent = isApprove ? 'Professional Approved' : 'Professional Rejected';
   document.getElementById('verifyResultMsg').textContent = isApprove
-    ? 'This worker has been verified and approved.'
-    : 'This worker has been marked as rejected.';
+    ? 'This professional has been verified and approved.'
+    : 'This professional has been marked as rejected.';
   document.getElementById('workerVerifyResultModal').classList.add('on');
 
   await loadWorkersFull();
@@ -826,19 +826,19 @@ const BAN_UNIT_TO_MS = {
 let _pendingBanWorkerId = null;
 
 async function openBanModal(workerId){
-  if(!workerId){ alert('No worker linked to this review.'); return; }
+  if(!workerId){ alert('No professional linked to this review.'); return; }
   _pendingBanWorkerId = workerId;
 
   const {data:w, error} = await sb.from('workers').select('id,name,ban_count,banned_until').eq('id',workerId).single();
-  if(error || !w){ alert('Could not load worker: '+(error?.message||'not found')); return; }
+  if(error || !w){ alert('Could not load professional: '+(error?.message||'not found')); return; }
 
   const banCount = w.ban_count || 0;
   const suggested = BAN_ESCALATION_STEPS[Math.min(banCount, BAN_ESCALATION_STEPS.length-1)];
 
-  document.getElementById('banWorkerName').textContent = w.name || 'Worker';
+  document.getElementById('banWorkerName').textContent = w.name || 'Professional';
   document.getElementById('banWorkerHistory').textContent = banCount>0
-    ? `This worker has been banned ${banCount} time${banCount>1?'s':''} before.`
-    : `This will be this worker's first ban.`;
+    ? `This professional has been banned ${banCount} time${banCount>1?'s':''} before.`
+    : `This will be this professional's first ban.`;
 
   const statusEl = document.getElementById('banCurrentStatus');
   if(w.banned_until && new Date(w.banned_until) > new Date()){
@@ -874,7 +874,7 @@ async function confirmBanWorker(){
   }
 
   const {data:w, error:fetchErr} = await sb.from('workers').select('ban_count').eq('id',_pendingBanWorkerId).single();
-  if(fetchErr){ alert('Failed to read worker: '+fetchErr.message); return; }
+  if(fetchErr){ alert('Failed to read professional: '+fetchErr.message); return; }
 
   const durationLabel = _formatBanDurationLabel(amount, unit);
   const bannedAt = new Date().toISOString();
@@ -887,7 +887,7 @@ async function confirmBanWorker(){
     is_available: false
   }).eq('id', _pendingBanWorkerId).select();
 
-  if(error){ alert('Failed to ban worker: '+error.message); return; }
+  if(error){ alert('Failed to ban professional: '+error.message); return; }
   if(!updatedRows || !updatedRows.length){
     alert('⚠️ Ban was not applied — no row was updated. This usually means a permissions (RLS) issue. Please check admin update permissions on the workers table.');
     return;
@@ -906,7 +906,7 @@ async function confirmBanWorker(){
 
   closeBanModal();
   document.getElementById('banSuccessMsg').textContent =
-    'Worker banned until '+_fmtDateTime(bannedUntil)+'. If they are currently logged in, they will be signed out automatically.';
+    'Professional banned until '+_fmtDateTime(bannedUntil)+'. If they are currently logged in, they will be signed out automatically.';
   _replayBanTickAnimation();
   document.getElementById('banSuccessModal').classList.add('on');
   await Promise.all([loadReviews(), loadBannedWorkers()]);
