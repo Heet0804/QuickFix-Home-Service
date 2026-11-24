@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>QuickFix – Local Service Booking</title>
-<meta name="description" content="Book verified electricians, plumbers, cleaners and other home service professionals near you. Track your worker live and pay securely with QuickFix.">
+<meta name="description" content="Book verified electricians, plumbers, cleaners and other home service professionals near you. Track your professional live and pay securely with QuickFix.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -60,7 +60,7 @@
     <div class="hero">
       <div class="hbadge"><div class="dot"></div> 500+ Verified Professionals</div>
       <h1>Trusted local repair<br/>crew, on demand</h1>
-      <p>Pick a category, describe your issue, and the nearest worker gets assigned in minutes.</p>
+      <p>Pick a category, describe your issue, and the nearest professional gets assigned in minutes.</p>
       <div class="hsrch">
         <input type="text" id="homeSearch" placeholder="Search for services…" onkeydown="if(event.key==='Enter')doSearch()"/>
         <button onclick="doSearch()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>Search</button>
@@ -121,7 +121,7 @@
     <div class="pghdr">
       <div class="bc"><a href="#" onclick="goPage('home');return false;">Home</a> / <span>Services</span></div>
       <h2>Find a Professional</h2>
-      <p>Worker identity hidden — revealed only after booking confirmed.</p>
+      <p>Professional identity hidden — revealed only after booking confirmed.</p>
     </div>
     <div style="margin-bottom:.875rem">
       <div class="hsrch" style="max-width:100%;border-radius:var(--radius-sm);box-shadow:var(--sh0)">
@@ -195,8 +195,8 @@
 <!-- BOOKING -->
 <div class="page" id="page-booking">
   <div class="wrap">
-    <div class="bc"><a href="#" onclick="goPage('services');return false;">Services</a> / <a href="#" onclick="goBack();return false;" id="bkBread">Worker</a> / <span>Book</span></div>
-    <div class="pghdr"><h2>Book a Service</h2><p>Fill details → Pay → Nearest worker gets the job automatically.</p></div>
+    <div class="bc"><a href="#" onclick="goPage('services');return false;">Services</a> / <a href="#" onclick="goBack();return false;" id="bkBread">Professional</a> / <span>Book</span></div>
+    <div class="pghdr"><h2>Book a Service</h2><p>Fill details → Pay → Nearest professional gets the job automatically.</p></div>
     <div id="bkNotice"></div>
     <div class="bklayout">
       <div class="csec">
@@ -230,7 +230,7 @@
           <hr class="pdiv"/>
           <div class="prow ptotal"><span class="lb">Total</span><span class="vl" id="pTotal">—</span></div>
           <div style="margin-top:1.1rem"><button class="btn bp bfull blg" id="bkBtn" onclick="initiateBooking()">📡 Book &amp; Pay</button></div>
-          <p style="font-size:.7rem;color:var(--text3);text-align:center;margin-top:.65rem">Nearest available worker gets the job</p>
+          <p style="font-size:.7rem;color:var(--text3);text-align:center;margin-top:.65rem">Nearest available professional gets the job</p>
         </div>
       </div>
     </div>
@@ -283,7 +283,7 @@
 <!-- REGISTER -->
 <div class="page" id="page-register">
   <div class="wrap">
-    <div class="pghdr"><h2>🛠 Register as a Worker</h2><p>Join QuickFix and start receiving job requests near you.</p></div>
+    <div class="pghdr"><h2>🛠 Register as a Professional</h2><p>Join QuickFix and start receiving job requests near you.</p></div>
     <div style="max-width:620px">
       <div class="csec">
         <div class="cst">👤 Personal Details</div>
@@ -370,13 +370,13 @@
         <div id="qrCont" style="display:flex;flex-direction:column;align-items:center;min-height:200px;justify-content:center"></div>
         <div class="qrexpiry" id="qrExpiry">⏱ QR expires in <span id="qrCountdown">5:00</span></div>
       </div>
-      <div class="gpayok" id="gpayOk"><div class="goi">✅</div><h3>Payment Received!</h3><p>Finding your nearest worker now…</p></div>
+      <div class="gpayok" id="gpayOk"><div class="goi">✅</div><h3>Payment Received!</h3><p>Finding your nearest professional now…</p></div>
     </div>
     <div id="cashSection" style="display:none">
       <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:1rem;margin-bottom:1rem;text-align:left;border:1px solid var(--border)">
-        <div style="font-size:.82rem;color:var(--text2);line-height:1.6">💵 You'll pay <strong id="cashAmt"></strong> in cash when the worker arrives.<br/>Worker only starts after you confirm arrival with OTP.</div>
+        <div style="font-size:.82rem;color:var(--text2);line-height:1.6">💵 You'll pay <strong id="cashAmt"></strong> in cash when the professional arrives.<br/>Professional only starts after you confirm arrival with OTP.</div>
       </div>
-      <button class="btn bt bfull blg" onclick="onCashConfirm()">✔ Confirm &amp; Find Worker</button>
+      <button class="btn bt bfull blg" onclick="onCashConfirm()">✔ Confirm &amp; Find Professional</button>
     </div>
     <div style="margin-top:.75rem"><button class="btn bo bfull" onclick="stopPoll();closeModal('payModal')">Cancel</button></div>
   </div>
@@ -409,7 +409,7 @@
 <!-- PHOTO LIGHTBOX (worker profile photo, enlarged view) -->
 <div class="overlay" id="photoLightbox" onclick="if(event.target===this)closeModal('photoLightbox')">
   <div class="modal" style="max-width:340px;padding:1rem;text-align:center">
-    <img id="photoLightboxImg" src="" alt="Worker profile photo" style="width:100%;border-radius:14px;display:block;object-fit:cover">
+    <img id="photoLightboxImg" src="" alt="Professional profile photo" style="width:100%;border-radius:14px;display:block;object-fit:cover">
     <button class="btn bo bfull" style="margin-top:.85rem" onclick="closeModal('photoLightbox')">Close</button>
   </div>
 </div>
@@ -419,7 +419,7 @@
   <div class="modal">
     <div class="mico" style="background:#fef3d0">📡</div>
     <h2>Broadcasting…</h2>
-    <p>Notifying nearby workers. The closest one who accepts gets your job.</p>
+    <p>Notifying nearby professionals. The closest one who accepts gets your job.</p>
     <div class="sdots"><span></span><span></span><span></span></div>
     <div class="bigtmr" id="acceptTimer">2:00</div>
     <div class="progwrap"><div class="progbar" id="acceptBar" style="width:100%"></div></div>
@@ -431,7 +431,7 @@
 <div class="overlay" id="confirmModal">
   <div class="modal">
     <div class="mico" id="confIco">✅</div>
-    <h2 id="confTitle">Worker Assigned!</h2>
+    <h2 id="confTitle">Professional Assigned!</h2>
     <p id="confDesc" style="font-size:.875rem;color:var(--text2);margin-bottom:1.35rem;line-height:1.6"></p>
     <div class="mdet" id="confDet"></div>
     <div id="confOtps"></div>
@@ -446,8 +446,8 @@
 <div class="overlay" id="noAcceptModal">
   <div class="modal">
     <div class="mico" style="background:#fce8e8">⏱️</div>
-    <h2>No Workers Accepted</h2>
-    <p>No nearby worker accepted in time. Please try again.</p>
+    <h2>No Professionals Accepted</h2>
+    <p>No nearby professional accepted in time. Please try again.</p>
     <div style="display:flex;gap:.65rem;justify-content:center">
       <button class="btn bo" onclick="closeModal('noAcceptModal')">Close</button>
       <button class="btn bp" onclick="closeModal('noAcceptModal');initiateBooking()">🔄 Try Again</button>
@@ -459,16 +459,16 @@
 <div class="overlay" id="arrivalModal">
   <div class="modal">
     <div class="mico" style="background:var(--teal-light)">🚗</div>
-    <h2>Worker is on the Way!</h2>
-    <p>Your worker should arrive within 15 minutes. Share the Arrival OTP when they arrive.</p>
+    <h2>Professional is on the Way!</h2>
+    <p>Your professional should arrive within 15 minutes. Share the Arrival OTP when they arrive.</p>
     <div class="bigtmr" id="arrivalTimer">15:00</div>
     <div class="progwrap"><div class="progbar" id="arrivalBar" style="width:100%;background:var(--teal)"></div></div>
     <div class="otpbox" style="margin-bottom:1.1rem;padding:.95rem">
-      <div style="font-size:.72rem;color:var(--text2);margin-bottom:4px">🚗 Arrival OTP — Share with worker:</div>
+      <div style="font-size:.72rem;color:var(--text2);margin-bottom:4px">🚗 Arrival OTP — Share with professional:</div>
       <div class="otpcode" style="font-size:1.6rem;letter-spacing:7px" id="arrOtpShow"></div>
     </div>
     <div style="display:flex;gap:.65rem;justify-content:center;flex-wrap:wrap">
-      <button class="btn bt" onclick="triggerOtp('arrival')">✔ Worker Arrived — Verify OTP</button>
+      <button class="btn bt" onclick="triggerOtp('arrival')">✔ Professional Arrived — Verify OTP</button>
       <button class="btn bo" onclick="closeModal('arrivalModal')">Close</button>
     </div>
   </div>
@@ -478,7 +478,7 @@
 <div class="overlay" id="notArrivedModal">
   <div class="modal">
     <div class="mico" style="background:#fce8e8">⚠️</div>
-    <h2>Worker Has Not Arrived</h2>
+    <h2>Professional Has Not Arrived</h2>
     <p>15-minute window passed. Extend by 5 minutes or cancel?</p>
     <div style="display:flex;gap:.65rem;justify-content:center;flex-wrap:wrap">
       <button class="btn bt" onclick="extendTimer()">⏱ Extend 5 Min</button>
@@ -597,7 +597,7 @@
         <option value="incomplete">Job left incomplete</option>
         <option value="damage">Property damage</option>
         <option value="overcharge">Overcharged</option>
-        <option value="behavior">Worker behavior</option>
+        <option value="behavior">Professional behavior</option>
         <option value="other">Other</option>
       </select>
     </div>
