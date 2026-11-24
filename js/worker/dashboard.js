@@ -365,6 +365,25 @@ async function loadBookings(skipWorkerRefresh=false){
     availableJobs=(avail||[]).filter(b=>!_dismissedJobIds.has(String(b.id)));
   }
 
+  /* Notification sound: ring when an eligible job appears that this
+     session has not seen before. The first load only records what is
+     already there, so opening the dashboard never rings for old jobs.
+     Skipped when the fetch failed, so an error cannot make every job
+     look new on the next successful load. */
+  if(!availErr){
+    try{
+      const _ids=new Set((availableJobs||[]).map(b=>String(b.id)));
+      if(window._qfSeenJobIds){
+        let _fresh=false;
+        _ids.forEach(id=>{ if(!window._qfSeenJobIds.has(id)) _fresh=true; });
+        if(_fresh) playNotifySound();
+      }
+      window._qfSeenJobIds=_ids;
+    }catch(e){
+      console.warn('New-job sound check failed:',e);
+    }
+  }
+
 /* Phase 6.5: refresh latest worker row — skipped when the caller
    (boot) already fetched this exact row moments ago. Boot's own
    fetch still runs first and still handles the "worker record
