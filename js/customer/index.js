@@ -1335,6 +1335,7 @@ function _checkNotifiableTransitions(all){
     if(prev===undefined){ _notifLastStatus.set(b.id, b.status); return; }
     if(prev!==b.status){
       if(b.status===CONSTANTS.BOOKING_STATUS.ACCEPTED){
+        playNotifySound();
         notifyIfBackground('Worker Assigned! 🔧', `A ${b.workerRole} has accepted your booking.`);
       } else if(b.status===CONSTANTS.BOOKING_STATUS.ARRIVED){
         notifyIfBackground('Worker Has Arrived 📍', 'Your worker is at your location.');
@@ -2445,6 +2446,7 @@ async function startBroadcast(){
 
     if(current && current.status === CONSTANTS.BOOKING_STATUS.ACCEPTED){
       clearInterval(accInt);
+      playNotifySound();
       closeModal('acceptModal');
 
       // show confirmation modal immediately
