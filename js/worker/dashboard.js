@@ -66,18 +66,18 @@ const ACHIEVEMENTS = [
   {id:'rate-48',  category:'Rating',       icon:'💫', name:'4.8+ Rated',          desc:'Near-perfect performance.',        gate:5,   test:s=>s.rating>=4.8,           progress:s=>[s.rating,4.8]},
   {id:'rate-50',  category:'Rating',       icon:'✨', name:'Perfect 5.0 Rating',  desc:'The gold standard.',               gate:5,   test:s=>s.rating>=5.0,           progress:s=>[s.rating,5.0]},
 
-  {id:'rel-90',   category:'Reliability',  icon:'🛡', name:'Reliable Worker',     desc:'Reliability score ≥ 90.',          gate:5,   test:s=>s.reliability_score>=90, progress:s=>[s.reliability_score,90]},
-  {id:'rel-95',   category:'Reliability',  icon:'🔰', name:'Trusted Worker',      desc:'Reliability score ≥ 95.',          gate:5,   test:s=>s.reliability_score>=95, progress:s=>[s.reliability_score,95]},
+  {id:'rel-90',   category:'Reliability',  icon:'🛡', name:'Reliable Professional',     desc:'Reliability score ≥ 90.',          gate:5,   test:s=>s.reliability_score>=90, progress:s=>[s.reliability_score,90]},
+  {id:'rel-95',   category:'Reliability',  icon:'🔰', name:'Trusted Professional',      desc:'Reliability score ≥ 95.',          gate:5,   test:s=>s.reliability_score>=95, progress:s=>[s.reliability_score,95]},
   {id:'rel-100',  category:'Reliability',  icon:'💎', name:'Perfect Reliability', desc:'Reliability score of 100.',        gate:5,   test:s=>s.reliability_score>=100,progress:s=>[s.reliability_score,100]},
 
-  {id:'act-25',   category:'Activity',     icon:'⚡', name:'Active Worker',       desc:'Activity score ≥ 25.',             gate:5,   test:s=>s.activity_score>=25,    progress:s=>[s.activity_score,25]},
+  {id:'act-25',   category:'Activity',     icon:'⚡', name:'Active Professional',       desc:'Activity score ≥ 25.',             gate:5,   test:s=>s.activity_score>=25,    progress:s=>[s.activity_score,25]},
   {id:'act-50',   category:'Activity',     icon:'🔥', name:'Super Active',        desc:'Activity score ≥ 50.',             gate:5,   test:s=>s.activity_score>=50,    progress:s=>[s.activity_score,50]},
   {id:'act-75',   category:'Activity',     icon:'💪', name:'Workaholic',          desc:'Activity score ≥ 75.',             gate:5,   test:s=>s.activity_score>=75,    progress:s=>[s.activity_score,75]},
 
-  {id:'wsc-40',   category:'Worker Score', icon:'🥉', name:'Bronze Worker',       desc:'Worker score ≥ 40.',               gate:5,   test:s=>s.worker_score>=40,      progress:s=>[s.worker_score,40]},
-  {id:'wsc-60',   category:'Worker Score', icon:'🥈', name:'Silver Worker',       desc:'Worker score ≥ 60.',               gate:5,   test:s=>s.worker_score>=60,      progress:s=>[s.worker_score,60]},
-  {id:'wsc-80',   category:'Worker Score', icon:'🥇', name:'Gold Worker',         desc:'Worker score ≥ 80.',               gate:15,  test:s=>s.worker_score>=80,      progress:s=>[s.worker_score,80]},
-  {id:'wsc-95',   category:'Worker Score', icon:'💎', name:'Platinum Worker',     desc:'Worker score ≥ 95.',               gate:30,  test:s=>s.worker_score>=95,      progress:s=>[s.worker_score,95]},
+  {id:'wsc-40',   category:'Professional Score', icon:'🥉', name:'Bronze Professional',       desc:'Professional score ≥ 40.',               gate:5,   test:s=>s.worker_score>=40,      progress:s=>[s.worker_score,40]},
+  {id:'wsc-60',   category:'Professional Score', icon:'🥈', name:'Silver Professional',       desc:'Professional score ≥ 60.',               gate:5,   test:s=>s.worker_score>=60,      progress:s=>[s.worker_score,60]},
+  {id:'wsc-80',   category:'Professional Score', icon:'🥇', name:'Gold Professional',         desc:'Professional score ≥ 80.',               gate:15,  test:s=>s.worker_score>=80,      progress:s=>[s.worker_score,80]},
+  {id:'wsc-95',   category:'Professional Score', icon:'💎', name:'Platinum Professional',     desc:'Professional score ≥ 95.',               gate:30,  test:s=>s.worker_score>=95,      progress:s=>[s.worker_score,95]},
 ];
 function achievementUnlocked(a,stats){ return stats.completed_jobs>=a.gate && a.test(stats); }
 
@@ -144,7 +144,7 @@ function showAchievementUnlockPopup(row){
   const {data:wp,error:we}=await sb.from('workers').select('*').eq('id',cached.id).single();
   if(we||!wp){
     console.error('Failed to load worker record:',we?.message);
-    showToast('⚠️ Could not load your worker profile. Please sign in again.');
+    showToast('⚠️ Could not load your professional profile. Please sign in again.');
     setTimeout(()=>{ window.location.href='auth.html?role=worker'; },CONSTANTS.WORKER_PROFILE_LOAD_FAIL_REDIRECT_MS);
     return;
   }
@@ -1031,7 +1031,7 @@ function renderAchievements(){
     </div>`;
   }
 
-  const catTitles={Jobs:'🔨 Jobs',Rating:'⭐ Rating',Reliability:'🛡 Reliability',Activity:'⚡ Activity','Worker Score':'🏅 Worker Score'};
+  const catTitles={Jobs:'🔨 Jobs',Rating:'⭐ Rating',Reliability:'🛡 Reliability',Activity:'⚡ Activity','Professional Score':'🏅 Professional Score'};
   const html = Object.keys(catTitles).map(c=>section(catTitles[c], ACHIEVEMENTS.filter(a=>a.category===c))).join('')
     + `<div class="ach-section"><div class="ach-section-title">🚨 Emergency</div><div class="ach-coming">🚧 Emergency achievements — Coming Soon</div></div>`;
 
@@ -1181,13 +1181,13 @@ function renderWorkerRank(){
     el.textContent='— Unranked';
   } else if(score>=80){
     el.classList.add('rank-gold');
-    el.textContent='🥇 Gold Worker';
+    el.textContent='🥇 Gold Professional';
   } else if(score>=50){
     el.classList.add('rank-silver');
-    el.textContent='🥈 Silver Worker';
+    el.textContent='🥈 Silver Professional';
   } else {
     el.classList.add('rank-bronze');
-    el.textContent='🥉 Bronze Worker';
+    el.textContent='🥉 Bronze Professional';
   }
 }
 
@@ -1219,7 +1219,7 @@ function renderReliabilityPill(){
   const qualified=(Stats?.accepted_jobs??0)>=CONFIG.RELIABILITY_MIN_ACCEPTED_JOBS;
   el.className='rel-pill';
   if(rel===null){el.textContent='Reliability: —';el.classList.add('rel-needs');return;}
-  if(!qualified){el.textContent='🆕 New Worker';el.classList.add('rel-needs');return;}
+  if(!qualified){el.textContent='🆕 New Professional';el.classList.add('rel-needs');return;}
   if(rel>=90){el.classList.add('rel-excellent');el.textContent='🟢 Excellent Reliability';}
   else if(rel>=70){el.classList.add('rel-good');el.textContent='🟡 Good Reliability';}
   else{el.classList.add('rel-needs');el.textContent='🔴 Needs Improvement';}
