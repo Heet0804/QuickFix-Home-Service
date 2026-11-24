@@ -772,12 +772,55 @@ function openOtpModal(mode,id){
   pendOtpId=id;
   if(mode==='arrival'){
     document.getElementById('arrivalOtpInput').value='';
+    document.getElementById('arrivalPhotoInput').value='';
+    _photoCardRender('arrival');
     document.getElementById('arrivalOtpModal').classList.add('on');
   }else{
     document.getElementById('completionOtpInput').value='';
+    document.getElementById('completionPhotoInput').value='';
+    _photoCardRender('completion');
     document.getElementById('completionOtpModal').classList.add('on');
   }
 }
+
+/* Before / after photo card: show a preview and a clear "added" state once
+   a file is chosen, and go back to the empty state each time a modal opens.
+   kind is 'arrival' (before photo) or 'completion' (after photo). */
+function _photoCardRender(kind){
+  const input=document.getElementById(kind+'PhotoInput');
+  const drop=document.getElementById(kind+'PhotoDrop');
+  const thumb=document.getElementById(kind+'PhotoThumb');
+  const main=document.getElementById(kind+'PhotoMain');
+  const sub=document.getElementById(kind+'PhotoSub');
+  if(!input||!drop||!thumb||!main||!sub) return;
+
+  if(thumb.dataset.url){
+    URL.revokeObjectURL(thumb.dataset.url);
+    thumb.dataset.url='';
+  }
+
+  const file=input.files&&input.files[0];
+  if(file){
+    const url=URL.createObjectURL(file);
+    thumb.dataset.url=url;
+    thumb.src=url;
+    thumb.hidden=false;
+    drop.classList.add('has-file');
+    main.textContent='✓ Photo added';
+    sub.textContent='Tap to change';
+  }else{
+    thumb.removeAttribute('src');
+    thumb.hidden=true;
+    drop.classList.remove('has-file');
+    main.textContent=main.dataset.default;
+    sub.textContent=sub.dataset.default;
+  }
+}
+
+['arrival','completion'].forEach(kind=>{
+  const input=document.getElementById(kind+'PhotoInput');
+  if(input) input.addEventListener('change',()=>_photoCardRender(kind));
+});
 
 async function submitArrivalOtp() {
   const entered = document.getElementById('arrivalOtpInput').value.trim();
