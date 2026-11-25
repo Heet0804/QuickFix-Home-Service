@@ -13,14 +13,14 @@
 
 ### 1.1 Purpose of QuickFix
 
-QuickFix is an on-demand home-services marketplace. It connects customers who need a household service — electrician, plumber, carpenter, painter, cleaner, AC repair, mason, pest control, or househelp — with verified local workers who can accept, travel to, and complete the job, with live tracking and OTP-confirmed service delivery.
+QuickFix is an on-demand home-services marketplace. It connects customers who need a household service — electrician, plumber, carpenter, painter, cleaner, AC repair, mason, pest control, or househelp — with verified local professionals who can accept, travel to, and complete the job, with live tracking and OTP-confirmed service delivery.
 
 ### 1.2 Who Should Use This Guide
 
 This guide is for three kinds of people:
 
 - **Customers** who want to book a home service.
-- **Workers** who want to accept and complete service jobs.
+- **Professionals** who want to accept and complete service jobs.
 - **Administrators** who manage promotional campaigns on the platform.
 
 ### 1.3 Supported Users
@@ -30,7 +30,7 @@ QuickFix supports three account roles, each with its own application:
 | Role | Application | Entry Point |
 |---|---|---|
 | Customer | Customer app | `index.html`, reached after login |
-| Worker | Worker dashboard and profile | `worker-dashboard.html`, `worker-profile.html`, reached after login |
+| Professional | Professional dashboard and profile | `worker-dashboard.html`, `worker-profile.html`, reached after login |
 | Admin | Admin portal | `admin.html`, a separate, unlinked entry point (Section 5.1) |
 
 ---
@@ -39,21 +39,21 @@ QuickFix supports three account roles, each with its own application:
 
 ### 2.1 Opening the Application
 
-QuickFix opens on a landing page with two clear entry paths: **"I Need a Service"** for customers and **"I Want to Work"** for workers. Selecting either path takes you to the sign-in/sign-up screen.
+QuickFix opens on a landing page with two clear entry paths: **"I Need a Service"** for customers and **"I Want to Work"** for professionals. Selecting either path takes you to the sign-in/sign-up screen.
 
 ### 2.2 Creating an Account
 
-1. From the landing page, choose whether you are signing up as a customer or a worker.
+1. From the landing page, choose whether you are signing up as a customer or a professional.
 2. On the sign-in/sign-up screen, switch to the sign-up panel for your role.
 3. **Customer sign-up** requires: first name, last name (optional), email, phone number, and a password of at least 6 characters.
-4. **Worker sign-up** requires: full name, phone, email, your skill/category, your work radius in kilometers, your service area, years of experience, a government ID document (JPG, PNG, or PDF, up to 5MB), a profile photo (JPG or PNG, up to 5MB), and a password of at least 6 characters. If you selected Electrician or Plumber as your skill, you will also see a checkbox to opt in to emergency-hours availability.
+4. **Professional sign-up** requires: full name, phone, email, your skill/category, your work radius in kilometers, your service area, years of experience, a government ID document (JPG, PNG, or PDF, up to 5MB), a profile photo (JPG or PNG, up to 5MB), and a password of at least 6 characters. If you selected Electrician or Plumber as your skill, you will also see a checkbox to opt in to emergency-hours availability.
 5. Submit the form. On success, you are signed in and taken to your app.
 
-**Worker account status.** After signing up, your worker account is immediately usable — you can log in and reach your dashboard right away. QuickFix describes worker verification as a manual review process that takes place after signup, but there is currently no in-app indicator that shows whether this review is complete, and nothing in the app prevents you from going online and accepting jobs before it happens.
+**Professional account status.** After signing up, your professional account is immediately usable — you can log in and reach your dashboard right away. QuickFix describes professional verification as a manual review process that takes place after signup, but there is currently no in-app indicator that shows whether this review is complete, and nothing in the app prevents you from going online and accepting jobs before it happens.
 
 ### 2.3 Logging In
 
-Enter your email and password on the sign-in screen. On success, you are taken directly to your role's application (customer, worker, or admin). If your credentials are incorrect, or your email has not been confirmed, a message explains the specific problem.
+Enter your email and password on the sign-in screen. On success, you are taken directly to your role's application (customer, professional, or admin). If your credentials are incorrect, or your email has not been confirmed, a message explains the specific problem.
 
 If you forget your password, use the "Forgot Password" option on the login screen. You will receive a password-reset email; following its link returns you to the login screen to set a new password.
 
@@ -67,9 +67,9 @@ Every app has a Logout action in its navigation. Logging out ends your session a
 
 ### 3.1 Browsing Services
 
-The customer home page shows a search bar, category browsing, and platform statistics. Categories are shown with fixed, category-based pricing. Worker identity is not shown until after you confirm a booking.
+The customer home page shows a search bar, category browsing, and platform statistics. Categories are shown with fixed, category-based pricing. Professional identity is not shown until after you confirm a booking.
 
-### 3.2 Booking a Worker
+### 3.2 Booking a Professional
 
 1. Select a service category and sub-service.
 2. Choose a date and a time slot. Time slots run from 8:30 AM to 8:30 PM in 15-minute increments.
@@ -80,7 +80,7 @@ The customer home page shows a search bar, category browsing, and platform stati
 
 ### 3.3 Selecting Service Area
 
-Your service area determines which workers are eligible for your booking. Eligibility is based on distance from the service area's center point to each worker's location, not your exact address pin, so choose the service area that most closely matches your address.
+Your service area determines which professionals are eligible for your booking. Eligibility is based on distance from the service area's center point to each professional's location, not your exact address pin, so choose the service area that most closely matches your address.
 
 ### 3.4 Choosing Date and Time
 
@@ -91,11 +91,11 @@ Standard bookings can be scheduled for any available 15-minute slot between 8:30
 You can pay with:
 
 - **Google Pay**, shown as a QR code you scan to pay. You have 5 minutes to complete payment before the session expires.
-- **Cash**, which confirms immediately. If you pay with cash, the worker will not begin the job until you have shared the Arrival OTP with them.
+- **Cash**, which confirms immediately. If you pay with cash, the professional will not begin the job until you have shared the Arrival OTP with them.
 
 If you hold an active, unexpired Service Pass covering the selected category, the price is shown as ₹0 and no payment step is needed.
 
-Once payment is confirmed, your booking is broadcast to nearby eligible workers. If no worker accepts within the acceptance window, you will be offered the option to try again.
+Once payment is confirmed, your booking is broadcast to nearby eligible professionals. If no professional accepts within the acceptance window, you will be offered the option to try again.
 
 ### 3.6 Booking Timeline
 
@@ -103,9 +103,9 @@ Each booking in "My Bookings" shows a step-by-step timeline: Created, Assigned, 
 
 ### 3.7 Tracking
 
-Once a worker accepts your booking, a "Track Worker" map appears showing the worker's live location, a road-following route to your address, and an estimated distance and time of arrival. The map updates automatically as the worker moves — you do not need to refresh the page.
+Once a professional accepts your booking, a "Track Professional" map appears showing the professional's live location, a road-following route to your address, and an estimated distance and time of arrival. The map updates automatically as the professional moves — you do not need to refresh the page.
 
-For bookings scheduled more than 10 minutes in the future, the tracking map and the worker's identity remain hidden behind a placeholder until 10 minutes before your scheduled time.
+For bookings scheduled more than 10 minutes in the future, the tracking map and the professional's identity remain hidden behind a placeholder until 10 minutes before your scheduled time.
 
 If the routing service is temporarily unavailable, the map keeps showing the last known route rather than disappearing or showing an error.
 
@@ -113,10 +113,10 @@ If the routing service is temporarily unavailable, the map keeps showing the las
 
 QuickFix uses a two-step OTP process to confirm service delivery:
 
-1. **Arrival OTP.** When the worker arrives, you share the six-digit Arrival OTP shown in your app. The worker enters it on their device to confirm arrival and begin work.
-2. **Completion OTP.** When the job is finished, you share the six-digit Completion OTP shown in your app. The worker enters it to confirm the job is complete.
+1. **Arrival OTP.** When the professional arrives, you share the six-digit Arrival OTP shown in your app. The professional enters it on their device to confirm arrival and begin work.
+2. **Completion OTP.** When the job is finished, you share the six-digit Completion OTP shown in your app. The professional enters it to confirm the job is complete.
 
-If a worker does not arrive within 15 minutes of being assigned, you are given the choice to extend the window by 5 minutes or cancel the booking.
+If a professional does not arrive within 15 minutes of being assigned, you are given the choice to extend the window by 5 minutes or cancel the booking.
 
 There is currently no limit on how many times an incorrect OTP can be entered.
 
@@ -128,7 +128,7 @@ If you select only positive tags, that's all you need to do — no comment box a
 
 After you submit, you'll see a short animated confirmation — a happy face if your feedback was positive, or a sad face if you flagged a problem — before returning to your dashboard. A booking can only be rated once.
 
-Your full review (rating, tags, and comment) is seen only by QuickFix's platform administrators. The worker who did the job never sees your rating, your comment, or any negative tag you selected — they only ever see a running count of positive tags they've received overall.
+Your full review (rating, tags, and comment) is seen only by QuickFix's platform administrators. The professional who did the job never sees your rating, your comment, or any negative tag you selected — they only ever see a running count of positive tags they've received overall.
 
 ### 3.10 Wallet
 
@@ -140,7 +140,7 @@ QuickCoins are automatically credited to your wallet the moment a booking you ha
 
 ### 3.12 Emergency Booking
 
-During emergency hours (8:30 PM to 8:30 AM), an emergency-hours banner appears and only Electrician and Plumber services are shown, since these are the only categories eligible during this window. Emergency bookings are matched only to workers who have opted in to emergency availability, and the price includes an emergency surcharge.
+During emergency hours (8:30 PM to 8:30 AM), an emergency-hours banner appears and only Electrician and Plumber services are shown, since these are the only categories eligible during this window. Emergency bookings are matched only to professionals who have opted in to emergency availability, and the price includes an emergency surcharge.
 
 ### 3.13 Booking History
 
@@ -150,17 +150,17 @@ During emergency hours (8:30 PM to 8:30 AM), an emergency-hours banner appears a
 
 Active, time-limited Service Pass campaigns appear as a countdown popup (once per login) and on a dedicated Offers page. Purchasing a pass is a separate, Google-Pay-only payment step from regular booking payment. Purchased passes are listed on your "My Passes" page, and visits against a pass are used up automatically as you make eligible bookings — you do not need to redeem anything manually.
 
-### 3.15 Becoming a Worker From the Customer App
+### 3.15 Becoming a Professional From the Customer App
 
-The customer app includes a form for registering as a worker without leaving the app, asking for your category, experience, price, bio, and identity documents. **At present, submitting this form does not create a working worker account.** Only your name, phone number, and role are saved; none of the professional details you enter are stored, and the resulting record does not appear in the system that assigns jobs to workers, so you cannot be booked through this path. If you want to work on QuickFix today, sign up through the normal worker sign-up flow described in Section 2.2 instead.
+The customer app includes a form for registering as a professional without leaving the app, asking for your category, experience, price, bio, and identity documents. **At present, submitting this form does not create a working professional account.** Only your name, phone number, and role are saved; none of the professional details you enter are stored, and the resulting record does not appear in the system that assigns jobs to professionals, so you cannot be booked through this path. If you want to work on QuickFix today, sign up through the normal professional sign-up flow described in Section 2.2 instead.
 
 ---
 
-## 4. Worker Guide
+## 4. Professional Guide
 
 ### 4.1 Login
 
-Log in with your worker email and password from the shared login screen. You are taken directly to your worker dashboard.
+Log in with your professional email and password from the shared login screen. You are taken directly to your professional dashboard.
 
 ### 4.2 Availability
 
@@ -174,7 +174,7 @@ Your dashboard organizes jobs into five tabs — Pending, Accepted, Arrived, Com
 
 ### 4.4 Accepting Jobs
 
-Tap Accept on a Pending job and confirm. Once accepted, the job moves to your Accepted tab, you are set unavailable for new jobs, and your earnings for the job are calculated. If another worker accepts the same job first, you will see a message that it has already been taken.
+Tap Accept on a Pending job and confirm. Once accepted, the job moves to your Accepted tab, you are set unavailable for new jobs, and your earnings for the job are calculated. If another professional accepts the same job first, you will see a message that it has already been taken.
 
 ### 4.5 Rejecting Jobs
 
@@ -184,7 +184,7 @@ You can also cancel a job you have already accepted, but a confirmation modal wa
 
 ### 4.6 GPS Tracking
 
-While you have a job in Accepted, Worker on Way, or Arrived status, your device continuously shares your location so the customer can see your live position on their tracking map. This requires you to grant location permission. If you deny permission, tracking stops and you'll see a message asking you to enable it; there is no alternative way to share your location if you decline. If your device reports a temporary GPS error (not a permission denial), QuickFix retries automatically after a few seconds.
+While you have a job in Accepted, Professional on Way, or Arrived status, your device continuously shares your location so the customer can see your live position on their tracking map. This requires you to grant location permission. If you deny permission, tracking stops and you'll see a message asking you to enable it; there is no alternative way to share your location if you decline. If your device reports a temporary GPS error (not a permission denial), QuickFix retries automatically after a few seconds.
 
 Your own "Track Customer" map shows the customer's location, a route to their address, and distance/ETA, the same way it appears on the customer's side.
 
@@ -200,7 +200,7 @@ There is currently no limit on how many times an incorrect OTP can be entered.
 
 ### 4.9 Earnings
 
-Your dashboard shows earnings totals for today, this week, and this month, calculated from your completed jobs. It also shows your acceptance rate, a rank badge (Unranked, Bronze, Silver, or Gold, based on your worker score), and a reliability status pill. If you have several recent cancellations, a warning banner appears, with stronger wording above three cancellations.
+Your dashboard shows earnings totals for today, this week, and this month, calculated from your completed jobs. It also shows your acceptance rate, a rank badge (Unranked, Bronze, Silver, or Gold, based on your professional score), and a reliability status pill. If you have several recent cancellations, a warning banner appears, with stronger wording above three cancellations.
 
 Your dashboard also shows your **positive review streak** — a running count of consecutive customer reviews with no negative feedback — and a **bonus balance**. Every fifth consecutive positive review earns you an automatic bonus credit, shown in your bonus balance.
 
@@ -214,11 +214,11 @@ An administrator reviews the government ID document and profile photo you submit
 
 ### 4.10 Achievements
 
-QuickFix has a badge/achievement system covering job counts, ratings, reliability, activity, and overall worker score. Newly earned achievements are shown with an animated unlock popup shortly after you load your dashboard, and unlocked badges are displayed on your profile page.
+QuickFix has a badge/achievement system covering job counts, ratings, reliability, activity, and overall professional score. Newly earned achievements are shown with an animated unlock popup shortly after you load your dashboard, and unlocked badges are displayed on your profile page.
 
 ### 4.11 Profile
 
-Your Worker Profile page (separate from the dashboard) shows the same performance figures, your badges, and a recent-earnings history from your last completed jobs. From here you can edit your name, phone, skill, experience, area, and work radius (radius must be between 1 and 100 km).
+Your Professional Profile page (separate from the dashboard) shows the same performance figures, your badges, and a recent-earnings history from your last completed jobs. From here you can edit your name, phone, skill, experience, area, and work radius (radius must be between 1 and 100 km).
 
 ---
 
@@ -226,7 +226,7 @@ Your Worker Profile page (separate from the dashboard) shows the same performanc
 
 ### 5.1 Login
 
-The admin portal is reached at its own address and is not linked from the customer or worker apps. Log in with an email that has been granted admin access. If your account is not an active admin account, you will be signed out and shown an "Access Denied" message for a few seconds before the login screen reappears.
+The admin portal is reached at its own address and is not linked from the customer or professional apps. Log in with an email that has been granted admin access. If your account is not an active admin account, you will be signed out and shown an "Access Denied" message for a few seconds before the login screen reappears.
 
 ### 5.2 Dashboard
 
@@ -250,13 +250,13 @@ On tablet and mobile screens, every app provides a hamburger menu that opens a s
 
 ### 6.2 Notifications
 
-Job broadcasts, acceptances, arrivals, and completions update your dashboard automatically. Workers see these updates arrive live without refreshing the page. On the customer side, the app checks for updates on a short interval rather than pushing them instantly, so there may be a brief delay before a change appears.
+Job broadcasts, acceptances, arrivals, and completions update your dashboard automatically. Professionals see these updates arrive live without refreshing the page. On the customer side, the app checks for updates on a short interval rather than pushing them instantly, so there may be a brief delay before a change appears.
 
-Achievement unlocks appear as an animated popup on the worker dashboard shortly after the achievement is earned.
+Achievement unlocks appear as an animated popup on the professional dashboard shortly after the achievement is earned.
 
 ### 6.3 Toast Messages
 
-Brief on-screen messages ("toasts") confirm actions and report errors throughout the app — for example, confirming a successful upload or explaining why a booking could not proceed. In one specific case — a failed document upload during worker sign-up — you will also see a browser pop-up alert in addition to the toast, rather than only a toast.
+Brief on-screen messages ("toasts") confirm actions and report errors throughout the app — for example, confirming a successful upload or explaining why a booking could not proceed. In one specific case — a failed document upload during professional sign-up — you will also see a browser pop-up alert in addition to the toast, rather than only a toast.
 
 ### 6.4 Responsive Behaviour
 
@@ -280,8 +280,8 @@ QuickFix is designed to work across screen sizes, from large desktop monitors do
 |---|---|
 | "Unable to locate this address" | Your address could not be matched to a real location. Try entering a more complete or standard address. |
 | "This address does not belong to the selected area" | Your address was found, but it falls outside the service area you selected. Choose a different area or correct your address. |
-| No eligible worker found | There is no available worker of the requested type within range of your selected area right now. |
-| No worker accepted your booking | No nearby worker accepted within the acceptance window. You can try again from the prompt shown. |
+| No eligible professional found | There is no available professional of the requested type within range of your selected area right now. |
+| No professional accepted your booking | No nearby professional accepted within the acceptance window. You can try again from the prompt shown. |
 | Payment session expired | You did not complete payment within the allowed time (5 minutes for a booking, 2 minutes for a Service Pass). Start the booking or purchase again. |
 
 ### 7.3 Tracking Issues
@@ -295,8 +295,8 @@ QuickFix is designed to work across screen sizes, from large desktop monitors do
 
 | Problem | What It Means |
 |---|---|
-| Worker's location not updating (worker's own view) | Location permission may have been denied. Check your browser's location settings and grant permission. |
-| Worker's location not updating (customer's view) | This can also mean the worker's device is temporarily unable to get a GPS fix; QuickFix retries automatically on the worker's side. |
+| Professional's location not updating (professional's own view) | Location permission may have been denied. Check your browser's location settings and grant permission. |
+| Professional's location not updating (customer's view) | This can also mean the professional's device is temporarily unable to get a GPS fix; QuickFix retries automatically on the professional's side. |
 | Geolocation not working at all | Confirm the site is being accessed over a secure connection (HTTPS or `localhost`); the Geolocation API generally requires this. |
 
 ### 7.5 Supabase Issues
@@ -310,20 +310,20 @@ QuickFix is designed to work across screen sizes, from large desktop monitors do
 
 ## 8. Frequently Asked Questions
 
-**Can I choose which worker does my job?**
-No. Workers are assigned automatically based on distance, availability, and skill match. Worker identity is only revealed once a worker has accepted your booking.
+**Can I choose which professional does my job?**
+No. Professionals are assigned automatically based on distance, availability, and skill match. Professional identity is only revealed once a professional has accepted your booking.
 
-**Why do I need to share an OTP with the worker instead of the worker sharing one with me?**
-The Arrival and Completion OTPs are generated for your booking and shown in your app. You read them to the worker so they can confirm, on their end, that they have genuinely arrived and completed the job.
+**Why do I need to share an OTP with the professional instead of the professional sharing one with me?**
+The Arrival and Completion OTPs are generated for your booking and shown in your app. You read them to the professional so they can confirm, on their end, that they have genuinely arrived and completed the job.
 
-**Can I cancel a booking after a worker has accepted it?**
-Yes, up until the point the booking details are revealed to you, per your app's cancellation rules. As a worker, cancelling an already-accepted job is possible but affects your reliability score.
+**Can I cancel a booking after a professional has accepted it?**
+Yes, up until the point the booking details are revealed to you, per your app's cancellation rules. As a professional, cancelling an already-accepted job is possible but affects your reliability score.
 
 **What happens to my QuickCoins? Can I spend them?**
 QuickCoins are virtual reward points, automatically credited after each completed booking. They cannot be withdrawn or converted to cash, and there are no redemption offers available yet.
 
-**Why doesn't the "become a worker" form inside the customer app turn me into a working worker?**
-This in-app path currently only stores your name, phone number, and role — none of the professional details or documents you submit are saved, and the result cannot be assigned bookings. Use the dedicated worker sign-up flow instead (Section 2.2).
+**Why doesn't the "become a professional" form inside the customer app turn me into a working professional?**
+This in-app path currently only stores your name, phone number, and role — none of the professional details or documents you submit are saved, and the result cannot be assigned bookings. Use the dedicated professional sign-up flow instead (Section 2.2).
 
 **Is there a limit on how many times I can retry an OTP?**
 No. Both Arrival and Completion OTPs currently accept unlimited re-entry attempts.
@@ -331,14 +331,14 @@ No. Both Arrival and Completion OTPs currently accept unlimited re-entry attempt
 **Can I use QuickFix without an internet connection?**
 No. QuickFix requires a live connection to its backend services at all times; there is no offline mode.
 
-**Does QuickFix confirm a worker's identity or documents before I book them?**
-Worker sign-up collects a government ID document and a profile photo, and QuickFix describes verification as a manual process. Administrators can review these documents and mark a worker Approved or Rejected from the admin portal, but there is currently no visible indicator in the customer or worker app confirming whether a specific worker has completed this review.
+**Does QuickFix confirm a professional's identity or documents before I book them?**
+Professional sign-up collects a government ID document and a profile photo, and QuickFix describes verification as a manual process. Administrators can review these documents and mark a professional Approved or Rejected from the admin portal, but there is currently no visible indicator in the customer or professional app confirming whether a specific professional has completed this review.
 
-**What happens if a worker gets a bad review?**
-An administrator may choose to suspend the worker's account for a period of time — the length can increase if the same worker is suspended repeatedly. A suspended worker is signed out automatically and cannot log back in until the suspension ends.
+**What happens if a professional gets a bad review?**
+An administrator may choose to suspend the professional's account for a period of time — the length can increase if the same professional is suspended repeatedly. A suspended professional is signed out automatically and cannot log back in until the suspension ends.
 
-**Can a worker be rewarded for good reviews?**
-Yes. A worker's dashboard tracks a consecutive positive-review streak, and every fifth consecutive positive review earns an automatic bonus.
+**Can a professional be rewarded for good reviews?**
+Yes. A professional's dashboard tracks a consecutive positive-review streak, and every fifth consecutive positive review earns an automatic bonus.
 
 ---
 
@@ -348,12 +348,12 @@ The following are planned but not currently available. They are not accessible i
 
 - **Google and Phone-OTP sign-in.** Buttons for both exist on the login screen, but they currently only show a "coming soon" message.
 - **QuickCoins redemption.** There is currently no way to redeem QuickCoins against real offers; this is planned for a future release.
-- **A functioning in-app worker registration path.** The in-app "become a worker" form in the customer app is planned to eventually create a fully working worker account; today it does not (Section 3.15).
+- **A functioning in-app professional registration path.** The in-app "become a professional" form in the customer app is planned to eventually create a fully working professional account; today it does not (Section 3.15).
 - **Consolidated OTP handling.** A single, unified OTP verification process is planned to replace the two separate ones that currently exist behind the scenes.
-- **Stronger backend protections and server-side validation** for booking pricing, worker assignment, and QuickCoins crediting, moving this logic off the customer's device and onto a hardened backend.
+- **Stronger backend protections and server-side validation** for booking pricing, professional assignment, and QuickCoins crediting, moving this logic off the customer's device and onto a hardened backend.
 
 ---
 
 ## Document Status
 
-This guide was produced by direct inspection of the QuickFix application and cross-referenced against `PRD.md`, `SRS.md`, `ARCHITECTURE.md`, `DATABASE.md`, `API.md`, `DEPLOYMENT.md`, `ROADMAP.md`, `CHANGELOG.md`, `SECURITY.md`, and `TESTING.md`. No feature or workflow is described as available unless it was directly confirmed as implemented in these documents. Where a screen or form exists but does not lead to a working outcome — most notably the in-app worker registration path — this is stated explicitly rather than presented as a normal, working feature.
+This guide was produced by direct inspection of the QuickFix application and cross-referenced against `PRD.md`, `SRS.md`, `ARCHITECTURE.md`, `DATABASE.md`, `API.md`, `DEPLOYMENT.md`, `ROADMAP.md`, `CHANGELOG.md`, `SECURITY.md`, and `TESTING.md`. No feature or workflow is described as available unless it was directly confirmed as implemented in these documents. Where a screen or form exists but does not lead to a working outcome — most notably the in-app professional registration path — this is stated explicitly rather than presented as a normal, working feature.
