@@ -33,11 +33,11 @@ All calls below are Supabase Auth SDK methods, invoked from `auth.js` unless oth
 |---|---|---|---|
 | Login | `sb.auth.signInWithPassword({ email, password })` | Email, password | On success, reads `user_metadata.role`, fetches the matching `workers` or `users` row, writes the `sessionStorage` cache (`qf_user`, `qf_role`), and redirects via `redirect(role)` to `admin.html`/`worker-dashboard.html`/`index.html`. On failure, shows a form-level error banner with specific messages for "Invalid login credentials," "Email not confirmed," etc. |
 | Customer Signup | `sb.auth.signUp({ email, password, options: { data: { role: 'user' } } })` (role passed via Auth metadata) | First name, last name (optional), email, phone, password (≥6 chars) | On success, inserts a row into `users`; writes the `sessionStorage` cache; redirects to `index.html`. |
-| Worker Signup | `sb.auth.signUp(...)` | Full name, phone, email, skill, radius, area, years of experience, emergency checkbox (Electrician/Plumber only), ID document file, profile photo file, password (≥6 chars) | Uploads ID document to Storage bucket `worker-documents` and photo to `worker-photos` (both with randomized filenames) **before** the Auth call resolves data insertion, then inserts a full row into `workers` (`is_available:false`, `rating:0`, `total_jobs:0`). If the `workers` insert itself fails, the just-inserted worker row is deleted and `sb.auth.signOut()` is called to avoid an orphaned auth account with no profile. |
+| Professional Signup | `sb.auth.signUp(...)` | Full name, phone, email, skill, radius, area, years of experience, emergency checkbox (Electrician/Plumber only), ID document file, profile photo file, password (≥6 chars) | Uploads ID document to Storage bucket `worker-documents` and photo to `worker-photos` (both with randomized filenames) **before** the Auth call resolves data insertion, then inserts a full row into `workers` (`is_available:false`, `rating:0`, `total_jobs:0`). If the `workers` insert itself fails, the just-inserted professional row is deleted and `sb.auth.signOut()` is called to avoid an orphaned auth account with no profile. |
 | Session Check | `sb.auth.getSession()` | None | Called on boot by every protected page (`index.js`, `dashboard.js`, `profile.js`, `admin.js`'s gate, `landing.js`) to determine whether to show a logged-in state or redirect to `auth.html`. |
 | Logout | `sb.auth.signOut()` | None | Called from `index.js: signOut()`, `dashboard.js` (nav "Logout" button), and `admin.js` (on gate failure or explicit sign-out); also clears the relevant `sessionStorage` keys. |
 | Password Reset | `sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/auth.html' })` | Email | Triggers Supabase's built-in password-reset email flow; no custom reset-token handling exists in the client beyond the redirect target. |
-| User Verification | Not implemented as a distinct API call. Worker "verification" is a manual, stated 24-hour process (`auth.js`/`index.html` confirmation-screen copy) with **no corresponding client-side check** of any `is_verified`-style column before allowing sign-in or dashboard access (confirmed in `SRS.md` §7.2). This document does not invent a verification endpoint that does not exist. |
+| User Verification | Not implemented as a distinct API call. Professional "verification" is a manual, stated 24-hour process (`auth.js`/`index.html` confirmation-screen copy) with **no corresponding client-side check** of any `is_verified`-style column before allowing sign-in or dashboard access (confirmed in `SRS.md` §7.2). This document does not invent a verification endpoint that does not exist. |
 
 ---
 
@@ -58,11 +58,11 @@ All calls below are made from `index.js`. As with Section 2, these are Supabase 
 | Tracking | `_buildTrackingMap()` → reads `bookings.worker_live_lat/worker_live_lng/worker_last_seen/customer_lat/customer_lng` on a poll/observer cycle, plus Geoapify calls (Section 7) | `bookings` | No dedicated fetch function — tracking state is derived from the same `bookings` row already loaded for the booking list. |
 | Campaigns / Offers | `fetchActiveCampaigns()` → `sb.from('campaigns').select('*').eq('status','active')` (filtered further client-side by date window) | `campaigns` | Powers both the once-per-login popup and the dedicated Offers page. |
 | Pass Purchase | `campaignBuyPass()` → `openPaymentModal()` → `_simulatePaymentProvider()` → `activatePass()` → `sb.from('user_passes').insert({...})` | `user_passes` | Payment is simulated (fixed 10-second auto-success, no real gateway callback); see Section 10 for failure behavior. |
-| In-App Worker Registration | `submitReg()` → `DB.saveReg()` → `sb.from('profiles').upsert({ id, name, phone, role:'worker' })` | `profiles` | A documented, incomplete alternate path — professional/verification fields collected by the form are not persisted (see `DATABASE.md` §4.10). |
+| In-App Professional Registration | `submitReg()` → `DB.saveReg()` → `sb.from('profiles').upsert({ id, name, phone, role:'worker' })` | `profiles` | A documented, incomplete alternate path — professional/verification fields collected by the form are not persisted (see `DATABASE.md` §4.10). |
 
 ---
 
-## 4. Worker APIs
+## 4. Professional APIs
 
 All calls below are made from `dashboard.js` unless otherwise noted; profile-specific calls are from `profile.js`.
 
@@ -72,14 +72,14 @@ All calls below are made from `dashboard.js` unless otherwise noted; profile-spe
 | Booking Acceptance | `confirmAccept()` → `sb.from('bookings').update({ status:'Accepted', w_status:'Accepted', accepted_at, worker_earning }).eq('id', bookingId).in('status', ['Pending','Scheduled','Confirmed'])` | `bookings` | The `.in('status', [...])` clause on the write itself guards against a two-worker accept race; also calls `setWorkerAvailability(false)`. |
 | Booking Rejection | `confirmReject()` → `sb.from('bookings').update({ status:'Rejected', w_status:'Rejected' })` | `bookings` | — |
 | Cancel Accepted Booking | `confirmCancelAccepted()` → `sb.from('bookings').update({ status:'Cancelled', w_status:'Cancelled' }).eq('status','Accepted')` | `bookings` | Guarded to only affect a still-`Accepted` row; also tears down any open "Track Customer" map for that booking. |
-| Arrival OTP Verification | `submitArrivalOtp()` → compares entered value to `bookings.arrival_otp`; on match, `sb.from('bookings').update({ arrival_otp:null, completion_otp:<new 6-digit>, status:'Arrived', w_status:'Arrived', arrived_at, started_at })` | `bookings` | Generates the fresh Completion OTP at this point, not at booking creation; tears down the worker's own tracking map. |
-| Completion OTP Verification | `submitCompletionOtp()` → compares entered value to `bookings.completion_otp`; on match, `sb.from('bookings').update({ completion_otp:null, status:'Completed', w_status:'Completed', completed_at })` | `bookings` | Also calls `setWorkerAvailability(true)`, bringing the worker back online automatically. |
-| GPS Updates | `_startGPS()`/`syncGPS()` → `sb.from('bookings').update({ worker_live_lat, worker_live_lng, worker_last_seen }).in('id', activeIds)` | `bookings` | Batched across all of the worker's currently active booking IDs in a single write per `navigator.geolocation.watchPosition` fix. |
+| Arrival OTP Verification | `submitArrivalOtp()` → compares entered value to `bookings.arrival_otp`; on match, `sb.from('bookings').update({ arrival_otp:null, completion_otp:<new 6-digit>, status:'Arrived', w_status:'Arrived', arrived_at, started_at })` | `bookings` | Generates the fresh Completion OTP at this point, not at booking creation; tears down the professional's own tracking map. |
+| Completion OTP Verification | `submitCompletionOtp()` → compares entered value to `bookings.completion_otp`; on match, `sb.from('bookings').update({ completion_otp:null, status:'Completed', w_status:'Completed', completed_at })` | `bookings` | Also calls `setWorkerAvailability(true)`, bringing the professional back online automatically. |
+| GPS Updates | `_startGPS()`/`syncGPS()` → `sb.from('bookings').update({ worker_live_lat, worker_live_lng, worker_last_seen }).in('id', activeIds)` | `bookings` | Batched across all of the professional's currently active booking IDs in a single write per `navigator.geolocation.watchPosition` fix. |
 | Availability Toggle | `toggleAvailability()` → `sb.from('workers').update({ is_available })` | `workers` | Reverts the UI toggle and shows a toast on write failure. |
 | Emergency Toggle | `toggleEmergency()` → `sb.from('workers').update({ emergency_available })` | `workers` | Independent of the signup-time emergency preference. |
 | Profile Updates | `profile.js: saveProfile()` → `sb.from('workers').update({ name, phone, skill, experience, area, radius })` | `workers` | Only changed/non-empty fields are written; validates name/phone/skill non-empty and radius 1–100 if provided. |
 | Achievements | `checkAndUnlockAchievements()` → `sb.from('worker_achievements').select(...)` then `.insert({ worker_id, achievement_id, category, name, description })` | `worker_achievements` | Runs on every `loadBookings()` cycle; a 23505 unique-violation insert error is silently ignored (tolerates concurrent Realtime-triggered re-evaluation). |
-| Worker Stats (read-only) | `sb.rpc('get_worker_stats', { p_worker_id })` | RPC | Returns the `Stats` object (`accepted_jobs`, `completed_jobs`, `cancelled_jobs`, `no_show_count`, `reliability_score`, `completion_rate`, `activity_score`, `worker_score`, `rating`); its internal SQL is not part of the inspected client code. |
+| Professional Stats (read-only) | `sb.rpc('get_worker_stats', { p_worker_id })` | RPC | Returns the `Stats` object (`accepted_jobs`, `completed_jobs`, `cancelled_jobs`, `no_show_count`, `reliability_score`, `completion_rate`, `activity_score`, `worker_score`, `rating`); its internal SQL is not part of the inspected client code. |
 
 ---
 
@@ -94,12 +94,12 @@ All calls below are made from `admin.js`. Sections 5.1–5.5 reflect Phase 8 add
 | Campaign Status Toggle / Delete | (Table action buttons) → `sb.from('campaigns').update({ status })` / `.delete().eq('id', ...)` | `campaigns` | Delete is gated by a browser `confirm()` dialog; failures surface via `alert()`. |
 | Purchased-Pass Listing | `sb.from('user_passes').select('*')`, joined client-side against loaded `users`/`campaigns` arrays | `user_passes` | Read-only. |
 | Analytics | `renderAnalytics()` — no dedicated fetch; computed entirely client-side from the already-loaded `_allCampaigns`/`_allPasses` arrays | `campaigns`, `user_passes` | Total campaigns, total passes sold, active/expired counts, and per-campaign revenue are all aggregated in the browser; there is no analytics RPC. |
-| Dashboard Data Load | Initial page-load fetch of `campaigns`, `user_passes`, `reviews`, `worker_bans`, `users`, and `workers` on `admin.html` boot (`initAdminApp()`) | `campaigns`, `user_passes`, `reviews`, `worker_bans`, `users`, `workers` | Feeds the Campaigns, Analytics, Reviews, Banned Workers, Users, and Workers tabs from these loaded arrays. |
+| Dashboard Data Load | Initial page-load fetch of `campaigns`, `user_passes`, `reviews`, `worker_bans`, `users`, and `workers` on `admin.html` boot (`initAdminApp()`) | `campaigns`, `user_passes`, `reviews`, `worker_bans`, `users`, `workers` | Feeds the Campaigns, Analytics, Reviews, Banned Professionals, Users, and Professionals tabs from these loaded arrays. |
 | Review Listing | `loadReviews()` → `sb.from('reviews').select('*').order('created_at',{ascending:false})`, joined client-side against `users`/`workers`/`bookings` for name/skill/service context | `reviews` | Read-only; `renderReviewsTable()` additionally resolves each review's `booking_id` to a service name via `_getServiceNamesByBookingId()`. |
-| Worker Ban | `confirmBanWorker()` → `sb.from('workers').update({ banned_until, ban_count, last_ban_duration_label, is_available:false }).eq('id', workerId).select()` then `sb.from('worker_bans').insert({...})` | `workers`, `worker_bans` | Duration is entered as an amount + unit (minutes/hours/days/weeks), converted to a `banned_until` timestamp; suggested amount escalates with `ban_count` (1st: 5 hrs, 2nd: 1 day, 3rd+: 5 days). The `.select()` on the `workers` update is required to detect an RLS-blocked write that would otherwise silently return no error (see Section 5.1, Verified Gap). A permanent row is also inserted into `worker_bans` regardless of the `workers` update's outcome check having passed. |
-| Ban History Listing | `loadBannedWorkers()` → `sb.from('worker_bans').select('*').order('banned_at',{ascending:false})`, joined client-side against `workers` | `worker_bans` | Read-only; powers the "Banned Workers" tab, grouped per worker. |
-| Worker Verification | `setWorkerVerification(workerId, status)` → `sb.from('workers').update({ verification_status: status }).eq('id', workerId)` | `workers` | `status` is `'approved'` or `'rejected'`; triggers an animated tick/cross result modal on success. |
-| Worker Listing | `loadWorkersFull()` → `sb.from('workers').select('*').order('name',{ascending:true})` | `workers` | Read-only; powers the "Workers" tab. **Note:** must order by `name`, not `created_at` — `workers` has no `created_at` column (Section 5.1, Verified Gap). |
+| Professional Ban | `confirmBanWorker()` → `sb.from('workers').update({ banned_until, ban_count, last_ban_duration_label, is_available:false }).eq('id', workerId).select()` then `sb.from('worker_bans').insert({...})` | `workers`, `worker_bans` | Duration is entered as an amount + unit (minutes/hours/days/weeks), converted to a `banned_until` timestamp; suggested amount escalates with `ban_count` (1st: 5 hrs, 2nd: 1 day, 3rd+: 5 days). The `.select()` on the `workers` update is required to detect an RLS-blocked write that would otherwise silently return no error (see Section 5.1, Verified Gap). A permanent row is also inserted into `worker_bans` regardless of the `workers` update's outcome check having passed. |
+| Ban History Listing | `loadBannedWorkers()` → `sb.from('worker_bans').select('*').order('banned_at',{ascending:false})`, joined client-side against `workers` | `worker_bans` | Read-only; powers the "Banned Professionals" tab, grouped per professional. |
+| Professional Verification | `setWorkerVerification(workerId, status)` → `sb.from('workers').update({ verification_status: status }).eq('id', workerId)` | `workers` | `status` is `'approved'` or `'rejected'`; triggers an animated tick/cross result modal on success. |
+| Professional Listing | `loadWorkersFull()` → `sb.from('workers').select('*').order('name',{ascending:true})` | `workers` | Read-only; powers the "Professionals" tab. **Note:** must order by `name`, not `created_at` — `workers` has no `created_at` column (Section 5.1, Verified Gap). |
 | ID Document Viewing | `openAdminDocView(documentName)` → `sb.storage.from('worker-documents').createSignedUrl(documentName, 300)` | Storage | Generates a 5-minute signed URL on demand, since `worker-documents` is a private bucket and the stored `document_url` (a public-URL string, per `auth.js`'s upload logic) never resolves for a private bucket regardless of any `storage.objects` RLS policy (Section 5.1, Verified Gap; also see `DATABASE.md` §3). |
 | Profile Photo Viewing | `openAdminImgView(url)` → direct `<img src>` assignment, no fetch | Storage | Uses the existing public URL directly, since `worker-photos` is a public bucket. |
 | User Listing | `loadUsers()` → `sb.from('users').select('*').order('created_at',{ascending:false})` | `users` | Read-only; powers the "Users" tab. |
@@ -108,9 +108,9 @@ All calls below are made from `admin.js`. Sections 5.1–5.5 reflect Phase 8 add
 
 Three defects were found and fixed directly during this admin-portal expansion:
 
-1. **Silent RLS failure on ban writes.** The pre-existing `workers_update` RLS policy (`USING: auth.uid() = id`) only ever permitted a worker to update their own row. An admin-issued `sb.from('workers').update({banned_until,...})` matched zero rows under RLS but returned no error — Supabase's REST layer does not distinguish "0 rows matched by RLS" from "0 rows matched by the WHERE clause." `confirmBanWorker()` previously reported success unconditionally. Fixed by adding an admin-scoped `UPDATE` policy (`admins_can_update_any_worker`) and by appending `.select()` to the update call so the client can detect an empty result array and report failure instead of a false success.
-2. **Non-existent ordering column.** `loadWorkersFull()` originally called `.order('created_at', {ascending:false})`; `workers` has no `created_at` column (`DATABASE.md` §2.8), so every request failed with an HTTP 400 and the Workers tab always rendered "No workers yet" regardless of actual data. Fixed by ordering on `name` instead.
-3. **Broken document previews.** `workers.document_url` is a public-URL string generated by `getPublicUrl()` at worker-signup time (`auth.js`), which never resolves for a private bucket (`worker-documents`) regardless of any `storage.objects` RLS policy granting SELECT — Supabase's `/object/public` endpoint only serves objects in buckets flagged `public:true` at the bucket level, independent of RLS. Fixed by generating a signed URL on demand (`createSignedUrl`) instead of using the stored public-URL string.
+1. **Silent RLS failure on ban writes.** The pre-existing `workers_update` RLS policy (`USING: auth.uid() = id`) only ever permitted a professional to update their own row. An admin-issued `sb.from('workers').update({banned_until,...})` matched zero rows under RLS but returned no error — Supabase's REST layer does not distinguish "0 rows matched by RLS" from "0 rows matched by the WHERE clause." `confirmBanWorker()` previously reported success unconditionally. Fixed by adding an admin-scoped `UPDATE` policy (`admins_can_update_any_worker`) and by appending `.select()` to the update call so the client can detect an empty result array and report failure instead of a false success.
+2. **Non-existent ordering column.** `loadWorkersFull()` originally called `.order('created_at', {ascending:false})`; `workers` has no `created_at` column (`DATABASE.md` §2.8), so every request failed with an HTTP 400 and the Professionals tab always rendered "No professionals yet" regardless of actual data. Fixed by ordering on `name` instead.
+3. **Broken document previews.** `workers.document_url` is a public-URL string generated by `getPublicUrl()` at professional-signup time (`auth.js`), which never resolves for a private bucket (`worker-documents`) regardless of any `storage.objects` RLS policy granting SELECT — Supabase's `/object/public` endpoint only serves objects in buckets flagged `public:true` at the bucket level, independent of RLS. Fixed by generating a signed URL on demand (`createSignedUrl`) instead of using the stored public-URL string.
 
 ---
 
@@ -121,27 +121,27 @@ This section consolidates every distinct database interaction found across all p
 | Purpose | Method | Table | Operation | Expected Behavior |
 |---|---|---|---|---|
 | Customer account creation | `sb.from('users').insert()` | `users` | INSERT | Runs immediately after a successful `sb.auth.signUp` for role `user` |
-| Worker account creation | `sb.from('workers').insert()` | `workers` | INSERT | Runs after both Storage uploads succeed and `sb.auth.signUp` resolves for role `worker` |
-| Worker account rollback | `sb.from('workers').delete()` | `workers` | DELETE | Only on a failed `workers` insert immediately after auth signup, to avoid an orphaned auth account |
+| Professional account creation | `sb.from('workers').insert()` | `workers` | INSERT | Runs after both Storage uploads succeed and `sb.auth.signUp` resolves for role `worker` |
+| Professional account rollback | `sb.from('workers').delete()` | `workers` | DELETE | Only on a failed `workers` insert immediately after auth signup, to avoid an orphaned auth account |
 | Booking creation | `sb.from('bookings').insert()` / `.upsert()` (via `DB.save`) | `bookings` | INSERT/UPSERT | Creates the `Pending` booking row described in Section 3 |
 | Booking status transitions | `sb.from('bookings').update()` | `bookings` | UPDATE, guarded by `.eq()`/`.in()` on current status | Accept/Reject/Cancel/Arrival-OTP/Completion-OTP writes, per Sections 3–4 |
 | Booking read (customer) | `sb.from('bookings').select().eq('user_id', ...)` | `bookings` | SELECT | Powers the customer's booking list/tabs |
-| Booking read (worker) | `sb.from('bookings').select().eq('worker_id', ...)` | `bookings` | SELECT | Powers the worker dashboard job tabs and calendar |
+| Booking read (professional) | `sb.from('bookings').select().eq('worker_id', ...)` | `bookings` | SELECT | Powers the professional dashboard job tabs and calendar |
 | Saved address update | `sb.from('users').update({ saved_address, saved_area_id, saved_lat, saved_lng })` | `users` | UPDATE | On first booking to a new address, via `_resolveCustomerPin()` |
 | QuickCoins crediting | `sb.from('users').update({ quickcoins_balance, quickcoins_earned, total_completed_bookings })` | `users` | UPDATE | Per Section 3, on an observed `Arrived → Completed` transition |
 | Review write | `sb.from('bookings').update()` then `sb.from('reviews').insert()` | `bookings`, `reviews` | UPDATE, INSERT | Per Section 3 |
-| Area lookup | `sb.from('areas').select('id,name,lat,lng').order('name')` | `areas` | SELECT | Read-only; used at worker signup and for booking-area validation |
+| Area lookup | `sb.from('areas').select('id,name,lat,lng').order('name')` | `areas` | SELECT | Read-only; used at professional signup and for booking-area validation |
 | Campaign CRUD | `sb.from('campaigns').insert()/update()/delete()` | `campaigns` | INSERT/UPDATE/DELETE | Admin-only, per Section 5 |
 | Campaign read | `sb.from('campaigns').select().eq('status','active')` | `campaigns` | SELECT | Per Section 3 |
 | Pass purchase | `sb.from('user_passes').insert()` | `user_passes` | INSERT | Per Section 3 |
 | Pass consumption | `sb.from('user_passes').update({ visits_remaining, status })` | `user_passes` | UPDATE | On an observed `Arrived → Completed` transition for a pass-covered booking |
 | Achievement unlock | `sb.from('worker_achievements').select()` then `.insert()` | `worker_achievements` | SELECT, INSERT | Per Section 4 |
 | Admin role check | `sb.from('admins').select('is_active').eq('email', ...)` | `admins` | SELECT | Per Section 5 |
-| In-app worker registration | `sb.from('profiles').upsert()` | `profiles` | UPSERT | Per Section 3 |
-| Worker stats (RPC) | `sb.rpc('get_worker_stats', { p_worker_id })` | RPC | Function call | Read-only; used by `dashboard.js`, `profile.js` |
-| Bulk worker stats (RPC) | `sb.rpc('get_worker_stats_bulk', { p_worker_ids })` | RPC | Function call | Read-only; used by `index.js` (e.g. to display multiple eligible workers' scores during assignment) |
-| ID document upload | `sb.storage.from('worker-documents').upload(filename, file)` | Storage | UPLOAD | Randomized filename, worker signup only |
-| Profile photo upload | `sb.storage.from('worker-photos').upload(filename, file)` | Storage | UPLOAD | Randomized filename, worker signup only |
+| In-app professional registration | `sb.from('profiles').upsert()` | `profiles` | UPSERT | Per Section 3 |
+| Professional stats (RPC) | `sb.rpc('get_worker_stats', { p_worker_id })` | RPC | Function call | Read-only; used by `dashboard.js`, `profile.js` |
+| Bulk professional stats (RPC) | `sb.rpc('get_worker_stats_bulk', { p_worker_ids })` | RPC | Function call | Read-only; used by `index.js` (e.g. to display multiple eligible professionals' scores during assignment) |
+| ID document upload | `sb.storage.from('worker-documents').upload(filename, file)` | Storage | UPLOAD | Randomized filename, professional signup only |
+| Profile photo upload | `sb.storage.from('worker-photos').upload(filename, file)` | Storage | UPLOAD | Randomized filename, professional signup only |
 
 ---
 
@@ -152,11 +152,11 @@ Both endpoints are called through the `geoapify-proxy` Supabase Edge Function fr
 | API | Endpoint (verified) | Caller | Purpose | Behavior |
 |---|---|---|---|---|
 | Reverse Geocoding | `GET {SUPABASE_URL}/functions/v1/geoapify-proxy?type=reverse&lat={lat}&lon={lng}` (Authorization: Bearer {session token}) | `maps.js: _geoapifyReverseGeocode()` | Resolves a pinned/tracking-destination coordinate to a human-readable building/society name | Field preference order: `building`, then `amenity`, `name`, `housename`, `street`, `suburb`, `locality`; returns `null` if none present. Called once per booking's fixed destination point, never re-queried. |
-| Routing | `GET {SUPABASE_URL}/functions/v1/geoapify-proxy?type=routing&from={fromLat},{fromLng}&to={toLat},{toLng}&mode=drive` (Authorization: Bearer {session token}) | `maps.js: _fetchRoadRoute()` | Road-following route between the worker's live location and the customer destination | Returns an array of `[lat,lng]` pairs with non-enumerable `distance`/`duration` properties attached, or `null` on any failure. Throttled to at most once per 8 seconds per booking, and additionally skipped if the worker has moved less than 10 meters since the last successful fetch. |
+| Routing | `GET {SUPABASE_URL}/functions/v1/geoapify-proxy?type=routing&from={fromLat},{fromLng}&to={toLat},{toLng}&mode=drive` (Authorization: Bearer {session token}) | `maps.js: _fetchRoadRoute()` | Road-following route between the professional's live location and the customer destination | Returns an array of `[lat,lng]` pairs with non-enumerable `distance`/`duration` properties attached, or `null` on any failure. Throttled to at most once per 8 seconds per booking, and additionally skipped if the professional has moved less than 10 meters since the last successful fetch. |
 
 **Forward Geocoding.** Geoapify is **not** used for forward geocoding (address → coordinates) anywhere in the codebase. That responsibility belongs to Nominatim (Section 7's own separate entry, and `DATABASE.md`/`SRS.md` both document this same split). This document does not invent a Geoapify forward-geocoding call that does not exist.
 
-**Distance.** There is no dedicated Geoapify "Distance" API call. Straight-line distance (used for worker-assignment eligibility and the "moved ≥10m" routing-throttle check) is computed locally in the browser via a Haversine formula (`_metersBetween()` in `maps.js`; a separate inline Haversine implementation in `index.js: getEligibleWorkersForArea()`), not via any external distance API.
+**Distance.** There is no dedicated Geoapify "Distance" API call. Straight-line distance (used for professional-assignment eligibility and the "moved ≥10m" routing-throttle check) is computed locally in the browser via a Haversine formula (`_metersBetween()` in `maps.js`; a separate inline Haversine implementation in `index.js: getEligibleWorkersForArea()`), not via any external distance API.
 
 **Nominatim (related, non-Geoapify forward geocoding).**
 
@@ -170,7 +170,7 @@ Both endpoints are called through the `geoapify-proxy` Supabase Edge Function fr
 
 | API | Used For | Caller | Verified Behavior |
 |---|---|---|---|
-| Geolocation (`navigator.geolocation.watchPosition`) | Continuous worker GPS publishing while a booking is `Accepted`/`Worker on Way`/`Arrived` | `dashboard.js: _startGPS` | Permission denial (`err.code===1`) stops the watcher and shows a toast; other errors retry after 5 seconds via `_scheduleGPSRetry()` |
+| Geolocation (`navigator.geolocation.watchPosition`) | Continuous professional GPS publishing while a booking is `Accepted`/`Worker on Way`/`Arrived` | `dashboard.js: _startGPS` | Permission denial (`err.code===1`) stops the watcher and shows a toast; other errors retry after 5 seconds via `_scheduleGPSRetry()` |
 | Geolocation (`navigator.geolocation.getCurrentPosition`) | One-shot customer GPS capture at booking time (as an input to pin resolution) | `index.js` | Used only as one input into `_resolveCustomerPin()`, not a continuous watcher |
 | `sessionStorage` | Session-scoped app state: `qf_user`, `qf_role`, `qf_campaign_shown`, and `qf_bookings_cache` (referenced only as a removal key across `index.js`/`dashboard.js`/`profile.js`, never observed being set) | `auth.js`, `index.js`, `dashboard.js`, `profile.js`, `landing.js` | Cleared/rewritten on login, role selection, and logout; not itself a security boundary (see Section 1.4) |
 | `localStorage` | A fallback, unauthenticated-only local booking store (`qf_bookings`) | `index.js: getLocalBookings()`/`setLocalBookings()` | Used only in the branch of `DB.save`/`DB.bookings`/`DB.update` where no Supabase session exists; in normal operation this path is unreachable because `index.js`'s own boot IIFE redirects an unauthenticated visitor to `auth.html` before this code can run |
@@ -188,19 +188,19 @@ Both endpoints are called through the `geoapify-proxy` Supabase Edge Function fr
 
 | Subscription | Location | Channel Name | Table / Filter | Events | Callback Behavior |
 |---|---|---|---|---|---|
-| Worker booking-list sync | `dashboard.js` | `worker-bookings-<worker_id>` | `bookings`, `filter: worker_id=eq.<worker_id>` | `*` (INSERT/UPDATE/DELETE via `postgres_changes`) | Re-runs `loadBookings()` on any matching change; backed by a 5-second polling fallback on the same page, since `postgres_changes` does not fire on TRUNCATE or certain bulk resets (per the code's own comment) |
-| Worker self-row ban enforcement | `dashboard.js` | `worker-selfrow-<worker_id>` | `workers`, `filter: id=eq.<worker_id>` | `UPDATE` | Checks `payload.new.banned_until` on every update to the worker's own row; if it's in the future, immediately calls `_forceBanLogout()`, signing the worker out client-side without waiting for the next poll cycle. Backed by the same page's existing poll-based `loadBookings()` refresh as a fallback. |
+| Professional booking-list sync | `dashboard.js` | `worker-bookings-<worker_id>` | `bookings`, `filter: worker_id=eq.<worker_id>` | `*` (INSERT/UPDATE/DELETE via `postgres_changes`) | Re-runs `loadBookings()` on any matching change; backed by a 5-second polling fallback on the same page, since `postgres_changes` does not fire on TRUNCATE or certain bulk resets (per the code's own comment) |
+| Professional self-row ban enforcement | `dashboard.js` | `worker-selfrow-<worker_id>` | `workers`, `filter: id=eq.<worker_id>` | `UPDATE` | Checks `payload.new.banned_until` on every update to the professional's own row; if it's in the future, immediately calls `_forceBanLogout()`, signing the professional out client-side without waiting for the next poll cycle. Backed by the same page's existing poll-based `loadBookings()` refresh as a fallback. |
 | Admin review sync | `admin.js` | `admin-reviews` | `reviews`, no filter | `INSERT` | Re-runs `loadReviews()`/`renderReviewsTable()` the moment a new review is submitted by any customer, rather than waiting for the 15-second admin poll tick. |
 | Admin user sync | `admin.js` | `admin-users` | `users`, no filter | `*` | Re-runs `loadUsers()`/`renderUsersTable()` on any change to any customer row. |
-| Admin worker sync | `admin.js` | `admin-workers` | `workers`, no filter | `*` | Re-runs `loadWorkersFull()`/`renderWorkersTable()`, and additionally `loadReviews()`/`renderReviewsTable()` and `loadBannedWorkers()`/`renderBannedWorkersTable()`, since a worker-row change (ban, verification, streak/bonus) affects those tabs' derived display too. |
+| Admin professional sync | `admin.js` | `admin-workers` | `workers`, no filter | `*` | Re-runs `loadWorkersFull()`/`renderWorkersTable()`, and additionally `loadReviews()`/`renderReviewsTable()` and `loadBannedWorkers()`/`renderBannedWorkersTable()`, since a worker-row change (ban, verification, streak/bonus) affects those tabs' derived display too. |
 
-**Booking updates.** Covered by the worker booking-list subscription, scoped to the signed-in worker's own bookings.
+**Booking updates.** Covered by the professional booking-list subscription, scoped to the signed-in professional's own bookings.
 
-**Ban enforcement.** Covered by the worker self-row subscription above — this is the mechanism behind the "force-logout on ban" behavior; it requires `workers` to be present in the `supabase_realtime` publication and `REPLICA IDENTITY FULL` set on the table so `payload.new` carries the full updated row (see `DATABASE.md` §8 for the exact migration commands).
+**Ban enforcement.** Covered by the professional self-row subscription above — this is the mechanism behind the "force-logout on ban" behavior; it requires `workers` to be present in the `supabase_realtime` publication and `REPLICA IDENTITY FULL` set on the table so `payload.new` carries the full updated row (see `DATABASE.md` §8 for the exact migration commands).
 
 **Tracking updates.** Unchanged from the pre-Phase-8 description — still not pushed via a dedicated Realtime channel on either side; both tracking implementations re-read the relevant `bookings` row on their own polling/observer cadence.
 
-**Admin dashboard sync.** As of Phase 8, three admin-scoped channels (above) keep the Reviews, Users, Workers, and Banned Workers tabs current without a manual refresh for any row-level `INSERT`/`UPDATE`/`DELETE`. A `TRUNCATE` does not emit `postgres_changes` events (unchanged limitation, same as the worker-side booking channel) and still requires either a targeted `DELETE`/`UPDATE` or a manual page refresh to reflect in the admin UI.
+**Admin dashboard sync.** As of Phase 8, three admin-scoped channels (above) keep the Reviews, Users, Professionals, and Banned Professionals tabs current without a manual refresh for any row-level `INSERT`/`UPDATE`/`DELETE`. A `TRUNCATE` does not emit `postgres_changes` events (unchanged limitation, same as the professional-side booking channel) and still requires either a targeted `DELETE`/`UPDATE` or a manual page refresh to reflect in the admin UI.
 
 **Customer-side (`index.js`) Realtime.** Unchanged — still no `channel(`/`postgres_changes` call exists in `index.js`; the customer app relies entirely on interval-based polling for booking-list freshness.
 
@@ -216,15 +216,15 @@ There is no custom API, so there is no custom error-response envelope (no standa
 |---|---|
 | Supabase Auth failure (login) | Specific banner messages for "Invalid login," "not confirmed," "already registered," sourced from the Supabase Auth error message text |
 | Supabase insert/update failure (general) | `console.error(error.message)` plus a toast/inline banner in most paths |
-| Worker signup Storage upload failure | The one documented exception: surfaced via a blocking `alert()` **in addition to** `console.error()`, rather than the toast/banner convention used everywhere else |
+| Professional signup Storage upload failure | The one documented exception: surfaced via a blocking `alert()` **in addition to** `console.error()`, rather than the toast/banner convention used everywhere else |
 | Missing required booking fields | `markErr()` on each empty field plus a single "Please fill in all required fields" toast |
 | Address fails geocoding (Nominatim) | Inline warning: "Unable to locate this address…"; booking blocked, no `alert()` |
 | Geocoded address doesn't match selected area | Inline warning: "This address does not belong to the selected area…"; booking blocked |
-| No eligible worker in range | Toast naming the role, radius cap, and area; booking blocked before payment |
+| No eligible professional in range | Toast naming the role, radius cap, and area; booking blocked before payment |
 | GPay QR countdown (5 min) expires | "Payment Session Expired" message shown in place of the QR; no automatic retry |
 | Pass-purchase countdown (2 min) expires | `_onPaymentExpired()`: "Payment Session Expired — Please try again."; countdown row hidden |
 | Payment polling exceeds `POLL_MAX` (60 × 3s) | "Payment timeout. Try again or choose Cash." toast; polling stopped |
-| No worker accepts within the broadcast window | `noAcceptModal` with a "Try Again" button re-invoking `initiateBooking()` |
+| No professional accepts within the broadcast window | `noAcceptModal` with a "Try Again" button re-invoking `initiateBooking()` |
 | Incorrect Arrival/Completion OTP (either path) | Toast rejection; unlimited re-entry, no attempt counter or lockout |
 | Non-admin sign-in on `admin.html` | Session signed out; "Access Denied" for 10 seconds, then the login form reappears |
 | Geoapify routing/reverse-geocode failure | Caught per-call; tracking degrades to the previous route/placeholder ETA rather than throwing |
@@ -240,7 +240,7 @@ No HTTP status code, retry-after header, or rate-limit response from Supabase, G
 | Concern | Observed Implementation | Verified Gap |
 |---|---|---|
 | Authentication | Supabase Auth session, `persistSession:true`/`autoRefreshToken:true` | — |
-| Authorization | Client-side role/session checks per page (dual-signal for workers, `admins.is_active` lookup for admin); no server-side authorization layer confirmed beyond whatever Supabase RLS may or may not enforce (unverifiable from client code, per `DATABASE.md` §9) | Cannot confirm RLS is actually enforcing these same restrictions at the database layer |
+| Authorization | Client-side role/session checks per page (dual-signal for professionals, `admins.is_active` lookup for admin); no server-side authorization layer confirmed beyond whatever Supabase RLS may or may not enforce (unverifiable from client code, per `DATABASE.md` §9) | Cannot confirm RLS is actually enforcing these same restrictions at the database layer |
 | API key usage | No Geoapify API key exists in client code; both Geoapify calls are routed through the `geoapify-proxy` Supabase Edge Function, authenticated with the caller's Supabase session token | Key is held server-side only (Edge Function secret), not visible in browser network traffic |
 | Sensitive data | Government ID documents/photos (Storage, public-URL retrieval per `SRS.md` §2.6); OTPs stored in plaintext `bookings` columns with no attempt limit | No encryption-at-rest/retention/deletion policy for ID documents (`PRD.md` §22A.5, open item); no OTP lockout |
 | Validation | Entirely client-side (field checks, status-guarded writes); no server-side validation function or Postgres check constraint confirmed | Business-rule enforcement (price, eligibility, QuickCoins) is not verified to be re-checked server-side |
@@ -251,11 +251,11 @@ No HTTP status code, retry-after header, or rate-limit response from Supabase, G
 
 Only items explicitly named as planned in `PRD.md` (§21, §24) or `SRS.md` (§9) are listed; no speculative endpoint is invented.
 
-- **Phase 6 backend hardening (`PRD.md` §21.2).** Move booking validation, worker-assignment logic, and QuickCoins crediting into RLS-protected server-side functions; secure API key handling (implying a future server-side Geoapify proxy).
+- **Phase 6 backend hardening (`PRD.md` §21.2).** Move booking validation, professional-assignment logic, and QuickCoins crediting into RLS-protected server-side functions; secure API key handling (implying a future server-side Geoapify proxy).
 - **Phase 7 QuickCoins ecosystem (`PRD.md` §21.3).** A coin-redemption write path (`users.quickcoins_redeemed` is currently read-only) and expanded campaign/offer APIs.
 - **Real payment gateway integration (`SRS.md` §9).** Replacing the simulated GPay QR/polling flow (`checkPayStatus()`, `_simulatePaymentProvider()`) with an actual UPI/payment provider callback API.
 - **Functional social sign-in (`SRS.md` §9).** Google and Phone-OTP auth buttons exist in `auth.html` but only show a "coming soon" toast; no backing API integration exists yet.
 - **Unified OTP verification API (`SRS.md` §9).** Consolidating the two independent OTP-writing paths (`index.js`, `dashboard.js`) into one authoritative function.
-- **In-app worker registration persistence (`SRS.md` §9).** Fully wiring `submitReg()`'s collected fields into a persisted worker profile.
+- **In-app professional registration persistence (`SRS.md` §9).** Fully wiring `submitReg()`'s collected fields into a persisted professional profile.
 
 No other future API (e.g. a dedicated analytics endpoint, a push-notification service, a server-side geocoding proxy beyond what Phase 6 implies) is named anywhere in `PRD.md` or `SRS.md`; this document does not invent one.
