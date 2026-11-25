@@ -7,17 +7,17 @@ Check each box only after manually confirming it in the browser.
 ## Landing (landing.html)
 - [ ] Loads with no console errors
 - [ ] "I Need a Service" / "I Want to Work" both route to auth.html with correct ?role=
-- [ ] Logged-in session shows correct "My Dashboard" link (customer vs worker)
+- [ ] Logged-in session shows correct "My Dashboard" link (customer vs professional)
 - [ ] Triple-shift-click on logo routes to admin.html
 
 ## Auth (auth.html)
 - [ ] User signup creates a row in `users` and redirects to index.html
-- [ ] Worker signup uploads doc + photo, creates a row in `workers`, redirects to worker-dashboard.html
+- [ ] Professional signup uploads doc + photo, creates a row in `workers`, redirects to worker-dashboard.html
 - [ ] Login (both roles) redirects correctly
 - [ ] Validation errors (missing fields, short password) surface via markErr/err-banner
 
 ## Customer (index.html)
-- [ ] Full booking flow: category → worker list → booking → OTP → completion → review
+- [ ] Full booking flow: category → professional list → booking → OTP → completion → review
 - [ ] Live tracking map renders and updates
 - [ ] QuickCoins wallet balance updates after a completed booking
 - [ ] Service Pass purchase (QR flow) activates a pass in `user_passes`
@@ -28,7 +28,7 @@ Check each box only after manually confirming it in the browser.
 - [ ] Submitting a review with a negative tag shows the animated sad-face outcome modal; submitting with only positive tags (or none) shows the animated happy-face modal
 - [ ] Clicking "Continue" on the outcome modal returns the user to the Home/Dashboard tab
 
-## Worker (worker-dashboard.html / worker-profile.html)
+## Professional (worker-dashboard.html / worker-profile.html)
 - [ ] Availability + emergency toggles persist
 - [ ] Pending → Accept/Reject → Arrived (OTP) → Completed flow works end-to-end
 - [ ] Earnings, performance grid, and achievements reflect real data
@@ -36,30 +36,30 @@ Check each box only after manually confirming it in the browser.
 - [ ] Profile edit/save persists to `workers`
 - [ ] Positive streak increments on a review with no negative tags, resets to 0 on a negative tag (verify against `workers.positive_streak` directly)
 - [ ] Bonus is credited every 5th consecutive positive review, logged in `worker_bonuses`, and reflected in `workers.bonus_balance` on the dashboard
-- [ ] A worker who is currently logged in gets force-signed-out within seconds of an admin ban being applied (test via Realtime, not just the poll fallback)
-- [ ] A banned worker attempting to log in sees an animated cross modal (not a native `alert()`) stating the exact unban time
-- [ ] A banned worker cannot log in again until `banned_until` has passed
+- [ ] A professional who is currently logged in gets force-signed-out within seconds of an admin ban being applied (test via Realtime, not just the poll fallback)
+- [ ] A banned professional attempting to log in sees an animated cross modal (not a native `alert()`) stating the exact unban time
+- [ ] A banned professional cannot log in again until `banned_until` has passed
 
 ## Admin (admin.html)
 - [ ] Admin-only gate blocks non-admin accounts
 - [ ] Admin login never creates or leaves a stray row in the customer `users` table
 - [ ] Create/Edit/Delete campaign works and reflects in customer-facing offers
 - [ ] User Passes and Analytics tabs load real data
-- [ ] Reviews tab shows Job (worker skill) and Service (booked item) columns, correctly resolved from the linked booking
-- [ ] Reviews tab "Ban" action is hidden for: an already-banned worker (shows "Banned" badge), a review with no negative tags, and a 4–5 star review
+- [ ] Reviews tab shows Job (professional skill) and Service (booked item) columns, correctly resolved from the linked booking
+- [ ] Reviews tab "Ban" action is hidden for: an already-banned professional (shows "Banned" badge), a review with no negative tags, and a 4–5 star review
 - [ ] Ban modal duration picker accepts minutes/hours/days/weeks; suggested amount escalates correctly on repeat bans (1st: 5 hrs, 2nd: 1 day, 3rd+: 5 days)
 - [ ] Confirming a ban actually updates `workers.banned_until`/`ban_count`/`last_ban_duration_label` (verify via a fresh `SELECT`, not just the success modal) and logs a row in `worker_bans`
 - [ ] Ban/verification confirmations show an animated tick/cross modal — no native `alert()` for these actions
-- [ ] Banned Workers tab lists every worker with at least one ban, showing total ban count and full ban history
+- [ ] Banned Professionals tab lists every professional with at least one ban, showing total ban count and full ban history
 - [ ] Users tab loads real customer data (name, email, phone, saved address, QuickCoins, completed bookings)
-- [ ] Workers tab loads real worker data including positive streak and bonus balance
-- [ ] Workers tab "View" on ID Document opens the actual image (signed URL) rather than a broken image
-- [ ] Workers tab "View" on Photo opens the actual image
+- [ ] Professionals tab loads real professional data including positive streak and bonus balance
+- [ ] Professionals tab "View" on ID Document opens the actual image (signed URL) rather than a broken image
+- [ ] Professionals tab "View" on Photo opens the actual image
 - [ ] Approve/Reject buttons are pill-shaped and side-by-side; clicking either shows the animated tick/cross result modal
-- [ ] Once approved, a worker's Actions cell shows no buttons — only the Verification column's "APPROVED" badge (no duplicate badge)
+- [ ] Once approved, a professional's Actions cell shows no buttons — only the Verification column's "APPROVED" badge (no duplicate badge)
 - [ ] New review appears in the Reviews tab immediately (Realtime), without a manual refresh
 - [ ] A change to a `users` or `workers` row (via the app or direct SQL `UPDATE`/`DELETE`, not `TRUNCATE`) reflects in the relevant admin tab without a manual refresh
-- [ ] Tab order is: Campaigns, User Passes, Analytics, Reviews, Banned Workers, Users, Workers
+- [ ] Tab order is: Campaigns, User Passes, Analytics, Reviews, Banned Professionals, Users, Professionals
 
 ## Cross-cutting
 - [ ] No inline `<style>`/`<script>` remains in any HTML file (Phase 5.2 regression check)
