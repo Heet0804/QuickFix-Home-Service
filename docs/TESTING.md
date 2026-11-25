@@ -13,7 +13,7 @@
 
 ### 1.1 Purpose
 
-This document gives QA engineers and developers a complete, implementation-grounded reference for verifying QuickFix's functionality, covering the customer, worker, and admin applications end to end. It exists to make manual verification repeatable and traceable to specific functions and files, since no automated test suite currently exists to serve that purpose.
+This document gives QA engineers and developers a complete, implementation-grounded reference for verifying QuickFix's functionality, covering the customer, professional, and admin applications end to end. It exists to make manual verification repeatable and traceable to specific functions and files, since no automated test suite currently exists to serve that purpose.
 
 ### 1.2 Testing Philosophy
 
@@ -49,11 +49,11 @@ A valid `GEOAPIFY_API_KEY` (hardcoded in `config.js`) with sufficient quota is r
 
 ### 2.4 Internet
 
-The application has no offline mode, service worker, or cached-asset fallback (`DEPLOYMENT.md` §2). Live connectivity is required at test time to reach: Supabase, Geoapify, Nominatim, the Leaflet/OpenStreetMap tile CDN, the `@supabase/supabase-js@2` CDN bundle, the `qrcodejs` CDN bundle, and Google Fonts. A network-outage test pass should specifically simulate the loss of each of these independently (Section 6.1) rather than assuming an all-or-nothing internet connection.
+The application has no offline mode, service professional, or cached-asset fallback (`DEPLOYMENT.md` §2). Live connectivity is required at test time to reach: Supabase, Geoapify, Nominatim, the Leaflet/OpenStreetMap tile CDN, the `@supabase/supabase-js@2` CDN bundle, the `qrcodejs` CDN bundle, and Google Fonts. A network-outage test pass should specifically simulate the loss of each of these independently (Section 6.1) rather than assuming an all-or-nothing internet connection.
 
 ### 2.5 Development Setup
 
-There is no build tool, package manifest, or dev-server requirement in the project (`DEPLOYMENT.md` §2). The six HTML entry points (`landing.html`, `auth.html`, `index.html`, `worker-dashboard.html`, `worker-profile.html`, `admin.html`) can be served directly by any static file server — Node's `npx serve` is usable as a convenience but is not a project dependency. Testing multiple roles simultaneously (e.g. a worker accepting a booking while a customer tracks it) requires either separate browser profiles/incognito windows or separate physical devices, since each role's session lives in that browser's own `sessionStorage`/Supabase Auth session.
+There is no build tool, package manifest, or dev-server requirement in the project (`DEPLOYMENT.md` §2). The six HTML entry points (`landing.html`, `auth.html`, `index.html`, `worker-dashboard.html`, `worker-profile.html`, `admin.html`) can be served directly by any static file server — Node's `npx serve` is usable as a convenience but is not a project dependency. Testing multiple roles simultaneously (e.g. a professional accepting a booking while a customer tracks it) requires either separate browser profiles/incognito windows or separate physical devices, since each role's session lives in that browser's own `sessionStorage`/Supabase Auth session.
 
 ---
 
@@ -65,17 +65,17 @@ There is no build tool, package manifest, or dev-server requirement in the proje
 |---|---|---|---|
 | Customer signup — valid | Fill first name, email, phone, password (≥6 chars); submit | `sb.auth.signUp` succeeds; `users` row inserted; `sessionStorage` cache written; redirect to `index.html` | `SRS.md` §3.1 |
 | Customer signup — password too short | Enter a 5-character password | Client-side validation blocks submission before any Auth call | `auth.js` |
-| Worker signup — valid | Fill all required fields, radius > 0, upload valid ID doc (≤5MB, `.jpg/.jpeg/.png/.pdf`) and profile photo (≤5MB, `.jpg/.jpeg/.png`); submit | Both files uploaded to their respective Storage buckets with randomized filenames; `workers` row inserted with `is_available:false`, `rating:0`, `total_jobs:0`; redirect | `SRS.md` §3.1 |
-| Worker signup — `workers` insert fails after files uploaded | Force an insert failure (e.g. duplicate constraint) after successful file upload | The just-created `workers` row is deleted and `sb.auth.signOut()` is called, leaving no orphaned Auth account | `API.md` §2, `SECURITY.md` §2.1 |
-| Worker signup — oversized/wrong-type file | Attempt upload of a 6MB file or a `.docx` file | Rejected client-side before any upload attempt; input cleared; `showErr()` message shown | `SRS.md` §8 |
-| Worker signup — emergency checkbox visibility | Select Electrician or Plumber as skill vs. any other skill | Checkbox shown only for Electrician/Plumber (`toggleEmergencyField()`) | `SRS.md` §3.1 |
+| Professional signup — valid | Fill all required fields, radius > 0, upload valid ID doc (≤5MB, `.jpg/.jpeg/.png/.pdf`) and profile photo (≤5MB, `.jpg/.jpeg/.png`); submit | Both files uploaded to their respective Storage buckets with randomized filenames; `workers` row inserted with `is_available:false`, `rating:0`, `total_jobs:0`; redirect | `SRS.md` §3.1 |
+| Professional signup — `workers` insert fails after files uploaded | Force an insert failure (e.g. duplicate constraint) after successful file upload | The just-created `workers` row is deleted and `sb.auth.signOut()` is called, leaving no orphaned Auth account | `API.md` §2, `SECURITY.md` §2.1 |
+| Professional signup — oversized/wrong-type file | Attempt upload of a 6MB file or a `.docx` file | Rejected client-side before any upload attempt; input cleared; `showErr()` message shown | `SRS.md` §8 |
+| Professional signup — emergency checkbox visibility | Select Electrician or Plumber as skill vs. any other skill | Checkbox shown only for Electrician/Plumber (`toggleEmergencyField()`) | `SRS.md` §3.1 |
 | Login — valid credentials | Enter correct email/password | Redirect to the correct role's page (`admin.html`/`worker-dashboard.html`/`index.html`) based on `user_metadata.role` | `API.md` §2 |
 | Login — invalid credentials | Enter wrong password | Form-level banner: "Invalid login credentials" | `API.md` §10 |
 | Login — unconfirmed email | Attempt login on an unconfirmed account | Form-level banner: "Email not confirmed" | `API.md` §10 |
 | Password reset | Submit forgot-password with a valid email | `sb.auth.resetPasswordForEmail` triggers Supabase's built-in email flow, redirect target `auth.html` | `API.md` §2 |
 | Logout | Trigger logout from any protected page | `sb.auth.signOut()` called; relevant `sessionStorage` keys cleared; `qf_campaign_shown` also cleared | `SRS.md` §3.11 |
 | Social sign-in / Phone-OTP buttons | Tap Google sign-in or Phone-OTP button on `auth.html` | "Coming soon" toast only — no Auth call is made | `API.md` §11 |
-| Worker verification gate | Sign up as a worker and immediately attempt login | No `is_verified`-style check exists — the account is fully functional immediately, regardless of manual verification status | `SECURITY.md` §2.4 |
+| Professional verification gate | Sign up as a professional and immediately attempt login | No `is_verified`-style check exists — the account is fully functional immediately, regardless of manual verification status | `SECURITY.md` §2.4 |
 
 ### 3.2 Customer Booking Flow
 
@@ -85,7 +85,7 @@ There is no build tool, package manifest, or dev-server requirement in the proje
 | Address geocode success | Enter a valid, geocodable address within a served area | `geocodeAddress()` resolves via Nominatim; area match passes | `SRS.md` §3.2 |
 | Address geocode failure | Enter an unrecognizable address string | Inline warning "Unable to locate this address…"; booking blocked, no `alert()` | `SRS.md` §8 |
 | Address/area mismatch | Enter a real address that geocodes outside the selected service area | Inline warning "This address does not belong to the selected area…"; booking blocked | `SRS.md` §8 |
-| No eligible worker | Book a service/area combination with no available, in-radius worker | Toast naming the role, radius cap, and area; booking blocked before payment | `API.md` §10 |
+| No eligible professional | Book a service/area combination with no available, in-radius professional | Toast naming the role, radius cap, and area; booking blocked before payment | `API.md` §10 |
 | Pin reuse | Book to an address that exactly (case-sensitive) matches a previously saved address | `_showReusePinDialog()` offers reuse of the saved pin instead of the picker | `SRS.md` §3.2 |
 | Manual pin picker | Book to a new address | Draggable-marker Leaflet picker (`_openPinPicker()`) opens, seeded at the geocoded point | `SRS.md` §3.2 |
 | Price calculation — standard | Book a non-emergency service | `total = base + clamp(round(base*0.10), 20, 50)` | `SRS.md` §3.2 |
@@ -94,12 +94,12 @@ There is no build tool, package manifest, or dev-server requirement in the proje
 | Booking cancellation | Cancel a booking from the customer's list before the tracking-reveal point | `status:'Cancelled'` written; permitted per `canCancel` logic | `API.md` §3 |
 | Clear booking history | Trigger "Clear History" with at least one booking present | Confirmation modal (`clrModal`) required; on confirm, all of the user's bookings get `hidden_by_user:true` (soft-hide, not delete) | `SRS.md` §8 |
 
-### 3.3 Worker Job Management (`dashboard.js`)
+### 3.3 Professional Job Management (`dashboard.js`)
 
 | Test Case | Steps | Expected Result | Reference |
 |---|---|---|---|
 | Accept a pending job | Tap Accept on a `Pending` job card, confirm | `worker_earning = round(price*0.80)`; `accepted_at`, `status='Accepted'`, `w_status='Accepted'` set; `setWorkerAvailability(false)` called | `SRS.md` §3.3 |
-| Double-accept race | Two workers attempt to accept the same job near-simultaneously | The second write fails the `.in('status', [...])` guard; toast shown for "already accepted by another worker" | `SRS.md` §3.3 |
+| Double-accept race | Two professionals attempt to accept the same job near-simultaneously | The second write fails the `.in('status', [...])` guard; toast shown for "already accepted by another professional" | `SRS.md` §3.3 |
 | Reject a job | Tap Reject, confirm | `status='Rejected'`, `w_status='Rejected'` | `SRS.md` §3.3 |
 | Cancel an accepted job | Tap Cancel on an `Accepted` job, confirm | `status='Cancelled'`, `w_status='Cancelled'`, guarded by `.eq('status','Accepted')`; open "Track Customer" map torn down | `SRS.md` §3.3 |
 | Mark arrived | Tap "Mark Arrived" | Opens the Arrival OTP modal only — no status transition occurs until OTP success | `SRS.md` §3.3 |
@@ -112,7 +112,7 @@ There is no build tool, package manifest, or dev-server requirement in the proje
 |---|---|---|---|
 | Admin login — active admin | Sign in with an email present in `admins` with `is_active:true` | Access granted to `admin.html` | `SRS.md` §3.10 |
 | Admin login — inactive/non-admin | Sign in with an email absent from `admins` or with `is_active:false` | Session signed out; "Access Denied" shown for 10 seconds, then the login form reappears; user is never redirected elsewhere | `API.md` §5, `SECURITY.md` §3.3 |
-| Admin portal not linked from other roles | Inspect customer/worker navigation for a link to `admin.html` | No such link exists (`PRD.md` §10, NFR 8) | `PRD.md` §10 |
+| Admin portal not linked from other roles | Inspect customer/professional navigation for a link to `admin.html` | No such link exists (`PRD.md` §10, NFR 8) | `PRD.md` §10 |
 | Campaign creation — valid | Fill title, service, price ≥0, visits ≥1, validity ≥1, start < end; submit | Row inserted into `campaigns` | `SRS.md` §3.10 |
 | Campaign creation — invalid date order | Set start date after end date | Inline `cfErr` validation blocks submission | `SRS.md` §3.10 |
 | Campaign delete | Delete an existing campaign | Browser `confirm()` dialog shown before deletion proceeds | `SRS.md` §3.10 |
@@ -122,20 +122,20 @@ There is no build tool, package manifest, or dev-server requirement in the proje
 
 | Test Case | Steps | Expected Result | Reference |
 |---|---|---|---|
-| Full happy-path lifecycle | Customer books → worker accepts → tracking activates → Arrival OTP verified → service performed → Completion OTP verified → QuickCoins credited → review prompted | Each transition matches `PRD.md` §14 exactly, in order, with no skipped state | `PRD.md` §14 |
-| No worker accepts in time | Broadcast a booking to an area with no available worker willing to accept within the window | `noAcceptModal` shown with "Try Again," re-invoking `initiateBooking()` | `SRS.md` §8 |
+| Full happy-path lifecycle | Customer books → professional accepts → tracking activates → Arrival OTP verified → service performed → Completion OTP verified → QuickCoins credited → review prompted | Each transition matches `PRD.md` §14 exactly, in order, with no skipped state | `PRD.md` §14 |
+| No professional accepts in time | Broadcast a booking to an area with no available professional willing to accept within the window | `noAcceptModal` shown with "Try Again," re-invoking `initiateBooking()` | `SRS.md` §8 |
 | Arrival window elapses | Let 15 minutes pass after broadcast without Arrival OTP verification | `notArrivedModal` offers Extend-5-min or Cancel; Cancel path calls `autoCancel`, which also sets `is_no_show:true` | `SRS.md` §8 |
 
 ### 3.6 Tracking
 
 | Test Case | Steps | Expected Result | Reference |
 |---|---|---|---|
-| Tracking map activation | Accept a booking | Both "Track Worker" (customer) and "Track Customer" (worker) maps activate | `PRD.md` §15 |
-| Marker movement without map recreation | Let the worker's GPS update several times during an active tracking session | Marker animates via `_animateMarkerTo` (eased `requestAnimationFrame`); route updates via `.setLatLngs()`; map/marker/route layer are never recreated | `SRS.md` §3.4 |
+| Tracking map activation | Accept a booking | Both "Track Professional" (customer) and "Track Customer" (professional) maps activate | `PRD.md` §15 |
+| Marker movement without map recreation | Let the professional's GPS update several times during an active tracking session | Marker animates via `_animateMarkerTo` (eased `requestAnimationFrame`); route updates via `.setLatLngs()`; map/marker/route layer are never recreated | `SRS.md` §3.4 |
 | Route/ETA fallback | Simulate a Geoapify routing failure mid-tracking | Previous route/ETA is retained on screen; no straight-line or dashed placeholder is drawn | `SRS.md` §3.4 |
-| Advance-booking reveal lock | Track a booking scheduled more than 10 minutes in the future | Worker identity/map locked behind a placeholder (`_showTrackingLockPlaceholder`) until the 10-minute mark | `SRS.md` §3.4 |
+| Advance-booking reveal lock | Track a booking scheduled more than 10 minutes in the future | Professional identity/map locked behind a placeholder (`_showTrackingLockPlaceholder`) until the 10-minute mark | `SRS.md` §3.4 |
 | Map teardown | Verify Arrival OTP, or cancel/complete a booking | `_destroyTrackingMap`/`_destroyCustomerTrackMap` called; in-flight marker animation frame cancelled | `SRS.md` §3.4 |
-| Building-name resolution | Complete a booking's pin selection | Reverse-geocoded name shown identically on both customer and worker dashboards, resolved once and never re-queried | `PRD.md` §15 |
+| Building-name resolution | Complete a booking's pin selection | Reverse-geocoded name shown identically on both customer and professional dashboards, resolved once and never re-queried | `PRD.md` §15 |
 
 ### 3.7 Wallet and QuickCoins
 
@@ -162,51 +162,51 @@ There is no build tool, package manifest, or dev-server requirement in the proje
 | Deselecting last negative/other tag | Select a negative tag, then deselect it, leaving only positive tags (or none) | Comment field hides again and any entered text is cleared | `SRS.md` §8A.1 |
 | Happy-face outcome modal | Submit a review with only positive tags (or no tags) | Animated happy-face SVG modal shown; "Continue" navigates to Home/Dashboard | `SRS.md` §8A.1 |
 | Sad-face outcome modal | Submit a review with at least one negative tag | Animated sad-face SVG modal shown; "Continue" navigates to Home/Dashboard | `SRS.md` §8A.1 |
-| Worker cannot see full review detail | As the reviewed worker, attempt to view rating/comment/negative tags anywhere in the worker app | Not shown anywhere; only an aggregated positive-tag count is visible, via `get_worker_positive_tags()` | `SECURITY.md` §10A |
+| Professional cannot see full review detail | As the reviewed professional, attempt to view rating/comment/negative tags anywhere in the professional app | Not shown anywhere; only an aggregated positive-tag count is visible, via `get_worker_positive_tags()` | `SECURITY.md` §10A |
 
-### 3.9 Worker Ban Escalation (Phase 8)
+### 3.9 Professional Ban Escalation (Phase 8)
 
 | Test Case | Steps | Expected Result | Reference |
 |---|---|---|---|
 | Ban action visibility — positive review | Open a review with no negative tags in the admin Reviews tab | No Ban button/action shown | `SRS.md` §8A.1 |
 | Ban action visibility — high rating | Open a 4- or 5-star review, even with a negative tag present | No Ban button/action shown | `SRS.md` §8A.1 |
-| Ban action visibility — already banned | Open any review for a worker currently under an active ban | "Banned" badge shown instead of a Ban button | `SRS.md` §8A.1 |
-| Ban duration suggestion — escalation | Ban the same worker three times in sequence | Suggested duration is 5 hours, then 1 day, then 5 days | `SRS.md` §8A.1 |
+| Ban action visibility — already banned | Open any review for a professional currently under an active ban | "Banned" badge shown instead of a Ban button | `SRS.md` §8A.1 |
+| Ban duration suggestion — escalation | Ban the same professional three times in sequence | Suggested duration is 5 hours, then 1 day, then 5 days | `SRS.md` §8A.1 |
 | Ban duration override | Change the suggested amount/unit before confirming | The overridden value, not the suggestion, is what gets applied | `SRS.md` §8A.1 |
 | Ban write actually persists | Confirm a ban, then independently query `workers.banned_until` directly (e.g. via SQL) | Value matches what was set in the UI — this specifically re-tests the previously-found silent-RLS-failure bug (`SECURITY.md` §3.4) | `CHANGELOG.md` Phase 8 |
 | Ban history recorded | Confirm a ban, then check `worker_bans` | A new row exists with matching `duration_label`/`banned_at`/`banned_until` | `DATABASE.md` §8.1 |
-| Real-time forced logout | With a worker actively logged in on a separate session, ban that worker from the admin panel | The worker's session is signed out within seconds, without the worker taking any action | `SRS.md` §8A.1 |
-| Forced-logout fallback | Simulate the Realtime channel not firing (e.g. by disabling the `workers` publication temporarily) | The worker is still signed out on the next poll-driven `loadBookings()` refresh | `SRS.md` §8A.1 |
-| Login blocked while banned | Log out a banned worker, then attempt to log back in before `banned_until` | Login is blocked; the exact unban date/time is shown | `SRS.md` §8A.1 |
+| Real-time forced logout | With a professional actively logged in on a separate session, ban that professional from the admin panel | The professional's session is signed out within seconds, without the professional taking any action | `SRS.md` §8A.1 |
+| Forced-logout fallback | Simulate the Realtime channel not firing (e.g. by disabling the `workers` publication temporarily) | The professional is still signed out on the next poll-driven `loadBookings()` refresh | `SRS.md` §8A.1 |
+| Login blocked while banned | Log out a banned professional, then attempt to log back in before `banned_until` | Login is blocked; the exact unban date/time is shown | `SRS.md` §8A.1 |
 | Login succeeds after ban expires | Attempt login after `banned_until` has passed | Login succeeds normally | `SRS.md` §8A.1 |
 
-### 3.10 Worker Verification (Phase 8)
+### 3.10 Professional Verification (Phase 8)
 
 | Test Case | Steps | Expected Result | Reference |
 |---|---|---|---|
-| Document view — signed URL | Click "View" on a worker's ID Document in the admin Workers tab | A real image renders (via a freshly generated signed URL), not a broken image | `SRS.md` §8A.2 |
-| Photo view — public URL | Click "View" on a worker's Photo | Renders directly from the stored public URL | `SRS.md` §8A.2 |
-| Approve worker | Click Approve on a pending/rejected worker | `workers.verification_status='approved'`; Actions cell shows no buttons, only the Verification column's "APPROVED" badge (no duplicate) | `SRS.md` §8A.2 |
-| Reject worker | Click Reject on a pending/approved worker | `workers.verification_status='rejected'`; Approve/Reject buttons remain visible (reversible) | `SRS.md` §8A.2 |
+| Document view — signed URL | Click "View" on a professional's ID Document in the admin Professionals tab | A real image renders (via a freshly generated signed URL), not a broken image | `SRS.md` §8A.2 |
+| Photo view — public URL | Click "View" on a professional's Photo | Renders directly from the stored public URL | `SRS.md` §8A.2 |
+| Approve professional | Click Approve on a pending/rejected professional | `workers.verification_status='approved'`; Actions cell shows no buttons, only the Verification column's "APPROVED" badge (no duplicate) | `SRS.md` §8A.2 |
+| Reject professional | Click Reject on a pending/approved professional | `workers.verification_status='rejected'`; Approve/Reject buttons remain visible (reversible) | `SRS.md` §8A.2 |
 
 ### 3.11 Positive Streak & Bonus (Phase 8)
 
 | Test Case | Steps | Expected Result | Reference |
 |---|---|---|---|
-| Streak increments | Submit five consecutive reviews for the same worker, all with no negative tags | `workers.positive_streak` reaches 5; a bonus is credited to `bonus_balance` and a `worker_bonuses` row is inserted on the 5th | `SRS.md` §8A.3 |
+| Streak increments | Submit five consecutive reviews for the same professional, all with no negative tags | `workers.positive_streak` reaches 5; a bonus is credited to `bonus_balance` and a `worker_bonuses` row is inserted on the 5th | `SRS.md` §8A.3 |
 | Streak resets | After building a streak, submit a review with a negative tag | `workers.positive_streak` resets to 0 | `SRS.md` §8A.3 |
 | Streak/bonus is trigger-only | Attempt to write `workers.positive_streak`/`bonus_balance` directly from a client session | Should not be reachable through any UI path — the client never issues this write; confirm via code inspection that no such call site exists | `SRS.md` §8A.3 |
 
-### 3.12 Admin Users/Workers Tabs and Realtime Sync (Phase 8)
+### 3.12 Admin Users/Professionals Tabs and Realtime Sync (Phase 8)
 
 | Test Case | Steps | Expected Result | Reference |
 |---|---|---|---|
 | Users tab loads | Open the admin Users tab with at least one customer present | Name, email, phone, saved address, QuickCoins balance, completed bookings shown | `PRD.md` §9.15.8 |
-| Workers tab loads | Open the admin Workers tab with at least one worker present | Skill, phone, area, radius, rating, streak, bonus, document/photo view buttons, verification status all shown | `PRD.md` §9.15.9 |
-| Workers tab ordering regression | Confirm the Workers tab does not silently fail with "No workers yet" despite workers existing | This specifically re-tests the previously-found bad `.order('created_at', ...)` bug, now fixed to order by `name` | `API.md` §5.1 |
+| Professionals tab loads | Open the admin Professionals tab with at least one professional present | Skill, phone, area, radius, rating, streak, bonus, document/photo view buttons, verification status all shown | `PRD.md` §9.15.9 |
+| Professionals tab ordering regression | Confirm the Professionals tab does not silently fail with "No professionals yet" despite professionals existing | This specifically re-tests the previously-found bad `.order('created_at', ...)` bug, now fixed to order by `name` | `API.md` §5.1 |
 | Realtime review sync | Submit a new review as a customer while the admin Reviews tab is open in another session | The new review appears without a manual refresh | `API.md` §9 |
 | Realtime user sync | Change a `users` row directly via SQL while the admin Users tab is open | The change appears without a manual refresh | `API.md` §9 |
-| Realtime worker sync | Change a `workers` row directly via SQL while the admin Workers/Reviews/Banned-Workers tabs are open | All three tabs reflect the change without a manual refresh | `API.md` §9 |
+| Realtime professional sync | Change a `workers` row directly via SQL while the admin Professionals/Reviews/Banned-Professionals tabs are open | All three tabs reflect the change without a manual refresh | `API.md` §9 |
 | TRUNCATE does not sync | `TRUNCATE` (not `DELETE`) a table with an open admin tab | The change is **not** reflected until the next poll tick or manual refresh — confirms the documented `TRUNCATE`-does-not-fire-`postgres_changes` limitation still applies | `DATABASE.md` §8 |
 
 ---
@@ -220,7 +220,7 @@ There is no build tool, package manifest, or dev-server requirement in the proje
 | Shared client instantiation | Load any page and inspect `window.sb` | A single canonical instance exists, declared once in `supabase.js`, used identically by every page | `CHANGELOG.md` Phase 5.3.2 |
 | Session persistence across reload | Log in, reload the page | Session persists (`persistSession:true`); the user remains authenticated without re-entering credentials | `API.md` §1.4 |
 | Auto token refresh | Remain logged in past the Auth token's expiry window | `autoRefreshToken:true` renews the session transparently | `API.md` §1.4 |
-| Storage bucket write | Complete worker signup with valid files | Files land in `worker-documents`/`worker-photos` with randomized filenames; public URLs are retrievable without authentication | `SECURITY.md` §6.2 |
+| Storage bucket write | Complete professional signup with valid files | Files land in `worker-documents`/`worker-photos` with randomized filenames; public URLs are retrievable without authentication | `SECURITY.md` §6.2 |
 
 ### 4.2 Geoapify
 
@@ -229,14 +229,14 @@ There is no build tool, package manifest, or dev-server requirement in the proje
 | Reverse geocoding — field preference | Reverse-geocode a coordinate with multiple available name fields | Resolution order `building → amenity → name → housename → street → suburb → locality` is respected | `CHANGELOG.md` Phase 4.7 |
 | Reverse geocoding — no match | Reverse-geocode a coordinate with none of the above fields present | Returns `null`; UI handles the absence without error | `API.md` §7 |
 | Routing throttle | Trigger multiple routing calls for the same booking within 8 seconds | Only the first call fires; subsequent calls within the window are skipped | `SRS.md` §3.4 |
-| Routing distance skip | Move the simulated worker location less than 10 meters between ticks | Routing call is skipped even if the 8-second throttle window has elapsed | `SRS.md` §3.4 |
+| Routing distance skip | Move the simulated professional location less than 10 meters between ticks | Routing call is skipped even if the 8-second throttle window has elapsed | `SRS.md` §3.4 |
 | Routing failure | Force a Geoapify routing failure (invalid key or network block) | Returns `null`; caller keeps the previous route on screen | `SRS.md` §3.4 |
 
 ### 4.3 Realtime
 
 | Test Case | Steps | Expected Result | Reference |
 |---|---|---|---|
-| Worker booking-list live sync | While a worker dashboard is open, insert/update/delete a row on `bookings` with that worker's `worker_id` from another session | `worker-bookings-<worker_id>` channel fires; `loadBookings()` re-runs | `DATABASE.md` §8 |
+| Professional booking-list live sync | While a professional dashboard is open, insert/update/delete a row on `bookings` with that professional's `worker_id` from another session | `worker-bookings-<worker_id>` channel fires; `loadBookings()` re-runs | `DATABASE.md` §8 |
 | Polling fallback | Simulate a scenario where `postgres_changes` does not fire (e.g. a bulk reset/TRUNCATE) | The 5-second polling fallback on the same page still picks up the change | `CHANGELOG.md`, `DATABASE.md` §8 |
 | Customer app has no Realtime channel | Inspect `index.js` for any `channel(`/`postgres_changes` call while a booking updates | None exists; the customer app relies entirely on interval-based polling | `DATABASE.md` §8, `ARCHITECTURE.md` §8 |
 
@@ -244,9 +244,9 @@ There is no build tool, package manifest, or dev-server requirement in the proje
 
 | Test Case | Steps | Expected Result | Reference |
 |---|---|---|---|
-| Continuous worker publishing | Move a worker's simulated location while a booking is `Accepted`/`Worker on Way`/`Arrived` | `navigator.geolocation.watchPosition` fires; `worker_live_lat/lng/last_seen` updated | `SRS.md` §3.4 |
-| Batched writes | Have a worker with two or more simultaneously active bookings | A single position fix produces one `.in('id', activeIds)` write covering all active bookings, not one write per booking | `DATABASE.md` §2, §10 |
-| Permission denial | Deny location permission on the worker's device | Watcher stops; toast shown ("Enable location permission"); no server-side/SMS fallback occurs | `SRS.md` §8 |
+| Continuous professional publishing | Move a professional's simulated location while a booking is `Accepted`/`Worker on Way`/`Arrived` | `navigator.geolocation.watchPosition` fires; `worker_live_lat/lng/last_seen` updated | `SRS.md` §3.4 |
+| Batched writes | Have a professional with two or more simultaneously active bookings | A single position fix produces one `.in('id', activeIds)` write covering all active bookings, not one write per booking | `DATABASE.md` §2, §10 |
+| Permission denial | Deny location permission on the professional's device | Watcher stops; toast shown ("Enable location permission"); no server-side/SMS fallback occurs | `SRS.md` §8 |
 | Transient GPS error | Simulate a non-permission GPS error (e.g. timeout) | Automatic retry after 5 seconds via `_scheduleGPSRetry()` | `SRS.md` §8 |
 | One-shot customer capture | Trigger customer pin resolution with location permission granted | `navigator.geolocation.getCurrentPosition` fires once, feeding `_resolveCustomerPin()`; no continuous watcher is started | `API.md` §8 |
 
@@ -281,7 +281,7 @@ There is no build tool, package manifest, or dev-server requirement in the proje
 | Test Case | Steps | Expected Result | Reference |
 |---|---|---|---|
 | HTML escaping of user content | Submit a review comment or campaign field containing `<script>`/HTML tags | Content is escaped via `escHtml()` before rendering, not executed as markup | `CHANGELOG.md` Phase 5.3.4 |
-| Worker radius bounds | Edit a worker profile's radius to 0 or 150 | Rejected client-side (valid range is 1–100 on profile edit; > 0 required at signup) | `SRS.md` §3.15, §3.1 |
+| Professional radius bounds | Edit a professional profile's radius to 0 or 150 | Rejected client-side (valid range is 1–100 on profile edit; > 0 required at signup) | `SRS.md` §3.15, §3.1 |
 
 ---
 
@@ -311,8 +311,8 @@ All entries below are traced to `API.md` §10 and `SRS.md` §8, which independen
 
 | Scenario | Expected Behavior |
 |---|---|
-| `workers` row insert fails after signup uploads succeed | Just-created worker row deleted; auth session signed back out; no orphaned account |
-| Storage upload failure during worker signup | Caught, logged via `console.error`, **and** surfaced via a blocking `alert()` — the sole documented deviation from the toast/banner convention |
+| `workers` row insert fails after signup uploads succeed | Just-created professional row deleted; auth session signed back out; no orphaned account |
+| Storage upload failure during professional signup | Caught, logged via `console.error`, **and** surfaced via a blocking `alert()` — the sole documented deviation from the toast/banner convention |
 | Review `reviews` insert failure | Not checked by the client — the insert's result/error is silently ignored (a documented gap, not a handled case) |
 | Achievement insert unique-violation (23505) under concurrent Realtime triggers | Silently ignored/tolerated; other insert errors are logged but do not block rendering |
 
@@ -330,7 +330,7 @@ All entries below are traced to `API.md` §10 and `SRS.md` §8, which independen
 | GPay QR countdown (5 min) expires | "Payment Session Expired" message shown in place of the QR; no automatic retry |
 | Pass-purchase countdown (2 min) expires | `_onPaymentExpired()`: "Payment Session Expired — Please try again."; countdown row hidden |
 | Payment polling exceeds `POLL_MAX` (60 × 3s) | "Payment timeout. Try again or choose Cash." toast; polling stopped; pending booking state is **not** auto-cancelled |
-| No worker accepts within the broadcast window | `noAcceptModal` with "Try Again," re-invoking `initiateBooking()` |
+| No professional accepts within the broadcast window | `noAcceptModal` with "Try Again," re-invoking `initiateBooking()` |
 | Incorrect Arrival/Completion OTP (either path) | Toast rejection; unlimited re-entry, no attempt counter or lockout |
 | Arrival window (15 min) elapses with no Arrival OTP success | `notArrivedModal` offers Extend-5-min or Cancel; Cancel triggers `autoCancel` and sets `is_no_show:true` |
 | Service Pass activation fails after simulated payment success | "Could not activate pass — please contact support" toast |
@@ -350,28 +350,28 @@ The following are step-by-step end-to-end procedures for the four major workflow
 5. Confirm or place the map pin.
 6. Review the displayed price; confirm it equals `base + clamp(round(base*0.10), 20, 50)`.
 7. Choose Cash payment; confirm the flow proceeds directly to broadcast with a note that work begins only after Arrival OTP.
-8. As a worker (separate session), accept the booking; confirm `worker_earning = round(price*0.80)` and the worker is set unavailable.
-9. As the customer, confirm the "Track Worker" map appears showing a live route and ETA.
-10. As the worker, arrive and enter the Arrival OTP shown to the customer; confirm the tracking map collapses and a Completion OTP is generated.
-11. As the worker, enter the Completion OTP; confirm the worker is automatically set available again.
+8. As a professional (separate session), accept the booking; confirm `worker_earning = round(price*0.80)` and the professional is set unavailable.
+9. As the customer, confirm the "Track Professional" map appears showing a live route and ETA.
+10. As the professional, arrive and enter the Arrival OTP shown to the customer; confirm the tracking map collapses and a Completion OTP is generated.
+11. As the professional, enter the Completion OTP; confirm the professional is automatically set available again.
 12. As the customer, confirm QuickCoins are credited (`round(base_price*0.05)`) with the reward modal shown, and the review prompt appears.
 13. Submit a star rating and comment; confirm the `reviews` row and `bookings.rated` update both occur.
 
-### 7.2 Worker: Signup Through First Completed Job
+### 7.2 Professional: Signup Through First Completed Job
 
-1. Complete worker signup with a valid ID document and profile photo; confirm both Storage uploads succeed and the `workers` row is created with `is_available:false`.
+1. Complete professional signup with a valid ID document and profile photo; confirm both Storage uploads succeed and the `workers` row is created with `is_available:false`.
 2. Log in; confirm no verification gate blocks dashboard access despite no manual verification having occurred.
 3. Toggle availability on.
 4. Wait for or trigger a compatible customer booking; confirm the job appears in the Pending tab.
-5. Accept the job; confirm the race guard behavior if a second simulated worker attempts to accept the same job concurrently.
+5. Accept the job; confirm the race guard behavior if a second simulated professional attempts to accept the same job concurrently.
 6. Progress through Arrival OTP and Completion OTP entry as in Section 7.1, steps 10–11.
-7. Confirm the worker's earnings, acceptance rate, and rank badge update on the dashboard after completion.
+7. Confirm the professional's earnings, acceptance rate, and rank badge update on the dashboard after completion.
 8. Confirm any newly qualifying achievement unlocks and displays the popup after the configured 3-second delay.
 
 ### 7.3 Admin: Campaign Lifecycle
 
 1. Log in with an `admins.is_active:true` account; confirm access.
-2. Attempt login with a non-admin or inactive-admin account in a separate session; confirm "Access Denied" behavior and that the customer/worker apps carry no link to `admin.html`.
+2. Attempt login with a non-admin or inactive-admin account in a separate session; confirm "Access Denied" behavior and that the customer/professional apps carry no link to `admin.html`.
 3. Create a new campaign with valid title/service/price/visits/validity/date range; confirm it saves and appears in the campaign list.
 4. As a customer, confirm the new campaign surfaces via the once-per-login popup (if highest priority) and on the Offers page.
 5. Purchase a pass as a customer; confirm the simulated 10-second payment auto-succeeds and the pass appears on "My Passes."
@@ -384,8 +384,8 @@ The following are step-by-step end-to-end procedures for the four major workflow
 1. Set the test environment's clock (or wait) to fall within 20:30–08:30 IST.
 2. Load the customer home page; confirm only Electrician and Plumber categories are shown.
 3. Confirm the booking time field is hidden and forced to "now."
-4. Initiate a booking; confirm only workers with `emergency_available===true` are eligible and the price reflects the 1.5× multiplier.
-5. As a worker, confirm the emergency toggle on the dashboard independently controls `emergency_available` regardless of the sign-up-time preference.
+4. Initiate a booking; confirm only professionals with `emergency_available===true` are eligible and the price reflects the 1.5× multiplier.
+5. As a professional, confirm the emergency toggle on the dashboard independently controls `emergency_available` regardless of the sign-up-time preference.
 
 ---
 
@@ -397,7 +397,7 @@ The following workflows are critical-path and should be re-verified after any ch
 |---|---|---|
 | Login/signup/logout for all three roles | Every other workflow depends on a working session | Any change to `auth.js` or `supabase.js` |
 | Full booking lifecycle (Section 7.1) | The core product transaction | Any change to `index.js` or `dashboard.js` |
-| Dual OTP verification paths (customer-side and worker-side) | Two independently coded implementations with different side effects; a fix in one does not imply a fix in the other | Any change to OTP logic in either `index.js` or `dashboard.js` |
+| Dual OTP verification paths (customer-side and professional-side) | Two independently coded implementations with different side effects; a fix in one does not imply a fix in the other | Any change to OTP logic in either `index.js` or `dashboard.js` |
 | Status-transition race guards (`.eq()`/`.in()` conditions) | Prevents double-accept, double-complete, and other concurrency bugs | Any change to a `bookings.status`/`w_status` write |
 | GPS write batching and tracking teardown | Prevents excessive writes and memory leaks from orphaned map instances | Any change to `maps.js` or `_startGPS` |
 | QuickCoins/Service-Pass "first-sighting baseline" pattern | Prevents double-crediting/double-consumption on refresh or overlapping polls | Any change to `checkQuickCoinsRewards` or `checkServicePassConsumption` |
@@ -412,10 +412,10 @@ Only items already named as planned in `PRD.md` (§21), `CHANGELOG.md`'s "Next P
 
 - **Automated test suite and CI pipeline.** No test framework, test file, or CI configuration exists anywhere in the project (`CHANGELOG.md`, `DEPLOYMENT.md` §9). This is listed as explicit future work in `CHANGELOG.md`'s "Next Planned Release."
 - **Security testing.** Penetration testing and RLS-policy verification are needed to resolve the unverifiable Row Level Security status documented throughout `SECURITY.md` (Sections 4.1, 10). No such testing has occurred against this codebase as far as the inspected source shows.
-- **Load/concurrency testing.** `PRD.md` §21.2 lists "support for concurrent users at production scale" as Phase 6 work; no load-testing procedure or tooling exists today, and client-side aggregation (admin analytics, worker stats) has not been tested against production-scale data volumes (`DATABASE.md` §10).
+- **Load/concurrency testing.** `PRD.md` §21.2 lists "support for concurrent users at production scale" as Phase 6 work; no load-testing procedure or tooling exists today, and client-side aggregation (admin analytics, professional stats) has not been tested against production-scale data volumes (`DATABASE.md` §10).
 - **Performance testing.** No performance benchmark, Lighthouse baseline, or load-time budget is defined anywhere in the inspected source.
 - **Unified OTP path testing.** Once the two OTP verification paths are consolidated (`SRS.md` §9, `CHANGELOG.md` Next Planned Release), the dual-path regression case in Section 8 should be retired and replaced with a single-path test.
-- **Backend-hardening regression suite (Phase 6, `PRD.md` §21.2).** Once booking-price, worker-assignment, and QuickCoins-crediting logic move server-side, this document's Section 3.2/3.7 test cases will need to be re-authored against the new server-side behavior rather than the current client-side implementation.
+- **Backend-hardening regression suite (Phase 6, `PRD.md` §21.2).** Once booking-price, professional-assignment, and QuickCoins-crediting logic move server-side, this document's Section 3.2/3.7 test cases will need to be re-authored against the new server-side behavior rather than the current client-side implementation.
 
 ---
 
