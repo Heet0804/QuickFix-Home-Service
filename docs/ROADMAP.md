@@ -12,14 +12,14 @@
 ## 1. Project Overview
 
 ### 1.1 Purpose
-QuickFix is an on-demand home-services marketplace connecting customers with verified local workers (electricians, plumbers, carpenters, painters, cleaners, AC repair technicians, masons, pest-control workers, and househelp) for booking, live tracking, and payment of home-repair and household services, per `PRD.md`'s stated product definition.
+QuickFix is an on-demand home-services marketplace connecting customers with verified local professionals (electricians, plumbers, carpenters, painters, cleaners, AC repair technicians, masons, pest-control professionals, and househelp) for booking, live tracking, and payment of home-repair and household services, per `PRD.md`'s stated product definition.
 
 ### 1.2 Vision
-Per `PRD.md`, QuickFix's stated intent is to replace the informal, phone-call-based process of finding and booking local service workers with a structured, trackable, ratings-backed digital booking flow — covering discovery, booking, live GPS tracking, OTP-verified service delivery, payment, and post-service review, with a loyalty layer (QuickCoins) and a promotional-offer system (Service Pass campaigns) layered on top.
+Per `PRD.md`, QuickFix's stated intent is to replace the informal, phone-call-based process of finding and booking local service professionals with a structured, trackable, ratings-backed digital booking flow — covering discovery, booking, live GPS tracking, OTP-verified service delivery, payment, and post-service review, with a loyalty layer (QuickCoins) and a promotional-offer system (Service Pass campaigns) layered on top.
 
 ### 1.3 Long-Term Goals
 As stated in `PRD.md` §21/§24 and reflected in the phase structure below, the long-term goals beyond the currently shipped feature set are:
-- Move business-rule enforcement (booking price, worker assignment, QuickCoins crediting) from the browser into a hardened, RLS-protected server-side layer (Phase 6).
+- Move business-rule enforcement (booking price, professional assignment, QuickCoins crediting) from the browser into a hardened, RLS-protected server-side layer (Phase 6).
 - Mature the QuickCoins loyalty system into a full redemption ecosystem, not just an earning mechanism (Phase 7).
 - Close the current gaps in testing, environment configuration, monitoring, and backup/recovery identified in `DEPLOYMENT.md`, ahead of a genuine production launch.
 
@@ -35,8 +35,8 @@ This document does not add any long-term goal beyond what these prior documents 
 The earliest phase-numbered comments found anywhere in the codebase begin at "Phase 4.5" and "Phase 4.7" (both in `maps.js`), which by their own numbering imply that phases 1 through 4 existed and were completed beforehand. No comment, file header, or document anywhere in the inspected project independently names or describes the content of Phases 1–4 — this document does not invent a breakdown of what each of those earlier phases specifically contained. What can be stated with confidence is that, by the time Phase 4.5 was reached, the following was already fully built and working, since Phase 4.5/4.7 explicitly refine it rather than introduce it for the first time:
 
 - The full six-page structure (`landing.html`, `auth.html`, `index.html`, `worker-dashboard.html`, `worker-profile.html`, `admin.html`).
-- Customer authentication, booking creation, and the worker-assignment algorithm.
-- Worker authentication, job-acceptance lifecycle, and OTP verification.
+- Customer authentication, booking creation, and the professional-assignment algorithm.
+- Professional authentication, job-acceptance lifecycle, and OTP verification.
 - Admin campaign management.
 - A first working version of GPS tracking and map rendering (since Phase 4.5/4.7 explicitly improve, rather than introduce, this feature).
 
@@ -62,14 +62,14 @@ The earliest phase-numbered comments found anywhere in the codebase begin at "Ph
 
 **Current project status at the end of Phase 5.3.** A fully modularized shared-script layer (`js/common/*.js`) sits beneath six independent, feature-complete page applications, with the specific, audited duplication cases named above resolved and every other page-specific difference explicitly left untouched, per each file's own header commentary.
 
-### 2.4 Structured Reviews, Worker Discipline & Verification (Phase 8)
+### 2.4 Structured Reviews, Professional Discipline & Verification (Phase 8)
 **Status.** Completed, pending manual sign-off against the updated `docs/VERIFICATION.md`.
 
-Delivered as a sequence of incremental feature requests within a single working session, later consolidated: pill-tag review feedback replacing the open comment box; an escalating worker-ban system with real-time forced logout and a permanent ban-history table; an admin worker-verification workflow (ID document + photo review, signed-URL retrieval for the private `worker-documents` bucket); a server-side positive-streak bonus trigger; and three new admin tabs (Users, Workers, Banned Workers) backed by new Realtime channels for live dashboard sync.
+Delivered as a sequence of incremental feature requests within a single working session, later consolidated: pill-tag review feedback replacing the open comment box; an escalating worker-ban system with real-time forced logout and a permanent ban-history table; an admin worker-verification workflow (ID document + photo review, signed-URL retrieval for the private `worker-documents` bucket); a server-side positive-streak bonus trigger; and three new admin tabs (Users, Professionals, Banned Professionals) backed by new Realtime channels for live dashboard sync.
 
-**Objectives.** Give the platform a structured, actionable feedback loop from customer reviews through to worker consequences (bans) and rewards (streak bonuses), and close the admin portal's remaining blind spots (no visibility into individual customers or workers, no verification workflow, no ban mechanism).
+**Objectives.** Give the platform a structured, actionable feedback loop from customer reviews through to professional consequences (bans) and rewards (streak bonuses), and close the admin portal's remaining blind spots (no visibility into individual customers or professionals, no verification workflow, no ban mechanism).
 
-**Major achievements.** Found and fixed a genuine silent-failure bug (an admin ban write that reported success while being fully blocked by RLS), a query bug (ordering by a non-existent column breaking the entire Workers tab), and a storage-access misunderstanding (a private bucket's public-URL string can never resolve, regardless of `storage.objects` RLS) — all three fixed within this phase and documented in `CHANGELOG.md`.
+**Major achievements.** Found and fixed a genuine silent-failure bug (an admin ban write that reported success while being fully blocked by RLS), a query bug (ordering by a non-existent column breaking the entire Professionals tab), and a storage-access misunderstanding (a private bucket's public-URL string can never resolve, regardless of `storage.objects` RLS) — all three fixed within this phase and documented in `CHANGELOG.md`.
 
 **Important architectural decisions.** Ban/verification/streak state is split across `workers` (current state) and two new append-only tables, `worker_bans` and `worker_bonuses` (historical record) — deliberately not consolidated into `workers` alone, so history survives a ban expiring or being overridden. Streak/bonus crediting was implemented as a Postgres trigger rather than client logic, making it the first (and only) Phase 8 addition that is server-authoritative by construction.
 
@@ -114,7 +114,7 @@ Only work explicitly named as planned in `PRD.md` (§21, §24), `SRS.md` §9, or
 ### 4.3 Code Quality Improvements
 Per `SRS.md`'s own audit findings and `ARCHITECTURE.md` §16:
 - Consolidating the two independently coded OTP-verification paths (`index.js`'s `triggerOtp`/`verifyOtp` and `dashboard.js`'s `submitArrivalOtp`/`submitCompletionOtp`) into one authoritative implementation.
-- Fully wiring `index.js: submitReg()`'s collected in-app worker-registration fields into a persisted profile, rather than the current four-column `profiles` insert (`DATABASE.md` §4.10).
+- Fully wiring `index.js: submitReg()`'s collected in-app professional-registration fields into a persisted profile, rather than the current four-column `profiles` insert (`DATABASE.md` §4.10).
 - Reducing the four independent mobile-nav toggle implementations (`index.js`, `nav.js`, `landing.js`, `admin.js`) where feasible.
 
 ### 4.4 GitHub Professionalization
@@ -131,7 +131,7 @@ Per `DEPLOYMENT.md` §3, §9, §10:
 - Introducing cache-busting for deployed `js/*`/`css/*` assets, and application-level error/uptime monitoring.
 
 ### 4.7 Future Scalability (Phase 6 / Phase 7, per `PRD.md`)
-- **Phase 6 (`PRD.md` §21.2).** Strengthen Supabase Row Level Security policies; move booking validation, worker-assignment logic, and QuickCoins crediting out of the browser and into RLS-protected server-side functions; secure API key handling; optimize database queries; support multiple concurrent users at production scale.
+- **Phase 6 (`PRD.md` §21.2).** Strengthen Supabase Row Level Security policies; move booking validation, professional-assignment logic, and QuickCoins crediting out of the browser and into RLS-protected server-side functions; secure API key handling; optimize database queries; support multiple concurrent users at production scale.
 - **Phase 7 (`PRD.md` §21.3).** Introduce a write path for `users.quickcoins_redeemed` (currently read-only per `DATABASE.md` §4.1), and expand the campaign/offer tooling.
 
 ---
@@ -139,7 +139,7 @@ Per `DEPLOYMENT.md` §3, §9, §10:
 ## 5. Milestones
 
 ### 5.1 Milestones Already Achieved
-- A complete, working six-page application covering customer, worker, and admin roles, with no custom backend server, entirely on Supabase (Section 2.1).
+- A complete, working six-page application covering customer, professional, and admin roles, with no custom backend server, entirely on Supabase (Section 2.1).
 - Live GPS tracking with road-accurate routing via Geoapify, replacing an earlier OSRM-based approach (Phase 4.7).
 - A fully modularized shared-script layer, with every genuinely duplicated piece of logic identified and consolidated across six sub-phases (Phase 5.3.2–5.3.7.1), each with its own documented before/after audit trail in the code's own comments.
 - A complete, six-document, self-audited documentation set (`SRS.md`, `ARCHITECTURE.md`, `DATABASE.md`, `API.md`, `DEPLOYMENT.md`, and this `ROADMAP.md`), each cross-referenced against the others with zero unresolved contradictions carried forward.
@@ -204,14 +204,14 @@ GitHub professionalization (Section 4.4), deployment improvements (Section 4.6),
 
 | Risk | Category | Description | Mitigation Strategy |
 |---|---|---|---|
-| Client-side business-rule enforcement | Current | Booking price, worker assignment, and QuickCoins crediting are all computed and written directly from the browser, with RLS enforcement unverifiable from client code (`DATABASE.md` §9) | Phase 6's planned server-side relocation (Section 4.7); until then, this is an accepted, explicitly-flagged risk, not a hidden one |
+| Client-side business-rule enforcement | Current | Booking price, professional assignment, and QuickCoins crediting are all computed and written directly from the browser, with RLS enforcement unverifiable from client code (`DATABASE.md` §9) | Phase 6's planned server-side relocation (Section 4.7); until then, this is an accepted, explicitly-flagged risk, not a hidden one |
 | No automated testing or CI | Current | Any code change (including the Phase 5.3.x consolidation already completed) carries regression risk with no automated safety net | Section 4.5's planned test-suite introduction; in the interim, manual verification remains the only safeguard |
 | Hardcoded, non-rotatable configuration | Current | `SUPABASE_URL`, `SUPABASE_KEY`, and `GEOAPIFY_API_KEY` are plaintext constants in committed files, requiring a direct file edit and redeploy to rotate (`DEPLOYMENT.md` §3) | Section 4.6's planned environment-variable system |
-| Ungoverned identity-document storage | Current | Worker ID documents/photos have no defined retention, encryption-at-rest, or deletion policy (`PRD.md` §22A.5, `DEPLOYMENT.md` §9) | Named as an open compliance item to be resolved before production launch; no interim mitigation exists in the current code |
+| Ungoverned identity-document storage | Current | Professional ID documents/photos have no defined retention, encryption-at-rest, or deletion policy (`PRD.md` §22A.5, `DEPLOYMENT.md` §9) | Named as an open compliance item to be resolved before production launch; no interim mitigation exists in the current code |
 | No backup/recovery procedure | Current | No project-specific backup schedule or restore runbook exists beyond whatever Supabase's own platform tier provides by default (`DEPLOYMENT.md` §10) | Section 4.6's planned backup/recovery definition |
 | PRD/implementation discrepancy (Firebase vs. Supabase Realtime) | Current, documentation-only | `PRD.md` attributes real-time sync to Firebase Realtime Database; the codebase uses only Supabase Realtime; already flagged consistently across `SRS.md`, `ARCHITECTURE.md`, `DATABASE.md`, `API.md` | Requires a product-level decision to correct `PRD.md` itself; this document does not resolve it, only carries the flag forward |
 | Dual, divergent OTP-verification code paths | Current | `index.js` and `dashboard.js` each independently implement OTP verification with different side effects (`ARCHITECTURE.md` §16) | Section 4.3's planned consolidation into one authoritative path |
-| Client-side aggregation cost at scale | Future | Admin analytics and most worker performance figures are computed by iterating full row sets loaded into the browser; this will degrade as `bookings`/`campaigns`/`user_passes` volume grows (`DATABASE.md` §10) | Phase 6's planned query-optimization work; no interim mitigation exists today |
+| Client-side aggregation cost at scale | Future | Admin analytics and most professional performance figures are computed by iterating full row sets loaded into the browser; this will degrade as `bookings`/`campaigns`/`user_passes` volume grows (`DATABASE.md` §10) | Phase 6's planned query-optimization work; no interim mitigation exists today |
 | No cache-busting on deployed assets | Future | A CDN/browser cache with a long TTL could serve a stale script after a deployment update, since no content-hashed filenames exist (`DEPLOYMENT.md` §5) | Section 4.6's planned deployment-improvement work |
 
 ---
@@ -220,7 +220,7 @@ GitHub professionalization (Section 4.4), deployment improvements (Section 4.6),
 
 ### 8.1 What Defines Project Completion
 Based on the phase structure established in `PRD.md` and reflected throughout this documentation set, project completion is not a single defined milestone in any inspected source — `PRD.md` frames Phase 6 and Phase 7 as ongoing hardening/expansion efforts rather than naming a final "done" state. This document does not invent a completion criterion that the source material does not state. What can be said with evidence:
-- The currently shipped feature set (Sections 2.1–2.2) constitutes a functionally complete marketplace application covering the full customer/worker/admin lifecycle, per `SRS.md`'s functional-requirements coverage.
+- The currently shipped feature set (Sections 2.1–2.2) constitutes a functionally complete marketplace application covering the full customer/professional/admin lifecycle, per `SRS.md`'s functional-requirements coverage.
 - The documentation set (Section 2.3) is complete for the six files explicitly requested in this conversation.
 
 ### 8.2 Quality Goals
@@ -245,7 +245,7 @@ Consolidated from `PRD.md` §21/§24, `SRS.md` §9, `DATABASE.md` §11, and `API
 | Real payment gateway integration, replacing the simulated GPay QR/polling flow | `SRS.md` §9 |
 | Functional Google/Phone-OTP social sign-in (currently "coming soon" toasts only) | `SRS.md` §9 |
 | Unified OTP verification path | `SRS.md` §9 |
-| In-app worker-registration persistence completion | `SRS.md` §9 |
+| In-app professional-registration persistence completion | `SRS.md` §9 |
 | Government ID data-handling (retention/encryption/deletion) policy | `PRD.md` §22A.5 |
 | Authoritative SQL schema/migration generation | `DATABASE.md` §11 |
 | Environment-variable/build-time configuration system; server-side Geoapify proxy; backup/recovery procedure; deployment cache-busting; monitoring | `DEPLOYMENT.md` §9–§10 |
