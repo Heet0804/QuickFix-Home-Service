@@ -10,7 +10,7 @@ This changelog follows the [Keep a Changelog](https://keepachangelog.com/) forma
 | Field | Detail |
 |---|---|
 | Project Name | QuickFix |
-| Purpose | An on-demand home-services marketplace connecting customers with verified local workers (electrician, plumber, carpenter, painter, cleaner, AC repair, mason, pest control, househelp) for booking, live GPS tracking, OTP-verified service delivery, payment, and post-service review, per `docs/PRD.md` |
+| Purpose | An on-demand home-services marketplace connecting customers with verified local professionals (electrician, plumber, carpenter, painter, cleaner, AC repair, mason, pest control, househelp) for booking, live GPS tracking, OTP-verified service delivery, payment, and post-service review, per `docs/PRD.md` |
 | Current Version | **Phase 5.4 — Documentation** (in progress; see `docs/ROADMAP.md` §3). No numbered application release exists beyond the phase-labeled milestones below. |
 
 ---
@@ -26,8 +26,8 @@ No phase-numbered comment names this work directly; it is inferred as already co
 ### Added
 - Six-page application structure: `landing.html`, `auth.html`, `index.html`, `worker-dashboard.html`, `worker-profile.html`, `admin.html`.
 - Customer authentication and booking creation flow.
-- Worker authentication, job-acceptance lifecycle (Pending → Accepted → Arrived → Completed), and Arrival/Completion OTP verification.
-- Client-side worker-assignment algorithm (area/skill/radius/Haversine-distance eligibility).
+- Professional authentication, job-acceptance lifecycle (Pending → Accepted → Arrived → Completed), and Arrival/Completion OTP verification.
+- Client-side professional-assignment algorithm (area/skill/radius/Haversine-distance eligibility).
 - Admin campaign management (Create/Edit/Delete Service Pass campaigns).
 - A first working version of GPS-based live tracking and map rendering.
 - Supabase as the sole backend: Auth, Postgres, Storage (`worker-documents`, `worker-photos` buckets).
@@ -49,7 +49,7 @@ No phase-numbered comment names this work directly; it is inferred as already co
 ## [Phase 4.7] — Geoapify Routing and Reverse Geocoding
 
 ### Changed
-- Replaced OSRM with the **Geoapify Routing API** for road-following routes between worker and customer during live tracking.
+- Replaced OSRM with the **Geoapify Routing API** for road-following routes between professional and customer during live tracking.
 
 ### Added
 - **Geoapify Reverse Geocoding** — resolves a pinned or destination coordinate to a human-readable building/society name, with a defined field-preference order (`building` → `amenity` → `name` → `housename` → `street` → `suburb` → `locality`).
@@ -131,7 +131,7 @@ No phase-numbered comment names this work directly; it is inferred as already co
 
 # Current Release
 
-The project's current state, as of Phase 5.4, is a **functionally complete, six-page marketplace application** — customer booking, worker job management, and admin campaign oversight are all fully implemented and cross-verified against a now-complete, self-audited six-document documentation set (SRS, Architecture, Database, API, Deployment, Roadmap). The application runs entirely client-side against a Supabase backend, with no custom application server. Known, explicitly documented gaps carried into this release include: unverifiable Row Level Security enforcement, plaintext client-side API keys, no automated test suite or CI pipeline, no backup/recovery procedure, and two independently coded OTP-verification paths with differing side effects. Per `docs/ROADMAP.md` §8.3, the project is **not yet production-ready** against its own documented production checklist.
+The project's current state, as of Phase 5.4, is a **functionally complete, six-page marketplace application** — customer booking, professional job management, and admin campaign oversight are all fully implemented and cross-verified against a now-complete, self-audited six-document documentation set (SRS, Architecture, Database, API, Deployment, Roadmap). The application runs entirely client-side against a Supabase backend, with no custom application server. Known, explicitly documented gaps carried into this release include: unverifiable Row Level Security enforcement, plaintext client-side API keys, no automated test suite or CI pipeline, no backup/recovery procedure, and two independently coded OTP-verification paths with differing side effects. Per `docs/ROADMAP.md` §8.3, the project is **not yet production-ready** against its own documented production checklist.
 
 ---
 
@@ -141,8 +141,8 @@ Per `docs/ROADMAP.md` §4 and §9, the next planned work is:
 
 - **Remaining Phase 5.4 work** — authoring `docs/SECURITY.md`.
 - **SQL schema and migration generation** — an authoritative, provisionable database script, since none currently exists.
-- **Phase 6 — Backend Hardening** (`PRD.md` §21.2) — Row Level Security policy hardening; relocating booking-price, worker-assignment, and QuickCoins-crediting logic server-side; secured API key handling; database query optimization; support for concurrent users at production scale.
-- **Code-quality work** — consolidating the dual OTP-verification paths; completing in-app worker-registration persistence; reducing the remaining duplicate mobile-nav implementations.
+- **Phase 6 — Backend Hardening** (`PRD.md` §21.2) — Row Level Security policy hardening; relocating booking-price, professional-assignment, and QuickCoins-crediting logic server-side; secured API key handling; database query optimization; support for concurrent users at production scale.
+- **Code-quality work** — consolidating the dual OTP-verification paths; completing in-app professional-registration persistence; reducing the remaining duplicate mobile-nav implementations.
 - **Testing and CI** — introducing an automated test suite and a CI pipeline, neither of which currently exists.
 - **Deployment improvements** — an environment-variable/build-time configuration system, a server-side Geoapify proxy, deployment cache-busting, and a defined backup/recovery procedure.
 - **Phase 7 — QuickCoins Ecosystem** (`PRD.md` §21.3) — a redemption write path for `users.quickcoins_redeemed` and expanded campaign/offer tooling.
@@ -189,40 +189,40 @@ Complete.
 ## [Phase 5.8] — Final Verification
 
 ### Added
-- `docs/VERIFICATION.md` — manual end-to-end sign-off checklist covering landing, auth, customer, worker, and admin flows, plus cross-cutting checks.
+- `docs/VERIFICATION.md` — manual end-to-end sign-off checklist covering landing, auth, customer, professional, and admin flows, plus cross-cutting checks.
 
 ### Status
 Pending manual sign-off against `docs/VERIFICATION.md`.
 
 ---
 
-## [Phase 8] — Structured Reviews, Worker Ban Escalation & Verification
+## [Phase 8] — Structured Reviews, Professional Ban Escalation & Verification
 
 ### Added
 - Structured review feedback: pill-shaped positive tags (well-mannered, punctual, professional, well-spoken, skilled, clean & tidy, good value, friendly), negative tags (late, rude, unprofessional, poor quality, overcharged, left a mess), and an "Other" pill that reveals a free-text comment field — replacing the previously always-visible open comment box.
 - Animated happy-face / sad-face SVG outcome modal shown immediately after review submission, chosen automatically based on whether any negative tag was selected.
-- Worker ban system: `workers.banned_until`, `workers.ban_count`, `workers.last_ban_duration_label` columns; a new `worker_bans` table logging every ban permanently (duration label, banned-at timestamp, banned-until timestamp), independent of the worker's current/latest ban state.
-- Admin "Ban" action on a review row, with a duration input supporting minutes/hours/days/weeks and a suggested amount that escalates with the worker's prior ban count (1st: 5 hours, 2nd: 1 day, 3rd+: 5 days) — always overridable by the admin.
-- Real-time forced logout: a Supabase Realtime channel on the worker's own `workers` row detects an incoming ban and immediately signs the worker out client-side, with a poll-based fallback for missed events.
-- Login-time ban gate in `auth.js`: a worker whose `banned_until` is still in the future is blocked from signing in and shown the exact unban time.
-- Worker verification workflow: `workers.verification_status` column (`pending` / `approved` / `rejected`), reviewable by admin from a new admin "Workers" tab showing the worker's uploaded government-ID document (served via a short-lived signed URL, since `worker-documents` is a private Storage bucket) and profile photo (served via its existing public URL), with Approve/Reject pill actions.
+- Professional ban system: `workers.banned_until`, `workers.ban_count`, `workers.last_ban_duration_label` columns; a new `worker_bans` table logging every ban permanently (duration label, banned-at timestamp, banned-until timestamp), independent of the professional's current/latest ban state.
+- Admin "Ban" action on a review row, with a duration input supporting minutes/hours/days/weeks and a suggested amount that escalates with the professional's prior ban count (1st: 5 hours, 2nd: 1 day, 3rd+: 5 days) — always overridable by the admin.
+- Real-time forced logout: a Supabase Realtime channel on the professional's own `workers` row detects an incoming ban and immediately signs the professional out client-side, with a poll-based fallback for missed events.
+- Login-time ban gate in `auth.js`: a professional whose `banned_until` is still in the future is blocked from signing in and shown the exact unban time.
+- Professional verification workflow: `workers.verification_status` column (`pending` / `approved` / `rejected`), reviewable by admin from a new admin "Professionals" tab showing the professional's uploaded government-ID document (served via a short-lived signed URL, since `worker-documents` is a private Storage bucket) and profile photo (served via its existing public URL), with Approve/Reject pill actions.
 - Positive-streak and bonus system: `workers.positive_streak` and `workers.bonus_balance` columns, plus a new `worker_bonuses` history table; a server-side Postgres trigger (`handle_review_streak`, fired `AFTER INSERT ON reviews`) increments the streak on any review with no negative tags, resets it to zero on a negative tag, and credits a bonus every 5th consecutive positive review — computed entirely server-side, never client-writable.
-- New admin tabs: "Banned Workers" (per-worker ban count and full ban history) and "Users" (customer profile, QuickCoins balance, completed-booking count).
-- Job (worker skill) and Service (specific booked item) columns added to the admin Reviews tab, resolved from the review's linked booking.
-- Supabase Realtime subscriptions added on `reviews` (INSERT), `users` (`*`), and `workers` (`*`) so the admin dashboard's Reviews, Users, Workers, and Banned Workers tabs reflect changes immediately, without a manual refresh, for any row-level change (a `TRUNCATE` does not emit `postgres_changes` events and still requires a manual refresh or targeted `DELETE`).
+- New admin tabs: "Banned Professionals" (per-professional ban count and full ban history) and "Users" (customer profile, QuickCoins balance, completed-booking count).
+- Job (professional skill) and Service (specific booked item) columns added to the admin Reviews tab, resolved from the review's linked booking.
+- Supabase Realtime subscriptions added on `reviews` (INSERT), `users` (`*`), and `workers` (`*`) so the admin dashboard's Reviews, Users, Professionals, and Banned Professionals tabs reflect changes immediately, without a manual refresh, for any row-level change (a `TRUNCATE` does not emit `postgres_changes` events and still requires a manual refresh or targeted `DELETE`).
 
 ### Changed
 - Admin ban/verification/reject/approve confirmations now use in-app modals with an animated SVG tick (green, success) or cross (red, ban/reject), replacing native `alert()` popups.
-- Admin Reviews tab: the "Ban" action is now hidden when the worker is already actively banned (shows a "Banned" badge instead), when the review has no negative tags, or when the review is rated 4–5 stars.
+- Admin Reviews tab: the "Ban" action is now hidden when the professional is already actively banned (shows a "Banned" badge instead), when the review has no negative tags, or when the review is rated 4–5 stars.
 - After a customer submits a review and dismisses the outcome modal, they are returned to the Home/Dashboard tab instead of remaining on My Bookings.
 - Customer-side `index.js` auth boot now checks the `admins` table before creating/using a `users` row, redirecting an admin account to `admin.html` instead of onboarding it as a customer.
 - Admin dashboard tab order changed: Analytics now appears directly after User Passes.
 
 ### Fixed
-- Admin ban actions previously appeared to succeed (no error returned, success message shown) but silently failed to update the `workers` row, because the existing `workers_update` RLS policy only permitted a worker to update their own row. Added an admin-scoped `UPDATE` policy on `workers`, and `confirmBanWorker()` now verifies via `.select()` that a row was actually affected before reporting success.
+- Admin ban actions previously appeared to succeed (no error returned, success message shown) but silently failed to update the `workers` row, because the existing `workers_update` RLS policy only permitted a professional to update their own row. Added an admin-scoped `UPDATE` policy on `workers`, and `confirmBanWorker()` now verifies via `.select()` that a row was actually affected before reporting success.
 - Removed a stray admin-account row from the customer `users` table (admins are tracked exclusively in the `admins` table).
-- Fixed the new admin Workers tab showing "No workers yet" despite workers existing — `loadWorkersFull()` was ordering by a `created_at` column that does not exist on `workers`, causing every request to fail with an HTTP 400.
-- Fixed broken document-image previews in the admin Workers tab — `worker-documents` is a private Storage bucket, so the stored public URL never resolved; document viewing now generates a signed URL on demand.
+- Fixed the new admin Professionals tab showing "No professionals yet" despite professionals existing — `loadWorkersFull()` was ordering by a `created_at` column that does not exist on `workers`, causing every request to fail with an HTTP 400.
+- Fixed broken document-image previews in the admin Professionals tab — `worker-documents` is a private Storage bucket, so the stored public URL never resolved; document viewing now generates a signed URL on demand.
 
 ### Documentation
 - `docs/CHANGELOG.md` — this entry.
