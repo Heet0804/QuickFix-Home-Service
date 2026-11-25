@@ -119,6 +119,55 @@ function _animateMarkerTo(marker, toLat, toLng, duration){
   marker._animFrame = requestAnimationFrame(step);
 }
 
+/* ── Live speed + ETA ─────────────────────────────────────────
+   Pure helpers (no network, no DOM). The professional's phone publishes
+   a GPS fix with a timestamp (worker_last_seen). Comparing two
+   consecutive fixes gives the real speed; a smoothed speed then turns
+   the road distance still to go into an arrival time.
+   - same fix seen again by polling: ignored
+   - fixes under 2 s apart: ignored (too close to be reliable)
+   - fixes over 120 s apart: start over (too old to compare)
+   - implied speed over 45 m/s (160 km/h): treated as a GPS glitch
+   - movement under 5 m: treated as GPS jitter (standing still) */
+function _newSpeedTracker(){
+  return { lastPt:null, lastTs:0, speed:null, samples:0 };
+}
+
+function _feedSpeedSample(tr, pt, tsMs){
+  if(!tr || !pt || typeof tsMs !== 'number' || !isFinite(tsMs)) return tr ? tr.speed : null;
+  if(tr.lastPt === null){ tr.lastPt = pt; tr.lastTs = tsMs; return tr.speed; }
+  if(tsMs <= tr.lastTs) return tr.speed;
+  const dt = (tsMs - tr.lastTs) / 1000;
+  if(dt > 120){
+    tr.lastPt = pt; tr.lastTs = tsMs; tr.speed = null; tr.samples = 0;
+    return tr.speed;
+  }
+  if(dt < 2) return tr.speed;
+  const d = _metersBetween(tr.lastPt, pt);
+  let v = d / dt;
+  if(v > 45) return tr.speed;
+  tr.lastPt = pt; tr.lastTs = tsMs;
+  if(d < 5) v = 0;
+  tr.speed = tr.speed === null ? v : 0.4 * v + 0.6 * tr.speed;
+  tr.samples++;
+  return tr.speed;
+}
+
+/* Arrival time from live speed. Needs 2+ usable samples and a speed of at
+   least 1.5 m/s (5.4 km/h); otherwise (stopped, slow, or too little data)
+   it falls back to the routing service's own estimate. Speed is capped at
+   28 m/s (100 km/h) so a short burst cannot promise an impossible ETA. */
+function _etaFromSpeed(distanceM, tr, routeDurationS){
+  const fallback = {
+    seconds: (typeof routeDurationS === 'number' && isFinite(routeDurationS)) ? routeDurationS : null,
+    live: false,
+    speed: null
+  };
+  if(typeof distanceM !== 'number' || !isFinite(distanceM)) return fallback;
+  if(!tr || tr.samples < 2 || tr.speed === null || tr.speed < 1.5) return fallback;
+  return { seconds: distanceM / Math.min(tr.speed, 28), live: true, speed: tr.speed };
+}
+
 /* ── ALIASES for dashboard.js call sites ──────────────────────
    dashboard.js calls these six functions under their "W"-suffixed
    names. The aliases below point at the exact same function objects
