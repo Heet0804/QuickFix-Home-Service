@@ -15,7 +15,7 @@
 
 QuickFix is a modern home service booking platform that connects customers with verified service professionals such as electricians, plumbers, carpenters, painters, cleaners, AC technicians, masons and many more.
 
-Unlike a simple booking website, QuickFix manages the complete service lifecycle—from booking creation, address validation, permanent building-location pinning and worker assignment, to live GPS + road-route tracking with real-time ETA, OTP verification, payments, QuickCoins rewards, service passes, reviews, achievements, worker analytics and a full admin portal.
+Unlike a simple booking website, QuickFix manages the complete service lifecycle—from booking creation, address validation, permanent building-location pinning and professional assignment, to live GPS + road-route tracking with real-time ETA, OTP verification, payments, QuickCoins rewards, service passes, reviews, achievements, professional analytics and a full admin portal.
 
 The project was built as a major academic project with a focus on solving real-world service booking problems while implementing production-style workflows.
 
@@ -26,7 +26,7 @@ The project was built as a major academic project with a focus on solving real-w
 ## 👤 Customer Side
 
 - 🔐 User Authentication
-- 📍 Area-based worker matching
+- 📍 Area-based professional matching
 - 🛠️ Multiple service categories
 - 📅 Date & Time slot booking
 - 🚨 Emergency booking mode
@@ -39,18 +39,18 @@ The project was built as a major academic project with a focus on solving real-w
 - 🎟️ Service Passes & priority booking
 - 🏷️ Offers system
 - 📜 Booking history
-- ⭐ Worker ratings & reviews with structured feedback tags (positive/negative pills) instead of a free-text box, plus animated happy/sad outcome confirmation
-- 📍 Live worker tracking using Leaflet Maps
-- 🛣️ Road-following route to the assigned worker (Geoapify Routing API)
-- 🏢 Destination building name shown on the Track Worker map (Geoapify Reverse Geocoding)
-- 🚗 Live-updating worker marker as the worker travels
-- ⏱️ Live Distance Remaining & ETA on the Track Worker map
+- ⭐ Professional ratings & reviews with structured feedback tags (positive/negative pills) instead of a free-text box, plus animated happy/sad outcome confirmation
+- 📍 Live professional tracking using Leaflet Maps
+- 🛣️ Road-following route to the assigned professional (Geoapify Routing API)
+- 🏢 Destination building name shown on the Track Professional map (Geoapify Reverse Geocoding)
+- 🚗 Live-updating professional marker as the professional travels
+- ⏱️ Live Distance Remaining & ETA on the Track Professional map
 - 🔢 OTP based arrival & completion verification
 - 📊 Booking timeline
 
 ---
 
-## 👷 Worker Side
+## 👷 Professional Side
 
 - 📥 Accept / Reject booking requests
 - 📅 Job management dashboard
@@ -59,14 +59,14 @@ The project was built as a major academic project with a focus on solving real-w
 - 🏢 Destination building name shown on the Track Customer map (Geoapify Reverse Geocoding)
 - 🚗 Live Distance to Customer & ETA on the Track Customer map
 - 💰 Earnings dashboard
-- 📈 Worker performance statistics
+- 📈 Professional performance statistics
 - 🏅 Achievement & badge system
 - ⭐ Dynamic rating calculation
-- 📊 Worker score calculation
+- 📊 Professional score calculation
 - 🔔 Real-time booking updates
 - 🔥 Positive review streak tracking, with a server-side bonus credited automatically every 5 consecutive positive reviews
 - 🪪 Verification status (Pending / Approved / Rejected) set by admin after reviewing uploaded ID document and profile photo
-- 🚫 Escalating ban enforcement — a worker under an active ban is force-logged-out in real time and blocked from logging back in until the ban expires, with the unban time shown on the login screen
+- 🚫 Escalating ban enforcement — a professional under an active ban is force-logged-out in real time and blocked from logging back in until the ban expires, with the unban time shown on the login screen
 
 ---
 
@@ -76,12 +76,12 @@ The project was built as a major academic project with a focus on solving real-w
 - 🔐 Dedicated admin authentication
 - 📊 Central admin dashboard
 - 📋 Booking management
-- 👷 Worker management — full profile view, uploaded ID document & profile photo review (via short-lived signed URLs for the private documents bucket), and Approve/Reject verification actions
-- 🚫 Worker ban management — ban directly from a flagged review with a configurable duration (minutes/hours/days/weeks), suggested amount escalating with the worker's prior ban count; a dedicated "Banned Workers" tab shows every worker's full ban history
+- 👷 Professional management — full profile view, uploaded ID document & profile photo review (via short-lived signed URLs for the private documents bucket), and Approve/Reject verification actions
+- 🚫 Professional ban management — ban directly from a flagged review with a configurable duration (minutes/hours/days/weeks), suggested amount escalating with the professional's prior ban count; a dedicated "Banned Professionals" tab shows every professional's full ban history
 - ⭐ Review management — structured positive/negative tags plus optional comment, with Job/Service context per review; Ban action only ever appears on a genuinely negative, non-high-rated review
 - 👤 User management — dedicated Users tab with customer profile, QuickCoins balance, and booking history at a glance
 - 📈 Platform-wide analytics
-- 🔄 Real-time dashboard sync — new reviews, signups, worker stat changes, bans, and verification updates reflect immediately via Supabase Realtime, without a manual refresh
+- 🔄 Real-time dashboard sync — new reviews, signups, professional stat changes, bans, and verification updates reflect immediately via Supabase Realtime, without a manual refresh
 - 🚪 Logout
 - 🔙 Return to Landing Page button
 
@@ -110,9 +110,9 @@ A subscription-style layer on top of regular bookings, designed to reward repeat
 
 ---
 
-# ⭐ Structured Reviews, Worker Bans & Verification
+# ⭐ Structured Reviews, Professional Bans & Verification
 
-QuickFix's review system goes beyond a star rating — it captures structured, actionable feedback and feeds directly into worker accountability and rewards.
+QuickFix's review system goes beyond a star rating — it captures structured, actionable feedback and feeds directly into professional accountability and rewards.
 
 ### Customer Review Flow
 - ⭐ Star rating (required) plus pill-shaped feedback tags — no open-ended comment box shown by default
@@ -121,22 +121,22 @@ QuickFix's review system goes beyond a star rating — it captures structured, a
 - ✏️ An "Other" pill reveals a free-text field for anything not covered by a preset tag
 - 🎭 The comment field auto-reveals only when a negative tag or "Other" is selected — selecting only positive tags keeps the review to taps alone
 - 🎉 Animated happy-face or sad-face confirmation modal shown immediately after submission, chosen automatically based on whether any negative tag was picked
-- 🔒 Full review detail (rating, tags, comment) is visible to admin only; workers only ever see aggregated **positive**-tag counts via a dedicated RPC — no rating, comment, or negative feedback is ever exposed to them
+- 🔒 Full review detail (rating, tags, comment) is visible to admin only; professionals only ever see aggregated **positive**-tag counts via a dedicated RPC — no rating, comment, or negative feedback is ever exposed to them
 
-### Worker Ban Escalation
-- 🚫 Admin can ban a worker directly from a flagged review (hidden entirely for reviews with no negative tags or a 4–5 star rating)
+### Professional Ban Escalation
+- 🚫 Admin can ban a professional directly from a flagged review (hidden entirely for reviews with no negative tags or a 4–5 star rating)
 - ⏱️ Ban duration selectable in minutes, hours, days, or weeks, with a suggested amount that escalates on repeat offenses (1st: 5 hours, 2nd: 1 day, 3rd+: 5 days) — always overridable
-- 🔴 A worker banned while actively logged in is force-signed-out immediately via Supabase Realtime, and is blocked from logging back in until the ban expires
-- 📜 Every ban is permanently logged (duration, timestamps) in a dedicated ban-history table, viewable per worker in the admin "Banned Workers" tab
+- 🔴 A professional banned while actively logged in is force-signed-out immediately via Supabase Realtime, and is blocked from logging back in until the ban expires
+- 📜 Every ban is permanently logged (duration, timestamps) in a dedicated ban-history table, viewable per professional in the admin "Banned Professionals" tab
 
-### Worker Verification
-- 🪪 Admin reviews each worker's uploaded government ID document and profile photo directly from the admin Workers tab
+### Professional Verification
+- 🪪 Admin reviews each professional's uploaded government ID document and profile photo directly from the admin Professionals tab
 - ✅❌ One-click Approve/Reject, with an animated tick/cross confirmation — once approved, the action buttons are replaced with a static "Approved" status
 
 ### Positive Streaks & Bonuses
-- 🔥 A worker's consecutive positive-review streak increments automatically on every clean review and resets to zero on any negative tag
+- 🔥 A professional's consecutive positive-review streak increments automatically on every clean review and resets to zero on any negative tag
 - 🎁 A monetary bonus is credited automatically every 5th consecutive positive review, computed and enforced entirely server-side via a database trigger — never client-writable
-- 📊 Streak and bonus balance are visible on the worker's own dashboard
+- 📊 Streak and bonus balance are visible on the professional's own dashboard
 
 ---
 
@@ -144,16 +144,16 @@ QuickFix's review system goes beyond a star rating — it captures structured, a
 
 A complete, separately-secured control panel for platform operators.
 
-- 🔒 Hidden entry point, not linked from normal customer/worker navigation
+- 🔒 Hidden entry point, not linked from normal customer/professional navigation
 - 🔐 Dedicated admin authentication flow — admin accounts are tracked exclusively in a separate `admins` table and are never onboarded into the customer `users` table, even if the same email is used to sign in from the customer app
 - 📊 Dashboard with platform-wide KPIs
 - 📋 Booking management (view, filter, oversee all bookings)
-- 👷 Worker management — full profile, uploaded ID document & profile photo review via signed URLs, Approve/Reject verification, positive streak & bonus balance visibility
-- 🚫 Worker ban management with configurable duration units and full ban history per worker
+- 👷 Professional management — full profile, uploaded ID document & profile photo review via signed URLs, Approve/Reject verification, positive streak & bonus balance visibility
+- 🚫 Professional ban management with configurable duration units and full ban history per professional
 - ⭐ Review management with structured tags, Job/Service context, and rating- and tag-aware Ban visibility
 - 👤 User management (view customer accounts, QuickCoins, booking activity)
-- 📈 Analytics across bookings, workers, and revenue
-- 🔄 Realtime-synced tabs (Reviews, Users, Workers, Banned Workers) — reflect database changes immediately, no manual refresh required for normal app activity
+- 📈 Analytics across bookings, professionals, and revenue
+- 🔄 Realtime-synced tabs (Reviews, Users, Professionals, Banned Professionals) — reflect database changes immediately, no manual refresh required for normal app activity
 - 🚪 Logout and a **Return to Landing Page** button for safe exit
 
 ---
@@ -172,15 +172,15 @@ QuickFix's core screens — the landing page, the customer app, and the admin po
 
 ---
 
-# 🗺️ Live Worker Tracking (Phase 4)
+# 🗺️ Live Professional Tracking (Phase 4)
 
 QuickFix's live tracking system is being built in incremental phases. Progress so far:
 
 ### ✅ Phase 4.1 — Tracking Maps
-- Worker Dashboard includes a **Track Customer** map
-- Customer Dashboard includes a **Track Worker** map
+- Professional Dashboard includes a **Track Customer** map
+- Customer Dashboard includes a **Track Professional** map
 - Both dashboards render live Leaflet maps once a booking is accepted
-- The worker's tracking map automatically disappears once the **Arrival OTP** is verified
+- The professional's tracking map automatically disappears once the **Arrival OTP** is verified
 - The customer's tracking map automatically collapses once arrival is confirmed
 
 ### ✅ Phase 4.2 — Customer Address Validation & Geocoding
@@ -193,24 +193,24 @@ QuickFix's live tracking system is being built in incremental phases. Progress s
 ### ✅ Phase 4.3 — Road Route Generation
 - Real driving routes generated using **OSRM** (Open Source Routing Machine)
 - The route is drawn as a **road-following blue polyline** — not a straight line
-- 🟠 Worker marker and 🟢 Customer marker shown on both dashboards
-- Map view automatically calls `fitBounds()` so the worker, the customer, and the full route are visible without manual zooming
-- The **same routing logic is shared** between the customer's Track Worker map and the worker's Track Customer map — one implementation, reused on both sides
+- 🟠 Professional marker and 🟢 Customer marker shown on both dashboards
+- Map view automatically calls `fitBounds()` so the professional, the customer, and the full route are visible without manual zooming
+- The **same routing logic is shared** between the customer's Track Professional map and the professional's Track Customer map — one implementation, reused on both sides
 - Route generation uses `worker_live_lat` / `worker_live_lng` and `customer_lat` / `customer_lng` exclusively — never area-center coordinates
 
-### ✅ Phase 4.4 — Live Worker Movement
-- Worker location is published continuously via `navigator.geolocation.watchPosition()` — not a one-time fix
+### ✅ Phase 4.4 — Live Professional Movement
+- Professional location is published continuously via `navigator.geolocation.watchPosition()` — not a one-time fix
 - Every GPS update writes `worker_live_lat`, `worker_live_lng` and `worker_last_seen` to the active booking(s) in Supabase
-- The worker marker updates its position on both dashboards without ever recreating the map, markers, or route layer
-- The existing OSRM route automatically refreshes as the worker moves, reusing the Phase 4.3 routing implementation and its request throttle unchanged
-- Customer marker position remains fixed on both dashboards — only the worker marker moves
+- The professional marker updates its position on both dashboards without ever recreating the map, markers, or route layer
+- The existing OSRM route automatically refreshes as the professional moves, reusing the Phase 4.3 routing implementation and its request throttle unchanged
+- Customer marker position remains fixed on both dashboards — only the professional marker moves
 
 ### ✅ Phase 4.5 — Live ETA
 - Distance Remaining and ETA are read directly from the same OSRM route response used to draw the polyline — no extra network request
 - Displayed on both dashboards:
-  - Customer's Track Worker map — **🚗 Distance Remaining** and **⏱ ETA**
-  - Worker's Track Customer map — **🚗 Distance to Customer** and **⏱ ETA**
-- Values update automatically every time the route refreshes, in sync with live worker movement
+  - Customer's Track Professional map — **🚗 Distance Remaining** and **⏱ ETA**
+  - Professional's Track Customer map — **🚗 Distance to Customer** and **⏱ ETA**
+- Values update automatically every time the route refreshes, in sync with live professional movement
 - Falls back to `--` / `--` gracefully if OSRM is unreachable, without breaking the map or throwing errors
 - `_fetchRoadRoute()` / `_fetchRoadRouteW()` remain fully backward-compatible with Phase 4.3 — distance/duration are carried as extra properties on the same array these functions already returned, so no existing caller's contract changed
 
@@ -220,19 +220,19 @@ QuickFix's live tracking system is being built in incremental phases. Progress s
 - The pinned coordinates are copied into the booking's `customer_lat` / `customer_lng` and are the **only** source for those fields — the one-time live-GPS overwrite from earlier phases was removed so a manually pinned location can never be silently replaced by wherever the customer's device happens to be at booking time
 - On a repeat booking, the newly entered address is compared to the saved address with an **exact string match**; any difference at all — including just a flat, wing, or house number — skips the reuse prompt and opens the map picker again
 - On an exact match, the customer is asked **"Use your previously pinned location?"** — choosing **YES** reuses the saved pin instantly with no map interaction; choosing **Pin Again** reopens the map to re-pin
-- Worker-side behavior is unaffected — workers still receive the full address exactly as entered
+- Professional-side behavior is unaffected — professionals still receive the full address exactly as entered
 
 ### ✅ Phase 4.7 — Geoapify Integration (Reverse Geocoding & Routing)
 - A single reusable `GEOAPIFY_API_KEY` constant is shared by both `index.html` and `worker-dashboard.html`
 - **Reverse Geocoding:** after the customer manually places or drags the pin on the Leaflet map (Phase 4.6), the exact marker coordinates are resolved to a human-readable building/society name via the Geoapify Reverse Geocoding API, shown live in the pin picker and updated on every move — the manual pin remains the only source of truth for `customer_lat` / `customer_lng`, the reverse-geocoded name is display-only
-- The same resolved building name is also surfaced to the worker on their **Track Customer** map, and to the customer on their **Track Worker** map, so both sides see the identical destination — computed independently on each dashboard from the same stored coordinates and the same API key
+- The same resolved building name is also surfaced to the professional on their **Track Customer** map, and to the customer on their **Track Professional** map, so both sides see the identical destination — computed independently on each dashboard from the same stored coordinates and the same API key
 - **Routing:** the OSRM road-route implementation from Phase 4.3 is replaced with the **Geoapify Routing API** on both dashboards, still producing a proper road-following route with turns and junctions
 - The route line is always rendered **solid, blue, and rounded** — the straight-line/dashed fallback used previously has been removed entirely; if a routing request fails, the existing route on screen is simply left in place rather than degrading to a straight line
-- Booking, payment, OTP, timeline, worker assignment, GPS publishing, polling, and Phase 4.6 manual pinning are all unchanged
+- Booking, payment, OTP, timeline, professional assignment, GPS publishing, polling, and Phase 4.6 manual pinning are all unchanged
 
 ### ✅ Phase 4.8 — Tracking System Integration & Verification
 - Full end-to-end verification pass across the live tracking stack built in Phases 4.1–4.7
-- Confirmed working together as one integrated system: customer pin coordinates (4.6), worker live GPS (4.4), Geoapify road routing (4.7), the live road-following polyline (4.3/4.7), Distance Remaining & ETA calculation (4.5), the customer's Track Worker map and the worker's Track Customer map (4.1), Re-center/auto-follow behavior, and route synchronization between both dashboards
+- Confirmed working together as one integrated system: customer pin coordinates (4.6), professional live GPS (4.4), Geoapify road routing (4.7), the live road-following polyline (4.3/4.7), Distance Remaining & ETA calculation (4.5), the customer's Track Professional map and the professional's Track Customer map (4.1), Re-center/auto-follow behavior, and route synchronization between both dashboards
 - No new routing, geocoding, or map behavior introduced — this phase closes out and hardens the tracking system rather than extending it
 - Sets a stable baseline for Phase 4.9 (Tracking System Stabilization & Resource Cleanup) to build on
 
@@ -250,7 +250,7 @@ The complete live tracking system has now been fully implemented and verified.
 
 The tracking system now includes:
 
-- Live worker GPS tracking
+- Live professional GPS tracking
 - Customer address validation
 - Building-level customer geocoding
 - Permanent customer location pinning
@@ -258,7 +258,7 @@ The tracking system now includes:
 - Road-following navigation
 - Live ETA
 - Live Distance Remaining
-- Worker ↔ Customer synchronized tracking
+- Professional ↔ Customer synchronized tracking
 - Automatic cleanup of tracking resources
 - Production-ready tracking lifecycle
 
@@ -266,13 +266,13 @@ The tracking system now includes:
 
 # 🏆 Achievement System
 
-QuickFix contains a gamified achievement engine for workers. Achievements are **fully dynamic and database-driven** — nothing is hardcoded or manually assigned.
+QuickFix contains a gamified achievement engine for professionals. Achievements are **fully dynamic and database-driven** — nothing is hardcoded or manually assigned.
 
 Examples include:
 
 - 🥇 First Job
 - 🔟 10 Jobs Completed
-- ⭐ Highly Rated Worker
+- ⭐ Highly Rated Professional
 - 💯 Perfect Reliability
 - 💸 Earnings Milestones
 - 🔥 Booking Streaks
@@ -281,12 +281,12 @@ Achievements unlock automatically after meeting the required conditions, compute
 
 ---
 
-# 📊 Worker Analytics
+# 📊 Professional Analytics
 
 The platform automatically calculates every metric below, generated dynamically from booking history instead of relying on manually maintained counters:
 
 - ⭐ Rating
-- 📈 Worker Score
+- 📈 Professional Score
 - 🤝 Acceptance Rate
 - 🛡️ Reliability Score
 - 💵 Total Earnings
@@ -311,13 +311,13 @@ Geocoding
 Location Pin (new address) OR Reuse Saved Pin (unchanged address)
       │
       ▼
-Job Broadcast to All Eligible Workers
+Job Broadcast to All Eligible Professionals
       │
       ▼
-First Worker to Accept (accept_booking RPC)
+First Professional to Accept (accept_booking RPC)
       │
       ▼
-Track Worker (Live Route + Live ETA)
+Track Professional (Live Route + Live ETA)
       │
       ▼
 Arrival OTP (verified server-side via RPC)
@@ -374,12 +374,12 @@ Achievements
 
 - Nominatim (OpenStreetMap) — customer address validation and area-match geocoding (Phase 4.2)
 - Geoapify Reverse Geocoding API — resolves the manually pinned marker to a building/society name, shown on the customer's pin picker and on both dashboards' tracking maps; routed through `geoapify-proxy` so no API key ships to the browser
-- `navigator.geolocation.watchPosition()` — continuous live worker GPS publishing
+- `navigator.geolocation.watchPosition()` — continuous live professional GPS publishing
 - Leaflet drag/tap marker picker — permanent customer building-location pinning
 
 ### Notifications
 
-- Supabase Realtime — used for live booking status updates across customer and worker dashboards, worker ban enforcement (forced logout on ban), and live admin dashboard sync (new reviews, user/worker changes)
+- Supabase Realtime — used for live booking status updates across customer and professional dashboards, professional ban enforcement (forced logout on ban), and live admin dashboard sync (new reviews, user/worker changes)
 
 ---
 
@@ -392,8 +392,8 @@ QuickFix/
 ├── auth.html                  # Authentication
 ├── landing.html               # Landing Page
 ├── admin.html                 # Admin Portal
-├── worker-dashboard.html      # Worker Dashboard
-├── worker-profile.html        # Worker Profile
+├── worker-dashboard.html      # Professional Dashboard
+├── worker-profile.html        # Professional Profile
 │
 ├── css/
 │   ├── customer/
@@ -416,7 +416,7 @@ QuickFix/
 │   │   ├── utils.js           # Generic helpers (markErr, closeModal, getIST, escHtml…)
 │   │   ├── toast.js           # showToast()
 │   │   ├── maps.js            # Geoapify proxy calls, route formatting, marker animation
-│   │   └── nav.js             # Shared mobile nav toggle (worker pages)
+│   │   └── nav.js             # Shared mobile nav toggle (professional pages)
 │   ├── customer/
 │   │   └── index.js
 │   ├── worker/
@@ -439,15 +439,15 @@ QuickFix/
 # 🚀 Highlights
 
 - ✅ Full service lifecycle management
-- ✅ Broadcast-model job assignment — a new job is visible to every eligible worker, first to accept via `accept_booking()` gets it
-- ✅ Dynamic worker ranking
+- ✅ Broadcast-model job assignment — a new job is visible to every eligible professional, first to accept via `accept_booking()` gets it
+- ✅ Dynamic professional ranking
 - ✅ Customer address validation against selected service area
 - ✅ Building-level customer geocoding (no area-center fallback for new bookings)
 - ✅ Permanent, reusable customer location pinning with exact-match detection on repeat bookings
-- ✅ Continuous live GPS tracking for the worker via `watchPosition()`
+- ✅ Continuous live GPS tracking for the professional via `watchPosition()`
 - ✅ Road-following route generation via the Geoapify Routing API (now proxied through a Supabase Edge Function), shared across both dashboards — always solid, blue and rounded, never a straight or dashed line
 - ✅ Destination building name resolved via Geoapify Reverse Geocoding, shown identically on both dashboards
-- ✅ Live route refresh as the worker moves — no map, marker, or polyline recreation
+- ✅ Live route refresh as the professional moves — no map, marker, or polyline recreation
 - ✅ Live Distance Remaining & ETA, computed from the existing route response with zero extra network calls
 - ✅ Automatic map fitBounds — no manual zooming required
 - ✅ OTP verification for arrival & completion — verified and written entirely server-side via RPC
@@ -457,7 +457,7 @@ QuickFix/
 - ✅ Offers system
 - ✅ Complete, securely hidden Admin Portal
 - ✅ Achievement engine (fully dynamic, database-driven)
-- ✅ Worker analytics computed live from booking history
+- ✅ Professional analytics computed live from booking history
 - ✅ Fully responsive UI across 4K, desktop, laptop, tablet, foldables and phones (portrait & landscape)
 - ✅ Hamburger navigation with slide-in drawer on landing, customer, and admin screens — desktop nav unchanged
 - ✅ Admin tables scroll within their own container — no page-level horizontal scroll
@@ -517,16 +517,16 @@ Completed work:
 - Secure API key handling — `GEOAPIFY_API_KEY` removed from the client entirely;
   routing and reverse geocoding now go through a `geoapify-proxy` Supabase Edge
   Function, with the key stored only as a server-side secret
-- Optimized database queries — single-worker lookups no longer pull a full
+- Optimized database queries — single-professional lookups no longer pull a full
   `workers` table scan plus a bulk stats RPC just to find one row; service search
   is debounced (300ms) instead of firing a fetch on every keystroke
-- Improved performance — worker dashboard fallback poll reduced from 5s to 30s and
+- Improved performance — professional dashboard fallback poll reduced from 5s to 30s and
   admin dashboard poll reduced from 4s to 15s, now that Supabase Realtime is the
   primary sync mechanism and these are just safety-net fallbacks
 - Prepared for multiple concurrent users — booking assignment changed from a
-  single-worker lock to a broadcast model: a new job is visible to every eligible
-  worker via `get_available_jobs()`, and `accept_booking()` atomically awards it
-  to whichever eligible worker accepts first
+  single-professional lock to a broadcast model: a new job is visible to every eligible
+  professional via `get_available_jobs()`, and `accept_booking()` atomically awards it
+  to whichever eligible professional accepts first
 - Production-level backend architecture — client-trusted values reduced to IDs
   only (e.g. `campaign.id`, `booking.id`); all derived values (discounts, coin
   balances, pass validity) are recomputed and enforced server-side
@@ -574,7 +574,7 @@ v4.0
 Complete Admin Portal
 
 v4.1
-Worker Tracking Maps
+Professional Tracking Maps
 
 v4.2
 Address Validation & Customer Geocoding
@@ -583,7 +583,7 @@ v4.3
 Road Route Generation (OSRM)
 
 v4.4
-Live Worker Movement (watchPosition + Live Route Refresh)
+Live Professional Movement (watchPosition + Live Route Refresh)
 
 v4.5
 Live ETA & Distance Remaining
@@ -616,10 +616,10 @@ QuickCoins Ecosystem — Server-Verified Redemption Tiers, Coin-Only Campaign
 Passes, Redemption/Pass Mutual Exclusivity
 
 v8.0
-Structured Reviews, Worker Ban Escalation & Verification — Pill-Tag Feedback
-System, Animated Outcome Modals, Admin-Configurable Worker Bans with Real-Time
+Structured Reviews, Professional Ban Escalation & Verification — Pill-Tag Feedback
+System, Animated Outcome Modals, Admin-Configurable Professional Bans with Real-Time
 Forced Logout, ID/Photo Verification Workflow, Server-Side Positive Streak &
-Bonus Rewards, Expanded Admin Dashboard (Users/Workers/Banned Workers Tabs,
+Bonus Rewards, Expanded Admin Dashboard (Users/Professionals/Banned Professionals Tabs,
 Realtime Sync)
 ```
 
