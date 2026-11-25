@@ -18,7 +18,7 @@ The database has 9 tables in the `public` schema. No views exist.
 | user_passes | 10 |
 | users | 14 |
 | worker_achievements | 8 |
-| workers | 27 |
+| professionals | 27 |
 
 ---
 
@@ -130,7 +130,7 @@ Ordinal position 45 does not correspond to a live column.
 **RLS Policies**
 | Policy | Cmd | Roles | Using / Check |
 |---|---|---|---|
-| worker update own booking location | UPDATE | public | `auth.uid()::text = worker_id::text` |
+| professional update own booking location | UPDATE | public | `auth.uid()::text = worker_id::text` |
 | bookings_worker_read | SELECT | public | `EXISTS (SELECT 1 FROM workers w WHERE w.id = auth.uid() AND w.skill = bookings.worker_role)` |
 | bookings_user_insert | INSERT | public | check: `auth.uid() = user_id` |
 | bookings_update | UPDATE | public | `auth.uid() = user_id OR EXISTS (SELECT 1 FROM workers w WHERE w.id = auth.uid())` |
@@ -199,7 +199,7 @@ Ordinal position 45 does not correspond to a live column.
 | reviews_insert | INSERT | public | check: `auth.uid() = user_id` |
 | reviews_read | SELECT | public | `true` |
 
-**Architecture observation (Phase 8):** `reviews_read` grants unrestricted public SELECT (`true`) on the entire table, including `comment` and `tags` — this is broader than the product's stated intent that full review detail (rating, tags, comment) be admin-only, with workers restricted to aggregated positive-tag counts via a separate `get_worker_positive_tags()` RPC. The RPC-only access pattern for workers is a client-side convention (the worker dashboard never queries `reviews` directly); it is not backed by a corresponding RLS restriction on this table that would prevent a worker (or any authenticated client) from reading `reviews` directly, including another worker's negative feedback and comments, via a direct REST call.
+**Architecture observation (Phase 8):** `reviews_read` grants unrestricted public SELECT (`true`) on the entire table, including `comment` and `tags` — this is broader than the product's stated intent that full review detail (rating, tags, comment) be admin-only, with professionals restricted to aggregated positive-tag counts via a separate `get_worker_positive_tags()` RPC. The RPC-only access pattern for professionals is a client-side convention (the professional dashboard never queries `reviews` directly); it is not backed by a corresponding RLS restriction on this table that would prevent a professional (or any authenticated client) from reading `reviews` directly, including another professional's negative feedback and comments, via a direct REST call.
 
 ---
 
@@ -304,11 +304,11 @@ Ordinal position 45 does not correspond to a live column.
 | 32 | bonus_balance | numeric | NO | `0` |
 | 33 | verification_status | text | NO | `'pending'::text` |
 
-**Phase 8 additions (columns 28–33).** Added to support admin-imposed worker bans (`banned_until`/`ban_count`/`last_ban_duration_label`), the review-driven positive-streak reward system (`positive_streak`/`bonus_balance`), and the admin ID/photo verification workflow (`verification_status`, allowed values `pending`/`approved`/`rejected`, no CHECK constraint confirmed to enforce this set).
+**Phase 8 additions (columns 28–33).** Added to support admin-imposed professional bans (`banned_until`/`ban_count`/`last_ban_duration_label`), the review-driven positive-streak reward system (`positive_streak`/`bonus_balance`), and the admin ID/photo verification workflow (`verification_status`, allowed values `pending`/`approved`/`rejected`, no CHECK constraint confirmed to enforce this set).
 
 **Constraints:** PK `workers_pkey` (id); FK `workers_id_fkey` (id → likely `auth.users.id`, standard Supabase auth-linking pattern; target table not resolvable from `public` schema constraint metadata).
 
-**Indexes:** `workers_pkey` (unique, id) — no secondary indexes. **No index exists on `banned_until`**, despite it being read on every worker login attempt (`auth.js`) and by the realtime self-row ban-enforcement channel filter (`dashboard.js`).
+**Indexes:** `workers_pkey` (unique, id) — no secondary indexes. **No index exists on `banned_until`**, despite it being read on every professional login attempt (`auth.js`) and by the realtime self-row ban-enforcement channel filter (`dashboard.js`).
 
 **RLS Policies**
 | Policy | Cmd | Roles | Using / Check |
@@ -321,8 +321,8 @@ Ordinal position 45 does not correspond to a live column.
 
 **Architecture observations:**
 - `unlocked_achievements` (jsonb, on `workers`) overlaps in purpose with the relational `worker_achievements` table — the same achievement data appears to be tracked in two places.
-- No indexes exist on `skill` or `area`, both of which are used for worker-matching (see `bookings_worker_read` policy and typical booking-assignment queries).
-- `workers_update` grants UPDATE with no ownership restriction (`using: true`, `check: true`) — any client can update any worker row, unlike `workers_own_insert` which is scoped to `auth.uid() = id`. **This is a genuine correction to a Phase 8 troubleshooting session's initial assumption:** despite `workers_update` appearing permissive enough to allow an admin's ban write, the actual RLS evaluation still silently blocked an admin's `UPDATE` in practice (root cause not fully explained by the policy list alone — `admins_can_update_any_worker` was added as the confirmed fix, and the ban write succeeds reliably only after that policy's addition).
+- No indexes exist on `skill` or `area`, both of which are used for professional-matching (see `bookings_worker_read` policy and typical booking-assignment queries).
+- `workers_update` grants UPDATE with no ownership restriction (`using: true`, `check: true`) — any client can update any professional row, unlike `workers_own_insert` which is scoped to `auth.uid() = id`. **This is a genuine correction to a Phase 8 troubleshooting session's initial assumption:** despite `workers_update` appearing permissive enough to allow an admin's ban write, the actual RLS evaluation still silently blocked an admin's `UPDATE` in practice (root cause not fully explained by the policy list alone — `admins_can_update_any_worker` was added as the confirmed fix, and the ban write succeeds reliably only after that policy's addition).
 - **Two independent, functionally redundant admin-UPDATE policies** (`admins_can_update_any_worker`, `admins_can_update_worker_verification`) now coexist on `workers`, mirroring the same "multiple independent admin-detection paths" pattern already observed on `campaigns` (Section 8).
 
 ---
@@ -379,11 +379,11 @@ Ordinal position 45 does not correspond to a live column.
 | Function | Type | Confirmed Usage |
 |---|---|---|
 | `is_admin()` | FUNCTION | Used in the `users` RLS policy "Admins read all users" |
-| `get_worker_stats` | FUNCTION | Not referenced by any RLS policy; presumed single-worker stats RPC |
+| `get_worker_stats` | FUNCTION | Not referenced by any RLS policy; presumed single-professional stats RPC |
 | `get_worker_stats_bulk` | FUNCTION | Not referenced by any RLS policy; presumed bulk-stats RPC |
 | `rls_auto_enable` | FUNCTION | Not referenced by any RLS policy; presumed RLS setup/maintenance routine |
 | `handle_new_user` | FUNCTION | Not referenced by any RLS policy; not bound to any trigger |
-| `get_worker_positive_tags()` (Phase 8) | FUNCTION (RPC) | Called from `profile.js`; returns only aggregated positive-tag counts per worker, deliberately excluding rating, comment, and negative tags from what a worker can retrieve about their own reviews |
+| `get_worker_positive_tags()` (Phase 8) | FUNCTION (RPC) | Called from `profile.js`; returns only aggregated positive-tag counts per professional, deliberately excluding rating, comment, and negative tags from what a professional can retrieve about their own reviews |
 | `handle_review_streak()` (Phase 8) | FUNCTION (trigger) | Bound to `trg_review_streak`, `AFTER INSERT ON reviews`; increments `workers.positive_streak` when the inserted row's `tags` contains no value from a fixed negative-tag list, resets it to 0 otherwise, and on every 5th consecutive positive streak value, credits `workers.bonus_balance` and inserts a row into `worker_bonuses` |
 
 **Correction (Phase 8): triggers now exist.** The prior statement "No triggers exist in the database" is no longer accurate — `trg_review_streak` (`AFTER INSERT ON reviews`, executing `handle_review_streak()`) is the first confirmed trigger in the schema.
@@ -410,7 +410,7 @@ Ordinal position 45 does not correspond to a live column.
 | worker_achievements | worker_achievements_pkey | unique | id |
 | worker_achievements | worker_achievements_worker_id_achievement_id_key | unique (composite) | worker_id, achievement_id |
 | worker_achievements | idx_worker_achievements_worker | non-unique | worker_id |
-| workers | workers_pkey | unique | id |
+| professionals | workers_pkey | unique | id |
 
 **Architecture observation:** `campaigns`, `reviews`, `user_passes`, and `workers` have no secondary indexes despite carrying foreign keys or high-traffic filter columns.
 
@@ -436,7 +436,7 @@ No views exist in this database.
 | user_passes | campaign_id | campaigns.id | user_passes_campaign_id_fkey |
 | users | id | auth.users.id (inferred) | users_id_fkey |
 | users | saved_area_id | areas.id | users_saved_area_id_fkey |
-| workers | id | auth.users.id (inferred) | workers_id_fkey |
+| professionals | id | auth.users.id (inferred) | workers_id_fkey |
 | worker_achievements | worker_id | workers.id | worker_achievements_worker_id_fkey |
 
 Cascade rules (`ON DELETE`/`ON UPDATE` behavior) are not defined for any foreign key in this schema.
@@ -466,7 +466,7 @@ Permanent audit log of every ban ever applied — independent of `workers.banned
 | admins_can_select_worker_bans | SELECT | public | admin exists in `admins` and `is_active = true` |
 | admins_can_insert_worker_bans | INSERT | public | check: admin exists in `admins` and `is_active = true` |
 
-**Observation:** no SELECT policy grants a worker read access to their own ban history — only admins can query this table under the current policy set.
+**Observation:** no SELECT policy grants a professional read access to their own ban history — only admins can query this table under the current policy set.
 
 ### 8.2 `worker_bonuses`
 
@@ -488,17 +488,17 @@ Permanent log of every positive-streak bonus credited, written exclusively by th
 | admins_can_select_worker_bonuses | SELECT | public | admin exists in `admins` and `is_active = true` |
 | workers_can_select_own_bonuses | SELECT | public | `auth.uid() = worker_id` |
 
-**Observation:** unlike `worker_bans`, this table does grant a worker read access to their own bonus history — an inconsistency between the two new Phase 8 tables' access models that is not reconciled anywhere in the schema or client code.
+**Observation:** unlike `worker_bans`, this table does grant a professional read access to their own bonus history — an inconsistency between the two new Phase 8 tables' access models that is not reconciled anywhere in the schema or client code.
 
 ## 9. Architecture Notes (Summary)
 
 - `workers.unlocked_achievements` (jsonb) duplicates data already tracked relationally in `worker_achievements`.
-- `workers` has no index on `skill`, `area`, or (Phase 8) `banned_until`, despite the latter being read on every worker login attempt.
-- `workers_update` RLS policy allows any client to update any worker row (`using: true`, `check: true`), unlike the ownership-scoped `workers_own_insert`. Two further, functionally overlapping admin-scoped UPDATE policies (`admins_can_update_any_worker`, `admins_can_update_worker_verification`) were added in Phase 8 rather than consolidated into one.
+- `workers` has no index on `skill`, `area`, or (Phase 8) `banned_until`, despite the latter being read on every professional login attempt.
+- `workers_update` RLS policy allows any client to update any professional row (`using: true`, `check: true`), unlike the ownership-scoped `workers_own_insert`. Two further, functionally overlapping admin-scoped UPDATE policies (`admins_can_update_any_worker`, `admins_can_update_worker_verification`) were added in Phase 8 rather than consolidated into one.
 - `worker-documents` storage bucket is private, but its RLS policies grant public read/write access scoped only by `bucket_id`. **Phase 8 clarification:** despite this permissive RLS, the bucket's own `public:false` setting independently prevents `document_url` (a public-URL string) from ever resolving — Supabase's `/object/public` endpoint only serves objects from buckets flagged public at the bucket level, regardless of `storage.objects` RLS. The admin portal now retrieves documents via a signed URL (`createSignedUrl`) instead, which does work against a private bucket provided the caller passes RLS — a new `admins_can_select_worker_documents` policy on `storage.objects` was added for this purpose in Phase 8.
 - `campaigns` has two independent "admin" detection paths in its RLS policies (`admins` table with `is_active` flag vs. `users.role = 'admin'`), and two separate INSERT policies with different conditions — the same "duplicate admin-detection path" pattern now also exists on `workers` (Phase 8, above).
 - `campaigns`, `reviews`, and `user_passes` carry foreign keys with no supporting indexes; `worker_bans` and `worker_bonuses` (Phase 8) carry the same gap on their own `worker_id` foreign keys.
 - `reviews_read`'s unrestricted public SELECT (`true`) is broader than the product's stated intent that full review detail be admin-only (Section 2.5).
 - Three CHECK constraints exist (`campaigns_status_check`, `users_role_check`, `reviews_rating_check`) whose specific allowed values are not captured in this documentation; `workers.verification_status` (Phase 8) has no CHECK constraint confirmed at all, despite the client only ever writing `'pending'`/`'approved'`/`'rejected'`.
 - Four foreign keys (`admins_auth_user_id_fkey`, `user_passes_user_id_fkey`, `users_id_fkey`, `workers_id_fkey`) reference tables outside the `public` schema (most plausibly `auth.users`); their exact targets are inferred, not directly confirmed by `public`-schema constraint metadata.
-- `worker_bans` and `worker_bonuses` (Phase 8) apply inconsistent self-access models: a worker can read their own bonus history but not their own ban history, under the currently defined RLS policies.
+- `worker_bans` and `worker_bonuses` (Phase 8) apply inconsistent self-access models: a professional can read their own bonus history but not their own ban history, under the currently defined RLS policies.
