@@ -2889,11 +2889,21 @@ async function _resolveCustomerLatLng(b){
 /* Phase 5.3.6: _fetchRoadRoute, _fmtDistance, _fmtDuration,
    _metersBetween, _animateMarkerTo moved to js/common/maps.js */
 
-function _updateEtaPanel(bkId, distance, duration){
+/* Draws the Distance Remaining and ETA boxes. The ETA comes from the
+   professional's live speed when enough GPS fixes are available (shown as
+   "6 mins · 32 km/h"); otherwise it is the routing service's estimate.
+   Display only: nothing is stored here. */
+function _renderEtaPanel(bkId, distance, routeDuration){
   const distEl = document.getElementById('trk-dist-'+bkId);
   const timeEl = document.getElementById('trk-time-'+bkId);
+  const st = _trkState[bkId];
+  const eta = _etaFromSpeed(distance, st && st.speedTracker, routeDuration);
   if(distEl) distEl.textContent = _fmtDistance(distance);
-  if(timeEl) timeEl.textContent = _fmtDuration(duration);
+  if(timeEl) timeEl.textContent = _fmtDuration(eta.seconds) + (eta.live ? ' · ' + Math.round(eta.speed * 3.6) + ' km/h' : '');
+}
+
+function _updateEtaPanel(bkId, distance, duration){
+  _renderEtaPanel(bkId, distance, duration);
   const st = _trkState[bkId];
   if(st){ st.lastDistance = distance; st.lastDuration = duration; }
 }
@@ -2922,6 +2932,10 @@ async function _drawOrUpdateRoute(bkId, workerPt, customerPt){
 
     // prevent race condition (map destroyed / re-init)
     if(_trkState[bkId] !== st || !st.map) return;
+
+    /* Remember where this route's distance was measured from, so the
+       distance and ETA can keep shrinking between route refreshes. */
+    if(latlngs) st.routePt = workerPt;
 
     // Phase 4.5: distance/duration ride along as extra properties on
     // the array _fetchRoadRoute returns (see Phase 4.5 comment there).
@@ -3172,6 +3186,17 @@ function updateTrackingMaps(bookingList){
          changes zoom, so the user's zoom level is always preserved. */
       _animateMarkerTo(st.marker, lat, lng, 900);
       if(st.autoFollow) st.map.panTo([lat, lng], { animate:true, duration:0.9 });
+      /* Live speed: every NEW GPS fix (worker_last_seen changes) updates the
+         speed estimate, then distance and ETA are recomputed. Between route
+         refreshes the distance is reduced by the straight-line progress made
+         since the last route fetch. Polls that return the same fix are
+         ignored by the tracker. */
+      if(!st.speedTracker) st.speedTracker = _newSpeedTracker();
+      _feedSpeedSample(st.speedTracker, {lat, lng}, Date.parse(b.worker_last_seen));
+      if(st.lastDistance != null && st.routePt){
+        const _left = Math.max(0, st.lastDistance - _metersBetween(st.routePt, {lat, lng}));
+        _renderEtaPanel(b.id, _left, st.lastDuration);
+      }
       if(msgEl) msgEl.textContent = '📍 Live professional location';
       /* Phase 4.4/4.7: refresh the road route on every live GPS fix,
          but _drawOrUpdateRoute now skips the Geoapify call itself if
