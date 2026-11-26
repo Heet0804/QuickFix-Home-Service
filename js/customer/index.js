@@ -989,14 +989,14 @@ function _updatePaymentTimerDisplay(){
 /* Same QRCode library and lazy-load pattern as the booking flow's
    drawQR() — reused, not modified. Pass-specific amount/title/UPI id. */
 function drawPassQR(campaign){
-  const upi = `upi://pay?pa=quickfix@test&pn=${encodeURIComponent('QuickFix')}&am=${campaign.priceValue}&cu=INR&tn=${encodeURIComponent(campaign.title)}`;
+  const upi = `upi://pay?pa=quickfix.demo@invalid&pn=${encodeURIComponent('QuickFix')}&am=${campaign.priceValue}&cu=INR&tn=${encodeURIComponent(campaign.title)}`;
   const cont = document.getElementById('payQrCont');
   cont.innerHTML = '';
   function render(){
     try{
       new QRCode(cont,{text:upi, width:190, height:190, colorDark:'#1a1a1a', colorLight:'#fff', correctLevel:QRCode.CorrectLevel.M});
       const d = document.createElement('div');
-      d.innerHTML = `<div class="qramt">${campaign.price}</div><div class="qrnote">quickfix@test · Scan with GPay</div>`;
+      d.innerHTML = `<div class="qramt">${campaign.price}</div><div class="qrnote">Demo QR · payment is simulated</div>`;
       cont.appendChild(d);
     } catch(e){ showFallback(); }
   }
@@ -2321,13 +2321,13 @@ function onPayOk(){
 function onCashConfirm(){ stopPoll(); closeModal('payModal'); startBroadcast(); }
 
 function drawQR(amount){
-  const url=`upi://pay?pa=quickfix@upi&pn=${encodeURIComponent('QuickFix')}&am=${amount}&cu=INR&tn=${encodeURIComponent('QuickFix Service Booking')}`;
+  const url=`upi://pay?pa=quickfix.demo@invalid&pn=${encodeURIComponent('QuickFix')}&am=${amount}&cu=INR&tn=${encodeURIComponent('QuickFix Service Booking')}`;
   const cont=document.getElementById('qrCont'); cont.innerHTML='';
   function render(){
     try{
       new QRCode(cont,{text:url,width:190,height:190,colorDark:'#1a1a1a',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
       const d=document.createElement('div');
-      d.innerHTML=`<div class="qramt">₹${amount}</div><div class="qrnote">quickfix@upi · Scan with any UPI app</div>`;
+      d.innerHTML=`<div class="qramt">₹${amount}</div><div class="qrnote">Demo QR · payment is simulated</div>`;
       cont.appendChild(d);
     } catch(e){ showQRFallback(); }
   }
