@@ -758,9 +758,8 @@ let sst={catId:null,item:null,issue:''};
 let pollInt=null, pollCnt=0, qrInt=null;
 let revRat=0, revId=null, aadhaarData=null;
 let revSelectedTags=new Set();
-/* TODO(config): PAYMENT_POLL_MAX_ATTEMPTS and PAYMENT_POLL_INTERVAL_MS
-   have no value in constants.js yet — no authoritative source found
-   in this repo. Until set, payment polling runs with undefined bounds. */
+/* Booking payment polling: one check per PAYMENT_POLL_INTERVAL_MS, giving up
+   after PAYMENT_POLL_MAX_ATTEMPTS checks. Both values live in constants.js. */
 const POLL_MAX=CONSTANTS.PAYMENT_POLL_MAX_ATTEMPTS, POLL_MS=CONSTANTS.PAYMENT_POLL_INTERVAL_MS;
 
 setInterval(tickClock,CONSTANTS.CLOCK_TICK_INTERVAL_MS); tickClock();
@@ -2313,7 +2312,7 @@ function startPoll(){
 }
 
 function stopPoll(){ clearInterval(pollInt); pollInt=null; pollCnt=0; clearInterval(qrInt); qrInt=null; }
-async function checkPayStatus(){ return pollCnt>=3; }
+async function checkPayStatus(){ return pollCnt*POLL_MS>=CONSTANTS.DEMO_BOOKING_PAYMENT_DELAY_MS; }
 function onPayOk(){
   document.getElementById('gpayOk').classList.add('on');
   setTimeout(()=>{ closeModal('payModal'); startBroadcast(); },CONSTANTS.GPAY_CONFIRM_REDIRECT_DELAY_MS);
