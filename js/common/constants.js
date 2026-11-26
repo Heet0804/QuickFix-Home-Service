@@ -34,6 +34,14 @@ window.CONSTANTS = {
   CAMPAIGN_MODAL_CLOSE_ANIM_MS: 200,
   COUNTDOWN_TICK_MS: 1000,
   DEMO_PAYMENT_PROVIDER_DELAY_MS: 10000,
+  /* Booking QR payment (demo): the payment popup checks once per
+     PAYMENT_POLL_INTERVAL_MS and gives up after PAYMENT_POLL_MAX_ATTEMPTS
+     checks. The simulated payment confirms after
+     DEMO_BOOKING_PAYMENT_DELAY_MS, which is how long the QR stays on
+     screen for scanning (8 seconds). */
+  PAYMENT_POLL_INTERVAL_MS: 1000,
+  PAYMENT_POLL_MAX_ATTEMPTS: 60,
+  DEMO_BOOKING_PAYMENT_DELAY_MS: 8000,
   PASS_ACTIVATION_DELAY_MS: 1000,
   PASS_PAYMENT_MODAL_CLOSE_DELAY_MS: 1200,
   PASS_PAYMENT_COUNTDOWN_SECONDS: 120,
