@@ -11,6 +11,8 @@
 
 ---
 
+> ⚠️ **Demo project — no real payments.** QuickFix is a learning and portfolio project. Payments (Google Pay QR and cash) are simulated and confirm automatically; no money is ever charged or collected, and the QR codes are for demonstration only. Please use test data only: do not upload real ID documents (Aadhaar/PAN) or enter real personal or banking details.
+
 ## 📖 About the Project
 
 QuickFix is a modern home service booking platform that connects customers with verified service professionals such as electricians, plumbers, carpenters, painters, cleaners, AC technicians, masons and many more.
