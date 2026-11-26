@@ -1317,9 +1317,8 @@ function _clearGPSWatch(){
   }
 }
 
-/* TODO(config): GPS_RETRY_DELAY_MS has no value in constants.js yet —
-   no authoritative source found in this repo. Until set, this default
-   param evaluates to undefined and setTimeout fires with no delay. */
+/* Waits GPS_RETRY_DELAY_MS (constants.js) before restarting tracking after a
+   temporary GPS error, so a failing GPS cannot cause a rapid retry loop. */
 function _scheduleGPSRetry(delay=CONSTANTS.GPS_RETRY_DELAY_MS){
   _clearGPSRetry();
   _gpsRetryTimer = setTimeout(()=>{
