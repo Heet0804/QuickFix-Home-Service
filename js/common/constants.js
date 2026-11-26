@@ -42,6 +42,9 @@ window.CONSTANTS = {
   PAYMENT_POLL_INTERVAL_MS: 1000,
   PAYMENT_POLL_MAX_ATTEMPTS: 60,
   DEMO_BOOKING_PAYMENT_DELAY_MS: 8000,
+  /* Professional GPS: wait this long before restarting location tracking
+     after a temporary GPS error (not after a permission refusal). */
+  GPS_RETRY_DELAY_MS: 5000,
   PASS_ACTIVATION_DELAY_MS: 1000,
   PASS_PAYMENT_MODAL_CLOSE_DELAY_MS: 1200,
   PASS_PAYMENT_COUNTDOWN_SECONDS: 120,
