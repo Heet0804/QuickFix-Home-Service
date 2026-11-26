@@ -212,6 +212,11 @@ nav{background:var(--surface);border-bottom:1px solid var(--border);position:sti
 .hnotice.emerg{background:var(--emerg-light);border:1.5px solid var(--emerg-border);color:var(--emerg)}
 .hnotice .hi{font-size:1.1rem;flex-shrink:0;margin-top:1px}
 
+/* Demo notice shown inside the payment popups */
+.demo-note{display:flex;align-items:center;gap:8px;text-align:left;margin:.25rem 0 1rem;padding:.6rem .8rem;border:1.5px dashed var(--brand);border-radius:var(--radius-sm);background:var(--brand-light);font-size:.76rem;line-height:1.45;color:var(--text)}
+.demo-note strong{font-weight:800}
+.demo-note .dn-ico{font-size:1rem;flex-shrink:0}
+
 .ebanner{background:linear-gradient(135deg,#7c1c1c,#a52828);border-radius:var(--radius);padding:1.25rem 1.5rem;color:#fff;margin-bottom:1.5rem;display:flex;align-items:center;gap:12px}
 .ebanner .ebi{font-size:2rem;flex-shrink:0}
 .ebanner h3{font-size:1rem;font-weight:700;margin-bottom:3px}
