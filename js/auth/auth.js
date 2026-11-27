@@ -124,9 +124,6 @@ async function doLogin(){
     return;
   }
 
-  console.log('DEBUG login profile:', profile);
-  console.log('DEBUG banned_until:', profile.banned_until, 'parsed:', profile.banned_until?new Date(profile.banned_until):null, 'now:', new Date());
-
   /* Block login for a worker whose account is currently under a ban.
      The ban itself is set by admin.js's confirmBanWorker(). */
   if(authRole==='worker' && profile.banned_until && new Date(profile.banned_until) > new Date()){
@@ -389,14 +386,7 @@ async function doSignup(role){
       return;
     }
 
-    /* Step 2: Insert into workers table ONLY — name, phone, skill, radius, exp, area/lat/lng all explicit */
-    if(we?.message?.includes('already registered under a different account role')){
-      setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Professional →');
-      showErr('This phone number is already linked to a customer account. A professional account must use a different phone number.');
-      await sb.from('workers').delete().eq('id',uid);
-      await sb.auth.signOut();
-      return;
-    }
+    /* Step 3: Insert into workers table ONLY — name, phone, skill, radius, exp, area/lat/lng all explicit */
     const {error:we}=await sb.from('workers').insert({
       id:           uid,
       name:         name,
@@ -417,7 +407,13 @@ async function doSignup(role){
     });
     if(we){
       setBtn('signupWorkerBtn','swBtnTxt',false,'Register as Professional →');
-      showErr('Professional profile save failed: '+we.message);
+      /* The database blocks one phone number being used for both a customer
+         and a professional account; show that case in plain words. */
+      if(we.message && we.message.includes('already registered under a different account role')){
+        showErr('This phone number is already linked to a customer account. A professional account must use a different phone number.');
+      }else{
+        showErr('Professional profile save failed: '+we.message);
+      }
       await sb.from('workers').delete().eq('id',uid);
       await sb.auth.signOut();
       return;
